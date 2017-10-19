@@ -1,4 +1,6 @@
-@starttrans Opdracht
+import uren_crm
+
+fsm Opdracht
 
 [*] --> Aanvraag
 Aanvraag --> Offerte : VerzendOfferte
@@ -8,9 +10,9 @@ Lopend --> [*] : OpdrachtAfgerond
 Lopend --> Lopend : VoegWerkerToe
 Lopend --> Lopend : HaalWerkerWeg
 
-@endtrans
+.
 
-@starttrans Factuur
+fsm Factuur
 [*] --> Test
 Test --> Opgehouden : not FactuurReady
 Test --> Review : FactuurReady
@@ -24,9 +26,9 @@ TeLaat --> VeelTeLaat : now - factuur.verstuurd > 30d
 VeelTeLaat --> [*] : FactuurAfgeschreven
 Voldaan --> [*]  : FactuurOpruimen
 
-@endtrans
+.
 
-@starttrans Weekstaat
+fsm Weekstaat
 
 [*] --> Open
 Open --> Open : VoegUurstaatToe
@@ -36,56 +38,40 @@ Gesloten --> Open : KeurWeekstaatAf
 Goedgekeurd --> Gefactureerd : WeekstaatGefactureerd
 Gefactureerd --> [*]
 
-@endtrans
+.
 
-def Opdracht.Offerte.entry
-pdf = adminlib.RenderTemplate('offerte.rst', opdracht)
-body = adminlib.RenderTemplate('offerte_body.rst', opdracht)
-email(attachment=pdf,
-      sendto=opdracht.opdrachtgever.contactpersoon.email,
-      subject="Offerte voor opdracht {opdracht.naam}",
-      body=body)
-opdracht.pdf = pdf
-@endactions
+actions Opdracht.Offerte.entry
+entry: sendOfferte(offerte)
+.
 
 
-
-FactuurReady = ForAll(werker in opdracht.werkers,
-    Count(ws in werker
-          where ws.periode_start < factuur.periode_einde
-            and ws.periode_einde > factuur.periode_start
-            and ws.status >= Goedgekeurd
-    ) == NrWeekstatenInPeriod(factuur.periode_start, factuur.periode_einde))
-
-
-
-@startdata Persoon
+table Persoon
 naam: str
 email: email
 telefoon: telefoonnr
 werkgevers: Klant
-@enddata
+.
 
-@startdata Werker
+table Werker
 naam: str
 standaardtarief: money
 inzet : Set(WerkerTarief)
 uren: Set(Urenregel)
-@enddata
+.
 
-@startdata WerkerTarief
+table WerkerTarief
 werker: Werker
 opdracht: Opdracht
 tarief: money
-@enddata
+.
 
-@startdata Klant
+table Klant
 naam: str
 contactpersoon: Persoon
 projecten: Set(Opdracht)
-@enddata
+.
 
-@startdata Opdracht
+table Opdracht
 naam: str
 omschrijving: str, optional
 start: date, optional
@@ -95,13 +81,12 @@ werkers: Set(WerkerTarief)
 uren: Set(Urenregel)
 facturen: Set(Factuur)
 pdf: blob
-@enddata
+.
 
-@startdata Urenregel
+table Urenregel
 week: Weekstaat
 opdracht: Opdracht
 werker: Werker
-# GEEN link naar de factuur, 1 week kan over twee facturen verspreid zijn!
 ma: float, default=0.0
 di: float, default=0.0
 wo: float, default=0.0
@@ -109,34 +94,34 @@ do: float, default=0.0
 vr: float, default=0.0
 za: float, default=0.0
 zo: float, default=0.0
-@enddata
+.
 
-@startdata Weekstaat
+table Weekstaat
 uren: Set(Urenregel)
 weeknr: int
 jaar: int
 periode_start: datetime
 periode_eind: datetime
-@enddata
+.
 
-@startdata Factuur
+table Factuur
 opdracht: Opdracht
 periode_start: datetime
 periode_eind: datetime
 totaal_uren: float
 totaal_geld: money
 pdf: blob
-@enddata
+.
 
-@startrules Opdracht
+rules Opdracht
 Offerte: Constant(opdrachtgever.contactpersoon.email, pdf)
-@endinv
+.
 
-@startrules Factuur
+rules Factuur
 Verstuurd, TeLaat, VeelTeLaat, Voldaan: Constant(*)
 Verstuurd, TeLaat, VeelTeLaat: Constant(opdracht.opdrachtgever.email)
-@endinv
+.
 
-@startrules Weekstaat
+rules Weekstaat
 Gesloten, Goedgekeurd, Gefactureerd : Constant(*)
-@endinv
+.

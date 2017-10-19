@@ -1,27 +1,71 @@
-
-from builtins import * # So they can be accessed from the CuriousEnv
+from typing import Dict, Set, List
+from builtins import *  # So they can be accessed from the CuriousEnv
 import re
 import types
 from collections import namedtuple
 from decimal import Decimal
-from io import StringIO
 from datetime import datetime, date, time, timedelta
 import logging
 
 from pony import orm
-from pony.orm import Set
-
+from pony.orm import Set   # Can be used by the configuration
 
 Message = namedtuple('Message', ['method', 'path', 'details'])
 Transition = namedtuple('Transition', ['fsm', 'start', 'end'])
 
-transre = re.compile(r'(?P<start>(\w+)|(\[\*\]))\s*-?->\s*(?P<end>(\w+)|(\[\*\]))(\s*:\s*(?P<msg>.*))?')
-datare = re.compile(r'(?P<column>\w+)\s*:\s*(?P<type>[0-9a-zA-Z()]+)(\s*,\s*(?P<options>([^,]+\s*,\s*)+))?')
+
+syntax = r'''
+config = [modules] '\n'%{[ fsm | table | rules | actions ]} ;
+
+modules = "import" module NEWLINE ;
+module  = "."%{ name } ; 
+name = /\w+/ ;
+
+fsm = "fsm" name "\n" transitions blockend ;
+transitions = {[transition] NEWLINE} ;
+transition = !(".\n") ','%{state} /\s*-?->\s*/ state [":" restofline] ;
+state = name | "[*]" ;
+blockend = "." ;
+
+table = "table" name NEWLINE columns blockend ;
+columns = {[column] NEWLINE} ;
+column = !(".\n") name ":" restofline ;
+
+rules = "rules" name NEWLINE rule_lines blockend ;
+rule_lines = {[rule] NEWLINE} ;
+rule = !(".\n") /\s*,\s*/%{ name } ":" restofline ;
+
+
+actions = "actions" "."%{name} NEWLINE action_lines blockend;
+action_lines = {[rule] NEWLINE} ;
+action = !(".\n") "\s*,\s*"%{ name } ":" restofline ;
+
+NEWLINE = (SPACES | (['\\r'] /[\n\r\f]/) [SPACES]) ;
+SPACES = /[ \t]+/ ;
+restofline = /[^\n]*/ ;
+'''
+
+# TODO: Missing in the syntax is the possibility to have COMMENTS.
+
+# We should accept escaped newlines in arguments, but this does not work:
+# arguments = /(([^\n\\]|(\\[\n\\\'\"abfnrtvx\d]))*)/ ;
+
+
+transre = re.compile(
+    r'(?P<start>(\w+)|(\[\*\]))\s*-?->\s*(?P<end>(\w+)|(\[\*\]))(\s*:\s*(?P<msg>.*))?')
+datare = re.compile(
+    r'(?P<column>\w+)\s*:\s*(?P<type>[0-9a-zA-Z()]+)(\s*,\s*(?P<options>([^,]+\s*,\s*)+))?')
 
 
 class email(str): pass
+
+
 class blob(bytes): pass
+
+
 class telefoonnr(str): pass
+
+
 class money(Decimal): pass
 
 
@@ -29,9 +73,11 @@ class CuriousEnv(dict):
     """ This environment tries to get an object from the globals,
         but if this is not possible it returns the item key and makes note of it
     """
+
     def __init__(self):
         dict.__init__(self)
         self.missing = set()
+
     def __getitem__(self, item):
         try:
             return globals()[item]
@@ -40,7 +86,7 @@ class CuriousEnv(dict):
             return item
 
 
-def readConfig(stream):
+def readconfig(stream):
     curiousenv = CuriousEnv()
 
     def readTransistions(transitions, name):
@@ -52,7 +98,7 @@ def readConfig(stream):
                 d = m.groupdict()
                 msg = d.get('msg', None)
                 if msg is None and d['start'] == '[*]':
-                    msg = 'add %s'%name
+                    msg = 'add %s' % name
                 t = Transition(name, d['start'], d['end'])
                 transitions.setdefault(msg, []).append(t)
 
@@ -94,7 +140,7 @@ def readConfig(stream):
     fsms = set(t.fsm for ts in transitions.values() for t in ts)
     for fsm in fsms:
         if fsm not in model:
-            logging.error('No model found for fsm %s'%fsm)
+            logging.error('No model found for fsm %s' % fsm)
             errors = True
             continue
         model[fsm]['state'] = orm.Required(str)
@@ -102,35 +148,41 @@ def readConfig(stream):
     # Check that all foreign references exist
     for m in curiousenv.missing:
         if m not in model:
-            logging.error('There was a reference to undefined data type %s'%m)
+            logging.error('There was a reference to undefined data type %s' % m)
             errors = True
+
+    if errors:
+        raise RuntimeError('Errors while parsing the configuration')
 
     # Create a database and define the tables
     # This database is NOT mapped to any real database yet!
     db = orm.Database()
-    model = {table:type(table, (db.Entity,), columns) for table, columns in model.items()}
+    model = {table: type(table, (db.Entity,), columns) for table, columns in model.items()}
 
     return transitions, db, model
 
 
-def engine(transitions, model):
-    """ Transitions is a msg : [transition] structure
+def engine(transitions: Dict[str, List[Transition]],
+           model: Dict[str, orm.core.Entity]):
+    """ Transitions is a msg : [transition] dictionary
+        model is a table : db.Entity dictionary
     """
+
     def handle(msg):
         path = msg.path.strip('/')
-        name = '%s %s'%(msg.method, path) if path else msg.method
+        name = '%s %s' % (msg.method, path) if path else msg.method
         for trans in transitions[name]:
             # Construct the query to execute the transition
             # We are using the PonyORM
-            entity = model[trans.fsm]
+            entity_cls = model[trans.fsm]
             with orm.db_session():
                 # Check if we need to add a new element
                 if msg.method == 'add':
-                    _ = entity(state=trans.end, **msg.details)
+                    _ = entity_cls(state=trans.end, **msg.details)
                 else:
                     # We need to update existing records
                     # Currently, pony does not support update queries...
-                    for i in [i for i in entity if trans.start == '[*]' or i.state == trans.start]:
+                    for i in [i for i in entity_cls if trans.start == '[*]' or i.state == trans.start]:
                         i.state = trans.end
 
     return handle
