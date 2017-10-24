@@ -3,13 +3,10 @@ import uren_crm
 fsm Opdracht
 
 [*] --> Aanvraag
-Aanvraag --> Offerte : VerzendOfferte
-Offerte --> Aanvraag : OfferteAfgekeurd
-Offerte --> Lopend : OfferteGeaccepteerd
-Lopend --> [*] : OpdrachtAfgerond
-Lopend --> Lopend : VoegWerkerToe
-Lopend --> Lopend : HaalWerkerWeg
-
+Aanvraag --> Offerte : send
+Offerte --> Aanvraag : reject
+Offerte --> Lopend : accept
+Lopend --> [*] : finish
 .
 
 fsm Factuur
@@ -17,10 +14,10 @@ fsm Factuur
 Test --> Opgehouden : not FactuurReady
 Test --> Review : FactuurReady
 Opgehouden --> Review : FactuurReady
-Review --> Verstuurd : FactuurGoedgekeurd
-Verstuurd --> Mislukt : VerzendFout
-Mislukt --> Verstuurd : VerstuurOpnieuw
-Verstuurd, TeLaat, VeelTeLaat --> Voldaan : FactuurBetaald
+Review --> Verstuurd : send
+Verstuurd --> Mislukt : senderror
+Mislukt --> Verstuurd : send
+Verstuurd, TeLaat, VeelTeLaat --> Voldaan : payed
 Verstuurd --> TeLaat : now - factuur.verstuurd > 30d
 TeLaat --> VeelTeLaat : now - factuur.verstuurd > 30d
 VeelTeLaat --> [*] : FactuurAfgeschreven
@@ -31,17 +28,17 @@ Voldaan --> [*]  : FactuurOpruimen
 fsm Weekstaat
 
 [*] --> Open
-Open --> Open : VoegUurstaatToe
-Open --> Gesloten : SluitWeekstaat
-Gesloten --> Goedgekeurd : KeurWeekstaatGoed
-Gesloten --> Open : KeurWeekstaatAf
-Goedgekeurd --> Gefactureerd : WeekstaatGefactureerd
+Open --> Open : add Urenstaat
+Open --> Gesloten : close
+Gesloten --> Goedgekeurd : approve
+Gesloten --> Open : reject
+Goedgekeurd --> Gefactureerd : send
 Gefactureerd --> [*]
 
 .
 
-actions Opdracht.Offerte.entry
-entry: sendOfferte(offerte)
+actions
+Opdracht.Offerte.entry: sendOfferte(offerte)
 .
 
 

@@ -10,10 +10,18 @@ from pony.orm import db_session, select
 
 
 class EngineTests(TestCase):
+    def setUpClass(cls):
+        """ Create a parser and parse the test case """
+        cls.model = tatsu.compile(syntax)
+        cls.ast = cls.model.parse(open('uren_crm.txt').read(), start='config', whitespace=r'[ \t\r]')
     def testSyntax(self):
         """ Test whether the parser can handle the test examples """
-        model = tatsu.compile(syntax)
-        ast = model.parse(open('uren_crm.txt').read(), start='config', whitespace=r'[ \t\r]')
+        ast = self.ast
+        self.assertEqual(len(ast['modules']), 1)
+        self.assertEqual(len(ast['fsms']), 3)
+        self.assertEqual(len(ast['actions']), 1)
+        self.assertEqual(len(ast['tables']), 8)
+        self.assertEqual(len(ast['rules']), 3)
         print (ast)
 
     def testMessaging(self):

@@ -15,30 +15,27 @@ Transition = namedtuple('Transition', ['fsm', 'start', 'end'])
 
 
 syntax = r'''
-config = [modules] '\n'%{[ fsm | table | rules | actions ]} ;
+config = modules:[modules] '\n'%{[ fsms:fsm | tables:table | rules:rules | actions:actions ]} ;
 
-modules = "import" module NEWLINE ;
+modules = "import" path:module NEWLINE ;
 module  = "."%{ name } ; 
-name = /\w+/ ;
+name = name:/\w+/ ;
+word = /\w+/ ;
 
-fsm = "fsm" name "\n" transitions blockend ;
-transitions = {[transition] NEWLINE} ;
-transition = !(".\n") ','%{state} /\s*-?->\s*/ state [":" restofline] ;
-state = name | "[*]" ;
+fsm = "fsm" name:word "\n" {[transitions:transition] NEWLINE} blockend ;
+transition = !(".\n") ','%{from:state} /\s*-?->\s*/ to:state [":" details:restofline] ;
+state = word | "[*]" ;
 blockend = "." ;
 
-table = "table" name NEWLINE columns blockend ;
-columns = {[column] NEWLINE} ;
-column = !(".\n") name ":" restofline ;
+table = "table" name:word NEWLINE {[columns:column] NEWLINE} blockend ;
+column = !(".\n") name:word ":" details:restofline ;
 
-rules = "rules" name NEWLINE rule_lines blockend ;
-rule_lines = {[rule] NEWLINE} ;
-rule = !(".\n") /\s*,\s*/%{ name } ":" restofline ;
+rules = "rules" fsm:word NEWLINE {[rules:rule] NEWLINE} blockend ;
+rule = !(".\n") /\s*,\s*/%{ states:name } ":" details:restofline ;
 
 
-actions = "actions" "."%{name} NEWLINE action_lines blockend;
-action_lines = {[rule] NEWLINE} ;
-action = !(".\n") "\s*,\s*"%{ name } ":" restofline ;
+actions = "actions" NEWLINE {[actions:action] NEWLINE} blockend;
+action = !(".\n") "\s*,\s*"%{ "."%{path:word} } ":" details:restofline ;
 
 NEWLINE = (SPACES | (['\\r'] /[\n\r\f]/) [SPACES]) ;
 SPACES = /[ \t]+/ ;
