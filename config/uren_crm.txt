@@ -1,4 +1,4 @@
-@starttrans Opdracht
+@starttrans Opdracht.png
 
 [*] --> Aanvraag : NieuweAanvraag
 Aanvraag --> Offerte : VerzendOfferte
@@ -10,7 +10,7 @@ Lopend --> Lopend : HaalWerkerWeg
 
 @endtrans
 
-@starttrans Factuur
+@starttrans Factuur.png
 
 [*] --> Opgehouden : MaakFactuur and not FactuurReady
 [*] --> Review : MaakFactuur and FactuurReady
@@ -26,7 +26,7 @@ Voldaan --> [*]  : FactuurOpruimen
 
 @endtrans
 
-@starttrans Weekstaat
+@starttrans Weekstaat.png
 
 [*] --> Open : VoegUurstaatToe
 Open --> Open : VoegUurstaatToe
