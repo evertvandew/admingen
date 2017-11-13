@@ -10,39 +10,19 @@ import logging
 from pony import orm
 from pony.orm import Set   # Can be used by the configuration
 
+import cherrypy
+
+from .parsers import fsm_model as model
+from .htmltools import generateCrud
+
+
 Message = namedtuple('Message', ['method', 'path', 'details'])
 Transition = namedtuple('Transition', ['fsm', 'start', 'end'])
 
 
-syntax = r'''
-config = modules:[modules] '\n'%{[ fsms:fsm | tables:table | rules:rules | actions:actions ]} ;
-
-modules = "import" path:module NEWLINE ;
-module  = "."%{ name } ; 
-name = name:/\w+/ ;
-word = /\w+/ ;
-
-fsm = "fsm" name:word "\n" {[transitions:transition] NEWLINE} blockend ;
-transition = !(".\n") ','%{from:state} /\s*-?->\s*/ to:state [":" details:restofline] ;
-state = word | "[*]" ;
-blockend = "." ;
-
-table = "table" name:word NEWLINE {[columns:column] NEWLINE} blockend ;
-column = !(".\n") name:word ":" details:restofline ;
-
-rules = "rules" fsm:word NEWLINE {[rules:rule] NEWLINE} blockend ;
-rule = !(".\n") /\s*,\s*/%{ states:name } ":" details:restofline ;
-
-
-actions = "actions" NEWLINE {[actions:action] NEWLINE} blockend;
-action = !(".\n") "\s*,\s*"%{ "."%{path:word} } ":" details:restofline ;
-
-NEWLINE = (SPACES | (['\\r'] /[\n\r\f]/) [SPACES]) ;
-SPACES = /[ \t]+/ ;
-restofline = /[^\n]*/ ;
-'''
-
 # TODO: Missing in the syntax is the possibility to have COMMENTS.
+# TODO: support for default values in columns
+# TODO: support for embedded files (blobs) and files on disk.
 
 # We should accept escaped newlines in arguments, but this does not work:
 # arguments = /(([^\n\\]|(\\[\n\\\'\"abfnrtvx\d]))*)/ ;
@@ -53,6 +33,8 @@ transre = re.compile(
 datare = re.compile(
     r'(?P<column>\w+)\s*:\s*(?P<type>[0-9a-zA-Z()]+)(\s*,\s*(?P<options>([^,]+\s*,\s*)+))?')
 
+
+class Error(RuntimeError): pass
 
 class email(str): pass
 
@@ -66,7 +48,7 @@ class telefoonnr(str): pass
 class money(Decimal): pass
 
 
-class CuriousEnv(dict):
+class TrackingEnv(dict):
     """ This environment tries to get an object from the globals,
         but if this is not possible it returns the item key and makes note of it
     """
@@ -83,103 +65,96 @@ class CuriousEnv(dict):
             return item
 
 
-def readconfig(stream):
-    curiousenv = CuriousEnv()
-
-    def readTransistions(transitions, name):
-        for line in stream:
-            if line.startswith('@endtrans'):
-                return
-            m = transre.match(line)
-            if m:
-                d = m.groupdict()
-                msg = d.get('msg', None)
-                if msg is None and d['start'] == '[*]':
-                    msg = 'add %s' % name
-                t = Transition(name, d['start'], d['end'])
-                transitions.setdefault(msg, []).append(t)
-
-    def readTable(model, name):
+def createDbModel(tables, fsm_names):
+    """ Instantiate the database tables """
+    trackingenv = TrackingEnv()   # Track references to tables
+    db = orm.Database()
+    db_model = {}
+    for table in tables:
+        name = table['name']
         columns = {}
-        for line in stream:
-            if line.startswith('@enddata'):
-                model[name] = columns
-                return
-            m = datare.match(line)
-            if m:
-                d = m.groupdict()
-                typestr = d['type']
-                if typestr.startswith('Set('):
-                    _i_ = 0
-
-                coltype = eval(d['type'], curiousenv)
-
-                if isinstance(coltype, orm.core.Attribute):
-                    columns[d['column']] = coltype
-                else:
-                    # If the coltype is not already a Pony Attribute, wrap it in an 'Optional'
-                    columns[d['column']] = orm.Optional(coltype)
-
-    transitions = {}
-    model = {}
-
-    for line in stream:
-        if line.startswith('@starttrans'):
-            parts = line.split()
-            readTransistions(transitions, parts[1].strip())
-
-        if line.startswith('@startdata'):
-            parts = line.split()
-            readTable(model, parts[1])
+        for column in table['columns']:
+            coltype = eval(column['details'], trackingenv)
+            if coltype in [bytes, blob]:
+                continue
+            # If the coltype is not already a Pony Attribute, wrap it in an 'Optional'
+            columns[column['name']] = coltype if isinstance(coltype, orm.core.Attribute) \
+                else orm.Optional(coltype)
+        # Tables linked to an FSM have an extra 'state' column
+        # TODO: Re-enable the states
+        if False and name in fsm_names:
+            assert 'state' not in columns, 'FSM table %s can not have a column "state"'%name
+            columns['state'] = orm.Required(str)
+        db_model[name] = type(name, (db.Entity,), columns)
 
     errors = False
-    # Give all tables associated with statemachines an extra 'state' column
-    fsms = set(t.fsm for ts in transitions.values() for t in ts)
-    for fsm in fsms:
-        if fsm not in model:
+    # Check all references to tables are resolved
+    for m in trackingenv.missing:
+        if m not in db_model:
+            logging.error('There was a reference to undefined data type %s' % m)
+            errors = True
+    # Check all fsm's have a database table
+    for fsm in fsm_names:
+        if fsm not in db_model:
             logging.error('No model found for fsm %s' % fsm)
             errors = True
             continue
-        model[fsm]['state'] = orm.Required(str)
-
-    # Check that all foreign references exist
-    for m in curiousenv.missing:
-        if m not in model:
-            logging.error('There was a reference to undefined data type %s' % m)
-            errors = True
 
     if errors:
         raise RuntimeError('Errors while parsing the configuration')
 
-    # Create a database and define the tables
-    # This database is NOT mapped to any real database yet!
-    db = orm.Database()
-    model = {table: type(table, (db.Entity,), columns) for table, columns in model.items()}
-
-    return transitions, db, model
+    return db, db_model
 
 
-def engine(transitions: Dict[str, List[Transition]],
+def determineMsgHandlers(fsms):
+    """ Create a lookup table to handle the msgs for the different state machines """
+    lookup = {}
+    for name, transitions in [(fsm['name'], fsm['transitions']) for fsm in fsms]:
+        for tr in transitions:
+            msg = tr['details']
+            if msg is None and tr['from'] == '[*]':
+                msg = 'add'
+            elif msg is None and tr['to'] == '[*]':
+                msg = 'delete'
+            t = Transition(name, tr['from'], tr['to'])
+            lookup.setdefault(msg, {})[name] = t
+    return lookup
+
+
+def readconfig(stream):
+    ast = model.parse(stream.read(), start='config', whitespace=r'[ \t\r]')
+    transitions = determineMsgHandlers(ast['fsms'])
+    fsm_names = [fsm['name'] for fsm in ast['fsms']]
+    db, dbmodel = createDbModel(ast['tables'], fsm_names)
+    return transitions, db, dbmodel
+
+
+def engine(transitions: Dict[str, Dict[str, Transition]],
            model: Dict[str, orm.core.Entity]):
     """ Transitions is a msg : [transition] dictionary
         model is a table : db.Entity dictionary
     """
 
     def handle(msg):
-        path = msg.path.strip('/')
-        name = '%s %s' % (msg.method, path) if path else msg.method
-        for trans in transitions[name]:
-            # Construct the query to execute the transition
-            # We are using the PonyORM
-            entity_cls = model[trans.fsm]
-            with orm.db_session():
-                # Check if we need to add a new element
-                if msg.method == 'add':
-                    _ = entity_cls(state=trans.end, **msg.details)
-                else:
-                    # We need to update existing records
-                    # Currently, pony does not support update queries...
-                    for i in [i for i in entity_cls if trans.start == '[*]' or i.state == trans.start]:
-                        i.state = trans.end
+        path = msg.path.strip('/').split('/')
+        # The method and first part of the path show which transition is requested.
+        trans = transitions[msg.method]
+        trans = trans.get(path[0], None)
+
+        if not trans:
+            raise Error(400)
+
+        # Construct the query to execute the transition
+        # We are using the PonyORM
+        entity_cls = model[trans.fsm]
+        with orm.db_session():
+            # Check if we need to add a new element
+            if msg.method == 'add':
+                _ = entity_cls(state=trans.end, **msg.details)
+            else:
+                # We need to update existing records
+                # Currently, pony does not support update queries...
+                for i in [i for i in entity_cls if trans.start == '[*]' or i.state == trans.start]:
+                    i.state = trans.end
 
     return handle

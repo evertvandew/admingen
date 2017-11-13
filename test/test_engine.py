@@ -5,15 +5,16 @@ from unittest import TestCase
 
 import tatsu
 
-from admingen.dbengine import readconfig, engine, Message, syntax
+from admingen.dbengine import readconfig, engine, Message, model
 from pony.orm import db_session, select
 
 
 class EngineTests(TestCase):
+    @classmethod
     def setUpClass(cls):
         """ Create a parser and parse the test case """
-        cls.model = tatsu.compile(syntax)
-        cls.ast = cls.model.parse(open('uren_crm.txt').read(), start='config', whitespace=r'[ \t\r]')
+        with open('uren_crm.txt') as f:
+            cls.ast = model.parse(f.read(), start='config', whitespace=r'[ \t\r]')
     def testSyntax(self):
         """ Test whether the parser can handle the test examples """
         ast = self.ast
@@ -22,7 +23,7 @@ class EngineTests(TestCase):
         self.assertEqual(len(ast['actions']), 1)
         self.assertEqual(len(ast['tables']), 8)
         self.assertEqual(len(ast['rules']), 3)
-        print (ast)
+        print(ast)
 
     def testMessaging(self):
         """ Test message handling """

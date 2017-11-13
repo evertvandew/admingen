@@ -1,9 +1,105 @@
 
 import time
+import asyncio
+import json
+import os, os.path
 from inspect import getmembers
+from urllib.parse import urlparse
+import socket
 import cherrypy
 from .keyring import KeyRing, DecodeError
-from .htmltools import SimpleForm, Title, Password, String
+from .htmltools import SimpleForm, Title, form_input
+
+
+class UnknownMessage(RuntimeError): pass
+class FormatError(RuntimeError): pass
+class RemoteError(RuntimeError): pass
+
+def decodeUnixMsg(m):
+    # Let Python string conversions
+    decoded = m.decode("unicode_escape")
+    return json.loads(decoded)
+
+def encodeUnixMsg(m):
+    decoded = json.dumps(m)
+    return decoded.encode("unicode_escape")
+
+def expose(func):
+    func.exposed = True
+    return func
+
+
+def mkUnixServer(context, path, loop=None):
+    async def handler(reader, writer):
+        while True:
+            data = await reader.readline()
+            try:
+                msg = decodeUnixMsg(data)
+                if not isinstance(msg, list) or len(msg) != 3:
+                    raise FormatError()
+                func = getattr(context, msg[0], False)
+                if not func or not getattr(func, 'exposed', False):
+                    writer.writeline(b'ERROR: unknown function\n')
+                    raise UnknownMessage(msg[0])
+                args = msg[1]
+                kwargs = msg[2]
+                reply = [200, func(*args, **kwargs)]
+            except UnknownMessage as e:
+                reply = [404, 'Unknown message']
+            except (SyntaxError, FormatError, json.decoder.JSONDecodeError):
+                reply = [400, 'Could not decode message']
+
+            writer.write(encodeUnixMsg(reply) + b'\n')
+
+    return asyncio.start_unix_server(handler, path)
+
+
+
+def unixproxy(cls, path):
+    exports = [name for name, f in getmembers(cls) if getattr(f, 'exposed', False)]
+
+    # Wait until the server is in the air
+    while not os.path.exists(path):
+        time.sleep(0.1)
+
+    class Proxy:
+        def __init__(self):
+            sock = socket.socket(socket.AF_UNIX)
+            sock.connect(path)
+            self.sock = sock
+            self.buf = b''
+
+        def __del__(self):
+            self.sock.close()
+
+        def _read_line(self):
+            while True:
+                if b'\n' in self.buf:
+                    i = self.buf.index(b'\n')
+                    msg = self.buf[:i+1]
+                    self.buf = self.buf[i+1:] if len(self.buf) > i else b''
+                    return msg
+                d = self.sock.recv(1024)
+                self.buf += d
+
+        def _add_service(self, name):
+            def service(*args, **kwargs):
+                # pack the arguments
+                data = [name, args, kwargs]
+                msg = encodeUnixMsg(data)
+                # Send the message and return the results
+                self.sock.send(msg+b'\n')
+                reply = self._read_line()
+                reply = decodeUnixMsg(reply)
+                if reply[0] == 200:
+                    return reply[1]
+                raise RemoteError('Error when calling server: %s'%reply)
+            setattr(self, name, service)
+
+    p = Proxy()
+    for n in exports:
+        p._add_service(n)
+    return p
 
 
 def wraphandlers(cls, decorator):
@@ -48,7 +144,7 @@ def keychain_unlocker(fname):
                     time.sleep(3)
                     raise cherrypy.HTTPError(401, 'No Access')
             return cls.Page(Title('Unlock Keyring'),
-                            SimpleForm(String('password', 'password'),
+                            SimpleForm(form_input('password', 'password', 'password'),
                                        success=submit))
 
         wraphandlers(cls, check_keyring)

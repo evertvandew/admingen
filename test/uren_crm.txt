@@ -70,9 +70,9 @@ projecten: Set(Opdracht)
 
 table Opdracht
 naam: str
-omschrijving: str, optional
-start: date, optional
-end: date, optional
+omschrijving: str
+start: date
+end: date
 opdrachtgever: Klant
 werkers: Set(WerkerTarief)
 uren: Set(Urenregel)
@@ -84,21 +84,21 @@ table Urenregel
 week: Weekstaat
 opdracht: Opdracht
 werker: Werker
-ma: float, default=0.0
-di: float, default=0.0
-wo: float, default=0.0
-do: float, default=0.0
-vr: float, default=0.0
-za: float, default=0.0
-zo: float, default=0.0
+ma: float
+di: float
+wo: float
+do: float
+vr: float
+za: float
+zo: float
 .
 
 table Weekstaat
-uren: Set(Urenregel)
 weeknr: int
 jaar: int
 periode_start: datetime
 periode_eind: datetime
+uren: Set(Urenregel)
 .
 
 table Factuur

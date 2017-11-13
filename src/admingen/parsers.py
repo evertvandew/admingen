@@ -5,49 +5,39 @@
 
 import tatsu
 
-fsm_grammar = r'''
-fsms = {transitions | datadef} ;
-transitions = (startmarker naam newline) {statement} endmarker ;
+fsm_syntax = r'''
+config = modules:[modules] '\n'%{[ fsms:fsm | tables:table | rules:rules | actions:actions ]} ;
 
-startmarker = "@startuml" ;
-endmarker = "@enduml";
-statement = [transition] newline ;
-transition = state arrow state colon conditie ;
+modules = "import" path:module NEWLINE ;
+module  = "."%{ name } ; 
+name = name:/\w+/ ;
+word = /\w+/ ;
 
-conditie = /(\S+[ \t\f\v]*)*/ ;
-state = naam | startpoint ;
-startpoint = "[*]" ;
-arrow = "-->" | "->" ;
+fsm = "fsm" name:word "\n" {[transitions:transition] NEWLINE} blockend ;
+transition = !(".\n") ','%{from:state} /\s*-?->\s*/ to:state [":" details:restofline] ;
+state = word | "[*]" ;
+blockend = "." ;
+
+table = "table" name:word NEWLINE {[columns:column] NEWLINE} blockend ;
+column = !(".\n") name:word ":" details:restofline ;
+
+rules = "rules" fsm:word NEWLINE {[rules:rule] NEWLINE} blockend ;
+rule = !(".\n") /\s*,\s*/%{ states:name } ":" details:restofline ;
 
 
-datadef = (defdatastart colon naam) {defregel | comment}* defdataend ;
+actions = "actions" NEWLINE {[actions:action] NEWLINE} blockend;
+action = !(".\n") "\s*,\s*"%{ "."%{path:word} } ":" details:restofline ;
 
-defdatastart = "~defdata" ;
-defdataend = "~enddata" ;
-
-defregel = naam colon typedef { comma naam equals value }+ ;
-
-typedef = naam | ("Set(" naam ")") ;
-value = literal ;
-naam = /[a-zA-Z_]\w*/ ;
-colon = ":";
-comma = ",";
-equals = "=";
-
-literal = stringlit | intlit | floatlit ;
-stringlit = /(?P<quote>['"]).*?(?P=quote)/ ;
-intlit = /\d+/ ;
-floatlit = /[+\-]?\d*[.]\d*/ ;
-newline = (SPACES | (['\r'] /[\n\r\f]/) [SPACES]) ;
-SPACES = /[ \t]*/ ;
-comment = '#' /.*?/ newline ;
-
+NEWLINE = (SPACES | (['\\r'] /[\n\r\f]/) [SPACES]) ;
+SPACES = /[ \t]+/ ;
+restofline = /[^\n]*/ ;
 '''
 
 
+fsm_model = tatsu.compile(fsm_syntax)
 
 if __name__ =='__main__':
-    model = tatsu.compile(fsm_grammar)
+    model = tatsu.compile(fsm_syntax)
     print (model.parse('''@startuml feestje
     @enduml'''))
 

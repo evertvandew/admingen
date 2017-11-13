@@ -68,7 +68,7 @@ class ServerTests(TestCase):
                 writer.writelines([data])
 
         server = asyncio.start_unix_server(handler, path)
-        se = loop.create_task(server)
+        loop.create_task(server)
 
         async def testcase():
             reader, writer = await asyncio.open_unix_connection(path)
@@ -112,7 +112,40 @@ class ServerTests(TestCase):
                 writer.writelines([data])
 
         server = asyncio.start_unix_server(handler, path)
-        se = loop.create_task(server)
+        loop.create_task(server)
+
+        th = threading.Thread(target=testcase)
+        th.setDaemon(True)
+        th.start()
+
+        loop.run_forever()
+
+    def testUnixServer(self):
+        path = '/home/ehwaal/tmp/testsock'
+        loop = asyncio.get_event_loop()
+
+        class Worker:
+            @expose
+            def hi(self, i:int):
+                print ('Hi ', i)
+            @expose
+            def ho(self, s:str):
+                print ('Ho', s)
+            @expose
+            def it(self):
+                return 'Dit is', 1, 'test'
+
+        server = mkUnixServer(Worker(), path)
+        loop.create_task(server)
+
+        def testcase():
+            proxy = unixproxy(Worker, path)
+            proxy.hi(10)
+            proxy.ho('Hallo daar')
+            r = proxy.it()
+            print (r)
+            loop.stop()
+            proxy.hi(10)
 
         th = threading.Thread(target=testcase)
         th.setDaemon(True)

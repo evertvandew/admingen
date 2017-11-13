@@ -43,7 +43,7 @@ def readFile(fname, password):
     cypher = AES.new(key, AES.MODE_CFB, IV='\x00'*16)
     try:
         return json.loads(cypher.decrypt(data[1]))
-    except UnicodeDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
         raise DecodeError('Could not decrypt keyring: probably wrong password.')
 
 
