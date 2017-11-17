@@ -1,9 +1,9 @@
-
+import urllib
 import time
 import asyncio
 import json
 import os, os.path
-from inspect import getmembers
+from inspect import getmembers, isroutine, Signature, Parameter
 from urllib.parse import urlparse
 import socket
 import cherrypy
@@ -11,9 +11,21 @@ from .keyring import KeyRing, DecodeError
 from .htmltools import SimpleForm, Title, form_input
 
 
+# TODO: implement checking the parameters in a unix server message
+
 class UnknownMessage(RuntimeError): pass
 class FormatError(RuntimeError): pass
 class RemoteError(RuntimeError): pass
+class ServerError(RuntimeError):
+    def __init__(self, name, msg):
+        self.name = name
+        RuntimeError.__init__(self, msg)
+
+class MessageEncoder(json.JSONEncoder):
+    def default(self, o):
+        return o.__dict__
+
+
 
 def decodeUnixMsg(m):
     # Let Python string conversions
@@ -21,7 +33,7 @@ def decodeUnixMsg(m):
     return json.loads(decoded)
 
 def encodeUnixMsg(m):
-    decoded = json.dumps(m)
+    decoded = json.dumps(m, cls=MessageEncoder)
     return decoded.encode("unicode_escape")
 
 def expose(func):
@@ -48,6 +60,8 @@ def mkUnixServer(context, path, loop=None):
                 reply = [404, 'Unknown message']
             except (SyntaxError, FormatError, json.decoder.JSONDecodeError):
                 reply = [400, 'Could not decode message']
+            except Exception as e:
+                reply = [500, [e.__class__.__name__, str(e)]]
 
             writer.write(encodeUnixMsg(reply) + b'\n')
 
@@ -65,7 +79,14 @@ def unixproxy(cls, path):
     class Proxy:
         def __init__(self):
             sock = socket.socket(socket.AF_UNIX)
-            sock.connect(path)
+            connected = False
+            while not connected:
+                try:
+                    sock.connect(path)
+                    connected = True
+                except ConnectionRefusedError:
+                    time.sleep(0.1)
+
             self.sock = sock
             self.buf = b''
 
@@ -93,6 +114,9 @@ def unixproxy(cls, path):
                 reply = decodeUnixMsg(reply)
                 if reply[0] == 200:
                     return reply[1]
+                elif reply[0] == 500:
+                    # Raise something the application can handle
+                    raise ServerError(*reply[1])
                 raise RemoteError('Error when calling server: %s'%reply)
             setattr(self, name, service)
 
@@ -100,6 +124,28 @@ def unixproxy(cls, path):
     for n in exports:
         p._add_service(n)
     return p
+
+
+def Message(cls):
+    """
+        Decorate a class to turn it into a message.
+        All annotated members are assumed to be part of the message.
+     """
+
+    # Make a signature from the annotations to use in the constructor
+    params = [Parameter(n, Parameter.POSITIONAL_OR_KEYWORD,
+                        default=getattr(cls, n) if hasattr(cls, n) else Parameter.empty,
+                        annotation=a) for n, a in cls.__annotations__.items()]
+    sig = Signature(params)
+
+    def constructor(self, *args, **kwargs):
+        """ Generate a constructor for the Message """
+        ba = sig.bind(*args, **kwargs)
+        self.__dict__.update(ba.arguments)
+
+    cls.__init__ = constructor
+
+    return cls
 
 
 def wraphandlers(cls, decorator):
@@ -153,3 +199,40 @@ def keychain_unlocker(fname):
         return cls
     return decorator
 
+
+
+
+def oauth_accesstoken(cls, login_url, redirect_uri, token_url=None):
+    """ Decorator to add tools to handle OAuth2 authentication """
+
+    def binquote(value):
+        """
+        We use quote() instead of urlencode() because the Exact Online API
+        does not like it when we encode slashes -- in the redirect_uri -- as
+        well (which the latter does).
+        """
+        return urllib.parse.quote(value.encode('utf-8'))
+
+    def getAccessToken(client_id, client_secret, code):
+        params = {'code': code,
+                  'client_id': binquote(client_id),
+                  'grant_type': 'authorization_code',
+                  'client_secret': binquote(client_secret),
+                  'redirect_uri': binquote(redirect_uri)}
+        response = request(token_url, method='POST', params=params)
+        return response
+
+    def request(*args, **kwargs):
+        # Check if the token parameter is set
+        if 'token' in kwargs:
+            return func(*args, **kwargs)
+        # Check if the OAUTH code was provided
+        if 'code' in kwargs:
+            print ('URL:', cherrypy.url())
+            token = getAccessToken(kwargs['code'])
+            kwargs['token'] = token['access_token']
+            return func(*args, **kwargs)
+        # Otherwise let the user login and get the OAUTH token.
+        raise cherrypy.HTTPRedirect("https://start.exactonline.nl/api/oauth2/auth?client_id=45e63a87-5943-4163-ab90-ccb23a738ad4&redirect_uri=https://vandewaal.xs4all.nl:13958&response_type=code&force_login=0")
+    cls.oauth_code = request
+    return cls

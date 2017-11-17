@@ -25,6 +25,10 @@ def ispwencrypted(p):
     return bool(re.match(r'^\$2a\$\d\d\$', p))
 
 
+def isostr(dt):
+    return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
 def NotEmpty(name):
     def check(params):
         p = params[name]
@@ -202,6 +206,8 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
         defaults.update(values)
 
     path = cherrypy.request.path_info
+
+    # Determine which buttons to show
     if not success:
         btn = ''
     else:
@@ -209,6 +215,8 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
         if cancel:
             btns.insert(0, Button('Cancel', target=cancel))
         btn = ButtonBar(*btns)
+
+    # Generate the actual HTML for the form
     base = '''
       <div class="container">
         <div class="row">
@@ -320,8 +328,11 @@ def Tickbox(name, text=None):
 
 Server = Email = String
 
+def EnterPassword(name, text=None):
+    return form_input(name, text, 'password')
 
-def Password(name, text=None):
+
+def SetPassword(name, text=None):
     shadow_name = name + '_shadow'
     p1 = form_input(name, text, 'password')
 
@@ -461,6 +472,25 @@ def ImgPathField(label, name):
         return {'label': label, 'input': img}
 
     gen.success = success
+    return gen
+
+
+field_factory = {int: Integer,
+                 str: String,
+                 bool: Tickbox}
+
+def AnnotationsForm(cls, validator=None, success=None, readonly=False):
+    """ Generate a form from the annotations in a data (message) class """
+    fields = [field_factory[t](n, n) for n, t in cls.__annotations__.items()]
+    defaults = {n:getattr(cls, n) for n in cls.__annotations__ if hasattr(cls, n)}
+
+    def gen():
+        return SimpleForm(*fields,
+                          validator=validator,
+                          defaults=defaults,
+                          success=success,
+                          readonly=readonly)
+
     return gen
 
 

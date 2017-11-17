@@ -1,6 +1,6 @@
 
 
-import logging
+from logging import *
 
 
 
@@ -9,5 +9,5 @@ def log_exceptions(func):
         try:
             return func(*args, **kwargs)
         except:
-            logging.exception('')
-
+            exception('')
+    return doIt

@@ -124,6 +124,11 @@ class ServerTests(TestCase):
         path = '/home/ehwaal/tmp/testsock'
         loop = asyncio.get_event_loop()
 
+        @Message
+        class Details:
+            a: str
+            b: int
+
         class Worker:
             @expose
             def hi(self, i:int):
@@ -134,6 +139,9 @@ class ServerTests(TestCase):
             @expose
             def it(self):
                 return 'Dit is', 1, 'test'
+            @expose
+            def hit(self, details:Details):
+                print (details)
 
         server = mkUnixServer(Worker(), path)
         loop.create_task(server)
@@ -144,6 +152,7 @@ class ServerTests(TestCase):
             proxy.ho('Hallo daar')
             r = proxy.it()
             print (r)
+            proxy.hit(Details('hallo', 1234))
             loop.stop()
             proxy.hi(10)
 
@@ -152,3 +161,11 @@ class ServerTests(TestCase):
         th.start()
 
         loop.run_forever()
+
+    def testOAuthExact(self):
+        """ Test the oauth authentication against the exact API.
+            Expected redirecturi: http://paypal_reader.overzichten.nl:13959/oauth_code
+
+        """
+
+

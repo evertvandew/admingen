@@ -78,3 +78,29 @@ class KeyRing:
 
     def items(self):
         return self.data.items()
+    def keys(self):
+        return self.data.keys()
+
+
+
+def editor():
+    """ A simple CLI interface for bootstrapping / maintaining keyrings """
+    fname = input('Filename : ')
+    password = input('Password : ')
+    keyring = KeyRing(fname, password)
+
+    print ('\n'.join(['%s = %s'%(k, keyring[k]) for k in sorted(keyring.keys())]))
+
+    while True:
+        key = input('Enter key to add / change or enter to exit : ')
+        if not key:
+            return
+        print ('Current value: ', keyring[key])
+        value = input('Enter new value or enter to leave unchanged : ')
+        if value:
+            keyring[key] = value
+
+
+if __name__ == '__main__':
+    # If called from the command line, run a simple command-line editor for keyrings
+    editor()
