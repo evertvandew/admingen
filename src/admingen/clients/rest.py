@@ -1,7 +1,9 @@
 import urllib
 import inspect
 import asyncio
-from requests import request
+import requests
+import json
+import time
 
 def restapi(cls):
     """ Decorator that turns a class taxonomy into a REST api """
@@ -23,12 +25,28 @@ class OAuth2:
         # Copy all elements blindly into the internal dict
         self.token_url, self.client_id, self.client_secret, self.redirect_uri = \
             token_url, client_id, client_secret, redirect_uri
+        self.token = None
 
-    def getAccessToken(self, code):
-        params = {'code': code,
-                  'client_id': binquote(self.client_id),
-                  'grant_type': 'authorization_code',
+    def getAccessToken(self, code=None):
+        """ Get a new access token from an authorization code, or refresh the current token """
+        params = {'client_id': binquote(self.client_id),
                   'client_secret': binquote(self.client_secret),
                   'redirect_uri': binquote(self.redirect_uri)}
-        response = request(self.token_url, method='POST', params=params)
-        return response
+        if code:
+            params['code'] = code
+            params['grant_type'] = 'authorization_code'
+        else:
+            assert self.token, 'Need a valid token before refreshing'
+            params['refresh_token'] = self.token['refresh_token']
+            params['grant_type'] = 'refresh_token'
+
+        data = '&'.join(['%s=%s'%it for it in params.items()])
+        response = requests.post(self.token_url, data=data.encode('utf8'),
+                                 headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        assert response.status_code == 200, 'get Access Token failed'
+        self.token = response.json()
+        self.token['birth'] = time.time()
+        return self.token
+
+    def headers(self):
+        return {'Authorization': 'Bearer ' + self.token['access_token']}

@@ -68,10 +68,11 @@ class Worker:
     oauth = None
     sockname = '/home/ehwaal/tmp/paypalreader.sock' if config.testmode() else \
         '/run/paypalreader/readersock'
+    keyringname = '/home/ehwaal/tmp/paypalreader.encr'
 
     @expose
     def unlock(self, password):
-        self.keyring = KeyRing('/home/ehwaal/tmp/paypalreader.encr', password)
+        self.keyring = KeyRing(self.keyringname, password)
 
         # Now we can access the client secret for OAuth login
         client_id = '49b30776-9a29-4a53-b69d-a578712e997a'
@@ -101,8 +102,22 @@ class Worker:
         """ The authorization is used to get the access token """
         if self.exact_token:
             raise RuntimeError('The system is already authorized')
-        self.exact_token = self.oauth.getAccessToken(code)
-        print ('Got an exact token!', self.exact_token)
+        token = self.oauth.getAccessToken(code)
+        self.exact_token = token
+
+        # Set a timer to refresh the token
+        loop = asyncio.get_event_loop()
+        loop.call_later(int(token['expires_in']) - 550, self.refreshtoken)
+
+    def refreshtoken(self):
+        """ Refresh the current access token """
+        token = self.oauth.getAccessToken()
+        self.exact_token = token
+
+        # Set a timer to refresh the token again
+        loop = asyncio.get_event_loop()
+        loop.call_later(int(token['expires_in']) - 550, self.refreshtoken)
+
 
     @staticmethod
     @logging.log_exceptions

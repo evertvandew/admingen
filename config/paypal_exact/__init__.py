@@ -64,10 +64,19 @@ class TaskHandler:
     def oauth_code(self, code=None, **kwargs):
         if code:
             self.worker.setauthorizationcode(code)
+        raise cherrypy.HTTPRedirect('/')
 
 
 @contextmanager
-def autoexit(p):
+def production_worker():
+    """ Runs the worker in a separate process """
+    # Run the worker and create a proxy to it
+    home = os.path.dirname(__file__)
+
+    p = subprocess.Popen(['/usr/bin/env', 'python3.6', 'worker.py'], cwd=home)
+    worker = unixproxy(Worker, Worker.sockname)
+    TaskHandler.worker = worker
+
     # let the worker run
     yield
     # Now stop the worker
@@ -81,20 +90,34 @@ def autoexit(p):
     p.wait()
 
 
+@contextmanager
+def test_worker():
+    # Just make the worker proxy the actual worker
+    worker = Worker()
+    TaskHandler.worker = worker
+    yield
+    # Nothing to do when cleaning up
+
+@contextmanager
+def threaded_worker():
+    """ Runs the worker in a separate thread, to test the server mechanisms """
+    th = threading.Thread(target=Worker.run)
+    th.setDaemon(True)
+    th.start()
+    worker = unixproxy(Worker, Worker.sockname)
+    TaskHandler.worker = worker
+
+    # let the worker run
+    yield
+
+    # Now stop the worker
+    worker.exit()
+    th.join()
+
+
 def run():
-    # Run the worker and create a proxy to it
-    home = os.path.dirname(__file__)
-
-    if not config.testmode():
-        p = subprocess.Popen(['/usr/bin/env', 'python3.6', 'worker.py'], cwd=home)
-    else:
-        p = threading.Thread(target=Worker.run)
-        p.setDaemon(True)
-        p.start()
-
-    with autoexit(p):
-        worker = unixproxy(Worker, Worker.sockname)
-        TaskHandler.worker = worker
+    worker = threaded_worker if config.testmode() else production_worker
+    with worker():
         cherrypy.config.update({'server.socket_port': 13959})
         cherrypy.quickstart(TaskHandler(), '/')
 
