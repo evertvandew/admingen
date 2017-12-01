@@ -114,3 +114,6 @@ venv.bak/
 *.json
 *.enc
 *.bak
+
+# Temporarily ignore the paypal sdk
+src/paypalrestsdk

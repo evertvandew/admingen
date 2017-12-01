@@ -1,0 +1,22 @@
+PROJECT ADMINGEN TODO
+
+PayPal:
+* finish scraper for PayPal overview
+* Implement rules for converting PayPal transactions into Exact transactions
+* Upload Exact transactions to Exact
+* Implement maintenance & operations GUI
+* Deploy to server
+* Implement automatic testing
+
+Server:
+* Get certificate on server
+* Implement multi-site frontend
+* Implement DNS on server for multiple sites
+* Implement check_mk
+
+Report Generator
+* Decide on technology
+* Implement frontend
+
+Website:
+* Create customer website

@@ -6,3 +6,5 @@ py-bcrypt==0.4
 requests
 pycrypto
 configobj
+pandas
+selenium

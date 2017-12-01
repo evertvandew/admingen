@@ -12,6 +12,9 @@ from .db_api import sessionScope, commit
 UNAME_FIELD_NAME = '__login_name__'
 PWD_FIELD_NAME = '__login_password__'
 
+# TODO: port to the Quart framework. https://gitlab.com/pgjones/quart
+# TODO: make forms so that the contents are not re-evaluated each time?
+
 
 def password2str(value):
     salt = bcrypt.gensalt()
@@ -23,10 +26,6 @@ def checkpasswd(clear, hashed):
 
 def ispwencrypted(p):
     return bool(re.match(r'^\$2a\$\d\d\$', p))
-
-
-def isostr(dt):
-    return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
 def NotEmpty(name):
@@ -329,7 +328,7 @@ def Tickbox(name, text=None):
 Server = Email = String
 
 def EnterPassword(name, text=None):
-    return form_input(name, text, 'password')
+    return form_input(name, text, '')
 
 
 def SetPassword(name, text=None):

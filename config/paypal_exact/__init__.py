@@ -78,16 +78,18 @@ def production_worker():
     TaskHandler.worker = worker
 
     # let the worker run
-    yield
-    # Now stop the worker
-    worker.exit()
-    # Wait at most 1 second, then terminate the process
     try:
-        p.wait(1)
-    except subprocess.TimeoutExpired:
-        # Terminat the process
-        p.terminate()
-    p.wait()
+        yield
+    finally:
+        # Now stop the worker
+        worker.exit()
+        # Wait at most 1 second, then terminate the process
+        try:
+            p.wait(1)
+        except subprocess.TimeoutExpired:
+            # Terminat the process
+            p.terminate()
+        p.wait()
 
 
 @contextmanager
@@ -108,11 +110,13 @@ def threaded_worker():
     TaskHandler.worker = worker
 
     # let the worker run
-    yield
+    try:
+        yield
 
-    # Now stop the worker
-    worker.exit()
-    th.join()
+    finally:
+        # Now stop the worker
+        worker.exit()
+        th.join()
 
 
 def run():

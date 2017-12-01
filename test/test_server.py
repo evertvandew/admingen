@@ -7,6 +7,8 @@ import asyncio
 import socket
 import threading
 
+import requests
+
 from admingen.dbengine import readconfig
 from admingen.htmltools import simpleCrudServer, runServer, Page
 from admingen.servers import *
@@ -19,7 +21,7 @@ TESTDB = 'test.db'
 class ServerTests(TestCase):
     def setUp(self):
         # Delete the database if there is one left-over
-        if False and os.path.exists(TESTDB):
+        if os.path.exists(TESTDB):
             os.remove(TESTDB)
 
     def testCrudServer(self):
@@ -38,20 +40,46 @@ class ServerTests(TestCase):
         runner.setDaemon(True)
         runner.start()
 
+        url = 'http://localhost:8080/Klant'
+
         while True:
-            time.sleep(1)
+            # Wait until the server is in the air
+            try:
+                r = requests.get('http://localhost:8080')
+                break
+            except requests.exceptions.ConnectionError:
+                time.sleep(0.1)
 
-    def testKeyring(self):
+        # Now try to create some objects
+        r = requests.get(url+'/add')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('<form action="/Klant/add" method="post" enctype="multipart/form-data" class="form-horizontal">', r.text)
+        self.assertIn('<input type="text" class="form-control" name="naam"  value=""/>', r.text)
+        self.assertIn('<select name="contactpersoon"></select>', r.text)
 
-        @keychain_unlocker('test.enc')
-        class Test:
-            Page = staticmethod(Page)
+        params = {'naam': 'Dynniq', 'id': None}
+        r = requests.post(url+'/add', params = params)
+        self.assertEqual(r.status_code, 200)
 
-            @cherrypy.expose
-            def index(self):
-                return self.Page('Hello, World!')
+        # Check the new klant is in the database
+        r = requests.get(url)
+        self.assertEqual(r.status_code, 200)
+        expect = '''<tr onclick="javascript:location.href='view?id=1'"><td>1</td>
+<td>Dynniq</td>
+<td>None</td></tr>'''
+        self.assertIn(expect, r.text)
 
-        cherrypy.quickstart(Test(), '/')
+        # Try to update it
+        r = requests.get(url+'/edit', params={'id':'1'})
+        self.assertEqual(r.status_code, 200)
+        params = {'naam': 'Peek Traffic', 'id': '1'}
+        r = requests.post(url + '/edit', params=params)
+        r = requests.get(url)
+        self.assertEqual(r.status_code, 200)
+        expect = '''<tr onclick="javascript:location.href='view?id=1'"><td>1</td>
+<td>Peek Traffic</td>
+<td>None</td></tr>'''
+        self.assertIn(expect, r.text)
 
 
     def testUnixSockets1(self):
@@ -161,11 +189,5 @@ class ServerTests(TestCase):
         th.start()
 
         loop.run_forever()
-
-    def testOAuthExact(self):
-        """ Test the oauth authentication against the exact API.
-            Expected redirecturi: http://paypal_reader.overzichten.nl:13959/oauth_code
-
-        """
 
 

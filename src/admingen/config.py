@@ -11,6 +11,10 @@ def testmode():
     return True
 
 
+def getConfig(path, default):
+    """ Get a specific configuration item """
+    return default
+
 def fname():
     p = argparse.ArgumentParser()
     p.add_argument('-c', '--config',
