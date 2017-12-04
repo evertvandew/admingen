@@ -109,12 +109,24 @@ TransactionTemplate = '''        <GLTransaction>
             {transactionlines}
             </GLTransaction>'''
 
+FileTemplate = '''<?xml version="1.0" encoding="utf-8"?>
+<eExact xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="eExact-XML.xsd">
+	<GLTransactions>
+{transactions}
+	</GLTransactions>
+	<Messages />
+</eExact>
+'''
 
 def generateExactTransaction(transaction):
     transactionlines = '\n'.join([generateExactLine(transaction, line) \
                                   for line in transaction.lines])
     return TransactionTemplate.format(**locals(), **transaction._asdict())
 
+
+def generateExactTransactionsFile(transactions):
+    transactions = [generateExactTransaction(t) for t in transactions]
+    return FileTemplate.format(transactions = '\n'.join(transactions))
 
 
 class PaypalExactTask:
@@ -228,8 +240,6 @@ class PaypalExactTask:
                 if transaction['Type'] == 'Algemeen valutaomrekening' or transaction['Valuta'] != 'EUR':
                     # We need to compress the next three transactions into a single, foreign valuta one.
                     ref = transaction['Reference Txn ID'] or transaction['Transactiereferentie']
-                    if ref == '7HA44214FL0692032':
-                        print ('ho')
                     txs = conversions_stack.setdefault(ref, [])
                     txs.append(transaction)
                     if len(txs) == 3:
