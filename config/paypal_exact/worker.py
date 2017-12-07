@@ -15,6 +15,9 @@ from collections import namedtuple
 import os
 from decimal import Decimal, ROUND_HALF_UP
 import traceback
+from enum import IntEnum
+from typing import List
+from pony import orm
 
 import paypalrestsdk
 from paypalrestsdk.payments import Payment
@@ -23,7 +26,7 @@ from admingen.keyring import KeyRing
 from admingen.email import sendmail
 from admingen import config
 from admingen.clients.rest import OAuth2
-from admingen.clients.paypal import downloadTransactions, pp_reader
+from admingen.clients.paypal import downloadTransactions, pp_reader, EU_COUNTRY_CODES
 from admingen import logging
 
 
@@ -64,116 +67,270 @@ if False:
              'Waiting for action',
              bootmail % config['appname'])
 
-ExactTransaction = namedtuple('ExactTransaction', ['Date', 'ledger', 'lines', 'ClosingBalance'])
+ExactTransaction = namedtuple('ExactTransaction', ['date', 'ledger', 'lines', 'closingbalance'])
 ExactTransactionLine = namedtuple('ExactTransactionLine',
-                                  ['GLAccount', 'Description', 'Amount', 'ForeignAmount',
-                                   'ForeignCurrency', 'ConversionRate'])
+                                  ['GLAccount', 'GLType', 'Description', 'Amount', 'ForeignAmount',
+                                   'ForeignCurrency', 'ConversionRate', 'additional'])
 WorkerConfig = namedtuple('WorkerConfig',
-                          ['ledger', 'costs_account', 'pp_account', 'debtors_account',
-                           'creditors_account',
-                           'pp_kruispost'])
+                          ['ledger', 'costs_account', 'pp_account', 'sale_account_nl', 'sale_account_eu_no_vat', 'sale_account_world',
+                           'purchase_account_nl', 'purchase_account_eu_no_vat', 'purchase_account_world', 'pp_kruispost', 'vat_account'])
 
-LineTemplate = '''<GLTransactionLine type="40" linetype="0" line="{nr_lines}">
+
+# Create a cache for storing the details of earlier transactions
+db = orm.Database()
+class TransactionLog(db.Entity):
+    timestamp = orm.Required(datetime.datetime)
+    pp_tx = orm.Required(str)
+    vat_percent = orm.Required(Decimal)
+    account = orm.Required(int)
+
+db.bind(provider='sqlite', filename='transaction_cache.db', create_db=True)
+db.generate_mapping(create_tables=True)
+
+# TODO: Periodically clean up the cache
+
+
+class GLAccountTypes(IntEnum):
+    Cash = 10
+    Bank = 12
+    CreditCard = 14
+    PaymentService = 16
+    AccountsReceivable = 20
+    AccountsPayable = 22
+    VAT = 24
+    EmployeesPayable = 25
+    PrepaidExpenses = 26
+    AccruedExpenses = 27
+    IncomeTaxPayable = 29
+    FixedAssets = 30
+    OtherAssets = 32
+    AccumulatedDeprecations = 35
+    Inventory = 40
+    CapitalStock = 50
+    RetainedEarnings = 52
+    LongTermDebt = 55
+    CurrentPortionofDebt = 60
+    General = 90
+    SalesTaxPayable = 100
+    Revenue = 110
+    CostOfGoods = 111
+    OtherCosts = 120
+    SalesMarketingGeneralExpenses = 121
+    DepreciationCosts = 122
+    ResearchAndDevelopment = 123
+    EmployeeCosts = 125
+    LaborCosts = 126
+    ExceptionalCosts = 130
+    ExceptionalIncome = 140
+    IncomeTaxes = 150
+    InterestIncome = 160
+
+
+class GLTransactionTypes(IntEnum):
+    OpeningBalance = 10
+    SalesEntry = 20
+    SalesCreditNote = 21
+    SalesReturnInvoice = 22
+    PurchaseEntry = 30
+    PurchaseCreditNote = 31
+    PurchaseReturnInvoice = 32
+    CashFlow = 40
+    VATReturn = 50
+    AssetDepreciation = 70
+
+
+
+LineTemplate = '''            <GLTransactionLine type="40" line="{linenr}" status="20">
                 <Date>{date}</Date>
                 <FinYear number="{year}" />
                 <FinPeriod number="{period}" />
-                <GLAccount code="{GLAccount}" type="110">
-                </GLAccount>
+                <GLAccount code="{GLAccount}" type="{GLType}" />
+                {additional}
                 <Description>{Description}</Description>
                 <Amount>
                     <Currency code="EUR" />
                     <Value>{Amount}</Value>
                 </Amount>
                 <ForeignAmount>
-					<Currency code="{ForeignCurrency}" />
-					<Value>{ForeignAmount}</Value>
-					<Rate>{ConversionRate}</Rate>
-				</ForeignAmount>
+                    <Currency code="EUR" />
+                    <Value>{Amount}</Value>
+                    <Rate>1</Rate>
+                </ForeignAmount>
             </GLTransactionLine>'''
 
 
-def generateExactLine(transaction, line):
+def generateExactLine(transaction: ExactTransaction, line: ExactTransactionLine, linenr):
     index = transaction.lines.index(line)
     nr_lines = len(transaction.lines)
-    date = transaction.Date.strftime('%Y-%m-%d')
-    year = transaction.Date.strftime('%Y')
-    period = transaction.Date.strftime('%m')
+    date = transaction.date.strftime('%Y-%m-%d')
+    year = transaction.date.strftime('%Y')
+    period = transaction.date.strftime('%m')
     return LineTemplate.format(**locals(), **line._asdict())
 
 
 TransactionTemplate = '''        <GLTransaction>
-            <TransactionType number="40">
-                <Description>Cash flow</Description>
-            </TransactionType>
-            <Journal code="{ledger}" />
-            {transactionlines}
-            </GLTransaction>'''
+            <TransactionType number="40" />
+            <Journal code="{ledger}" type="12" />
+{transactionlines}
+        </GLTransaction>'''
 
 FileTemplate = '''<?xml version="1.0" encoding="utf-8"?>
 <eExact xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="eExact-XML.xsd">
-	<GLTransactions>
+    <GLTransactions>
 {transactions}
-	</GLTransactions>
-	<Messages />
+    </GLTransactions>
 </eExact>
 '''
 
-def generateExactTransaction(transaction):
-    transactionlines = '\n'.join([generateExactLine(transaction, line) \
-                                  for line in transaction.lines])
+def generateExactTransaction(transaction: ExactTransaction):
+    transactionlines = '\n'.join([generateExactLine(transaction, line, int((count+2)/2)) \
+                                  for count, line in enumerate(transaction.lines)])
     return TransactionTemplate.format(**locals(), **transaction._asdict())
 
 
-def generateExactTransactionsFile(transactions):
+def generateExactTransactionsFile(transactions: List[ExactTransaction]):
     transactions = [generateExactTransaction(t) for t in transactions]
     return FileTemplate.format(transactions = '\n'.join(transactions))
 
 
+class Region(IntEnum):
+    NL = 1
+    EU = 2
+    World = 3
+    Unknown = 4
+
+
 class PaypalExactTask:
     """ Produce exact transactions based on the PayPal transactions """
+
     def __init__(self, pp_login, config: WorkerConfig, exact_token):
         self.pp_login, self.config, self.exact_token = pp_login, config, exact_token
+        self.sale_accounts = {Region.NL: self.config.sale_account_nl,
+                              Region.EU: self.config.sale_account_eu_no_vat,
+                              Region.World: self.config.sale_account_world,
+                              Region.Unknown: self.config.sale_account_nl}
+        self.purchase_accounts = {Region.NL: self.config.purchase_account_nl,
+                              Region.EU: self.config.purchase_account_eu_no_vat,
+                              Region.World: self.config.purchase_account_world,
+                                  Region.Unknown: self.config.purchase_account_nl}
+        self.vat_percentages = {Region.NL: Decimal('0.21'),
+                                Region.EU: Decimal('0.00'),
+                                Region.World: Decimal('0.00'),
+                                Region.Unknown: Decimal('0.21')}
 
-    def determineAccounts(self, transaction):
+    def determineAccountVat(self, transaction):
         """ Determine the grootboeken to be used for a specific transaction """
-
-        # The default for normal payments
-        gb2 = self.config.debtors_account if transaction['Net'] > 0 else self.config.creditors_account
-
-        if transaction['Reference Txn ID']:
-            # This is related to another payment, in almost all cases a return of a previous payment
-            # This means that debtors and creditors are reversed
-            gb2 = self.config.debtors_account if transaction['Net'] < 0 else self.config.creditors_account
 
         if transaction['Type'] == 'Algemene opname':
             # A bank withdrawl goes to the kruispost
-            gb2 = self.config.pp_kruispost
+            return self.config.pp_kruispost, Decimal('0.00')
 
-        return self.config.pp_account, gb2
+        # Determine if the transaction is within the Netherlands, the EU or the world.
+        if transaction['Landcode'] == 'NL':
+            region = Region.NL
+        elif transaction['Landcode'] in EU_COUNTRY_CODES:
+            region = Region.EU
+        elif transaction['Landcode']:
+            region = Region.World
+        else:
+            region = Region.Unknown
+
+
+        accounts = self.sale_accounts if transaction['Net'] > 0 else self.purchase_accounts
+        if transaction['Reference Txn ID']:
+            # This is related to another payment, in almost all cases a return of a previous payment
+            # If available, use the details from the previous transaction
+            with orm.db_session():
+                txs = orm.select(_ for _ in TransactionLog if _.pp_tx == transaction['Reference Txn ID'])
+                for tx in txs:
+                    return tx.account, tx.vat_percent
+            # Transaction unknown, try to guess the details
+            # This means that debtors and creditors are reversed
+            accounts = self.sale_accounts if transaction['Net'] < 0 else self.purchase_accounts
+
+        return accounts[region], self.vat_percentages[region]
+
 
     def determineComment(self, transaction):
         """ Determine the comment for a specific transaction """
-        return 'ref:%s'%transaction['Transactiereferentie']
+        parts = [('ref:%s', transaction['Transactiereferentie']),
+                 ('Fact: %s', transaction['Factuurnummer']),
+                 ('%s', transaction['Note'])
+                 ]
+        if transaction['Valuta'] != 'EUR':
+            parts.append(('%s', transaction['Valuta']))
+            parts.append(('%s', transaction['Bruto']))
+        parts = [a%b for a, b in parts if b]
+        return ' '.join(parts)
 
-    def make_normal_transaction(self, transaction):
+    def make_transaction(self, transaction, rate=1):
+        """ :param rate: euro_amount / foreign_amount
+        """
         # A regular payment in euro's
-        gb1, gb2 = self.determineAccounts(transaction)
+        gb_sales, vat_percentage = self.determineAccountVat(transaction)
         comment = self.determineComment(transaction)
-        lines = []
-        rate = Decimal('1')
-        lines.append(
-            ExactTransactionLine(gb1, comment, transaction['Bruto'], transaction['Bruto'], 'EUR', rate))
-        lines.append(ExactTransactionLine(gb2, comment, -transaction['Bruto'], -transaction['Bruto'], 'EUR', rate))
-        # Check if a third and fourth line need to be added to account for the costs of the transaction
-        if transaction['Fee']:
-            lines.append(ExactTransactionLine(gb1, 'Kosten Paypal transactie',
-                                              transaction['Fee'], transaction['Fee'], 'EUR', rate))
-            lines.append(ExactTransactionLine(self.config.costs_account, 'Kosten Paypal transactie',
-                                              -transaction['Fee'], -transaction['Fee'], 'EUR', rate))
 
-        transaction = ExactTransaction(transaction['Datum'], self.config.ledger, lines,
+        # Use the following sequence:
+        # First booking: the VAT return on the transaction fee (if any)
+        # Second booking: the transaction fee (without VAT)
+        # Third booking: the actual sale
+        # Fourth booking: the VAT on the sale
+
+        foreign_valuta = transaction['Valuta']
+
+        lines = []
+        if transaction['Fee']:
+            # Assume that PayPal always imposes 21% VAT on its transaction fee.
+            net, vat = [(transaction['Fee'] * Decimal(p)).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) for p in ['0.79', '0.21']]
+            net_euro, vat_euro = [(x*rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) for x in [net, vat]]
+            # The VAT over the fee
+            lines.append((self.config.vat_account, GLAccountTypes.General,
+                         comment,
+                         -vat_euro, -vat, foreign_valuta, rate,
+                         '<GLOffset code="%s" />'%self.config.pp_account))
+            lines.append((self.config.pp_account, GLAccountTypes.Bank,
+                          comment,
+                          vat_euro, vat, foreign_valuta, rate,
+                          ''))
+            # The actual fee
+            lines.append((self.config.costs_account, GLAccountTypes.SalesMarketingGeneralExpenses,
+                         comment,
+                          -net_euro, -net, foreign_valuta, rate,
+                         '<GLOffset code="%s" />'%self.config.pp_account))
+            lines.append((self.config.pp_account, GLAccountTypes.Bank,
+                          comment,
+                          net_euro, net, foreign_valuta, rate,
+                          ''))
+
+        # The actual sale
+        net, vat = [(transaction['Bruto'] * p).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) for p in [1-vat_percentage, vat_percentage]]
+        net_euro, vat_euro = [(x * rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) for x in
+                              [net, vat]]
+        lines.append((gb_sales, GLAccountTypes.Revenue,
+                         comment,
+                      -net_euro, -net, foreign_valuta, rate,
+                         '<GLOffset code="%s" />'%self.config.pp_account))
+        lines.append((self.config.pp_account, GLAccountTypes.Bank,
+                         comment,
+                      net_euro, net, foreign_valuta, rate,
+                         ''))
+
+        # The VAT over the sale
+        if vat_euro != Decimal('0.00'):
+            lines.append((self.config.vat_account, GLAccountTypes.General,
+                          comment,
+                          -vat_euro, -vat, foreign_valuta, rate,
+                             '<GLOffset code="%s" />'%self.config.pp_account))
+            lines.append((self.config.pp_account, GLAccountTypes.Bank,
+                          comment,
+                          vat_euro, vat, foreign_valuta, rate,
+                             ''))
+
+        lines = [ExactTransactionLine(*l) for l in lines]
+
+        exact_transaction = ExactTransaction(transaction['Datum'], self.config.ledger, lines,
                                        transaction['Saldo'])
-        return transaction
+        return exact_transaction
 
     def make_foreign_transaction(self, transactions):
         # Get the details from the original transaction
@@ -187,45 +344,30 @@ class PaypalExactTask:
         assert euro_details['Reference Txn ID'] == sale['Reference Txn ID'] or sale['Transactiereferentie']
         assert foreign_details['Reference Txn ID'] == sale['Reference Txn ID'] or sale['Transactiereferentie']
 
-        gb1, gb2 = self.determineAccounts(sale)
-        comment = self.determineComment(sale)
         rate = (euro_details['Bruto'] / -foreign_details['Net']).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
 
-        if sale['Fee']:
-            fee = (sale['Fee'] * rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
-            euro_details['Bruto'] -= fee
-
-        lines = []
+        exact_transaction = self.make_transaction(sale, rate)
 
         # Check if an extra line is necessary to handle any left-over foreign species
         # This happens (very rarly), probably due to bugs at PayPal.
         diff = sale['Net'] + foreign_details['Bruto']
         diff_euros = (diff * rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
         if diff:
-            logging.debug('Paypal left some foreign species on the account, %s'%diff)
             comment = 'Restant in vreemde valuta, ref: %s'%foreign_details['Transactiereferentie']
-            lines.append(ExactTransactionLine(self.config.pp_account,
+            foreign_valuta = sale['Valuta']
+            lines = [(self.config.pp_kruispost, GLAccountTypes.General,
+                         comment,
+                      diff_euros, diff, foreign_valuta, rate,
+                         '<GLOffset code="%s" />'%self.config.pp_account),
+                     (self.config.pp_account, GLAccountTypes.Bank,
                       comment,
-                      -diff_euros, -diff,sale['Valuta'], rate))
-            lines.append(ExactTransactionLine(self.config.pp_kruispost, comment, diff_euros, diff, sale['Valuta'], rate))
-            euro_details['Bruto'] += diff_euros
+                      -diff_euros, -diff, foreign_valuta, rate,
+                      '')
+                     ]
+            exact_transaction.lines.extend([ExactTransactionLine(*l) for l in lines])
+            logging.debug('Paypal left some foreign species on the account, %s'%diff)
 
-        lines.append(
-            ExactTransactionLine(gb1, comment, euro_details['Bruto'], sale['Bruto'],
-                                 sale['Valuta'], rate))
-        lines.append(ExactTransactionLine(gb2, comment, -euro_details['Bruto'],
-                                          -sale['Bruto'], sale['Valuta'], rate))
-        # Check if a third and fourth line need to be added to account for the costs of the transaction
-        if sale['Fee']:
-            lines.append(ExactTransactionLine(gb1, 'Kosten Paypal transactie',
-                                              fee, sale['Fee'], sale['Valuta'], rate))
-            lines.append(ExactTransactionLine(self.config.costs_account, 'Kosten Paypal transactie',
-                                              -fee, -sale['Fee'], sale['Valuta'], rate))
-
-
-        transaction = ExactTransaction(sale['Datum'], self.config.ledger, lines, euro_details['Saldo'])
-
-        return transaction
+        return exact_transaction
 
     def detailsGenerator(self, fname):
         conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
@@ -246,7 +388,7 @@ class PaypalExactTask:
                         yield self.make_foreign_transaction(txs)
                         del conversions_stack[ref]
                 else:
-                    yield self.make_normal_transaction(transaction)
+                    yield self.make_transaction(transaction)
         except StopIteration:
             return
         except Exception as e:

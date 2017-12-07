@@ -17,6 +17,10 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from admingen.config import getConfig
 
+EU_COUNTRY_CODES = ['BE', 'BG', 'CY', 'DK', 'DU', 'EE', 'FI', 'FR', 'GR', 'HU', 'IE', 'IT', 'HR',
+                    'LV', 'LT', 'LU', 'MT', 'NL', 'AT', 'PL', 'PT', 'RO', 'SI', 'SK', 'ES', 'CZ',
+                    'GB', 'SE']
+
 DOWNLOAD_DIR = getConfig('paypalclient.downloaddir', os.getcwd() + '/downloads')
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
@@ -172,7 +176,11 @@ def myopen(fname):
 
 def pp_reader(fname):
     """ Generator that yields paypal transactions """
-    reader = DictReader(myopen(fname), delimiter=',', quotechar='"')
+    # check if fname is a string or a file-like object
+    if isinstance(fname, str):
+        reader = DictReader(myopen(fname), delimiter=',', quotechar='"')
+    else:
+        reader = DictReader(fname, delimiter=',', quotechar='"')
     # The only thing wrong with reader is that the numbers are strings, not numbers,
     # and the date is a string, not a datetime.
     for line in reader:
