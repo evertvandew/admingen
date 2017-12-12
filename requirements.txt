@@ -8,3 +8,4 @@ pycrypto
 configobj
 pandas
 selenium
+markdown

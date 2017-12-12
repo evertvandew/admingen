@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<eExact xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="eExact-XML.xsd">
+    <GLTransactions>
+        <GLTransaction>
+            <TransactionType number="40" />
+            <Journal code="21" type="12" />
+            <GLTransactionLine type="40" line="1" status="20">
+                <Date>2017-12-06</Date>
+                <FinYear number="2017" />
+                <FinPeriod number="12" />
+                <GLAccount code="1514" type="90" />
+                <GLOffset code="1101" />
+                <Description>BTW over kosten ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Amount>
+                    <Currency code="EUR" />
+                    <Value>1.05</Value>
+                </Amount>
+                <ForeignAmount>
+                    <Currency code="EUR" />
+                    <Value>1.05</Value>
+                    <Rate>1</Rate>
+                </ForeignAmount>
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="1" status="20">
+                <Date>2017-12-06</Date>
+                <FinYear number="2017" />
+                <FinPeriod number="12" />
+                <GLAccount code="1101" type="12" />
+                
+                <Description>BTW over kosten ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Amount>
+                    <Currency code="EUR" />
+                    <Value>-1.05</Value>
+                </Amount>
+                <ForeignAmount>
+                    <Currency code="EUR" />
+                    <Value>-1.05</Value>
+                    <Rate>1</Rate>
+                </ForeignAmount>
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="2" status="20">
+                <Date>2017-12-06</Date>
+                <FinYear number="2017" />
+                <FinPeriod number="12" />
+                <GLAccount code="5561" type="121" />
+                <GLOffset code="1101" />
+                <Description>Transactiekosten ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Amount>
+                    <Currency code="EUR" />
+                    <Value>3.95</Value>
+                </Amount>
+                <ForeignAmount>
+                    <Currency code="EUR" />
+                    <Value>3.95</Value>
+                    <Rate>1</Rate>
+                </ForeignAmount>
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="2" status="20">
+                <Date>2017-12-06</Date>
+                <FinYear number="2017" />
+                <FinPeriod number="12" />
+                <GLAccount code="1101" type="12" />
+                
+                <Description>Transactiekosten ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Amount>
+                    <Currency code="EUR" />
+                    <Value>-3.95</Value>
+                </Amount>
+                <ForeignAmount>
+                    <Currency code="EUR" />
+                    <Value>-3.95</Value>
+                    <Rate>1</Rate>
+                </ForeignAmount>
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="3" status="20">
+                <Date>2017-12-06</Date>
+                <FinYear number="2017" />
+                <FinPeriod number="12" />
+                <GLAccount code="8000" type="110" />
+                <GLOffset code="1101" />
+                <Description>ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Amount>
+                    <Currency code="EUR" />
+                    <Value>-79.00</Value>
+                </Amount>
+                <ForeignAmount>
+                    <Currency code="EUR" />
+                    <Value>-79.00</Value>
+                    <Rate>1</Rate>
+                </ForeignAmount>
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="3" status="20">
+                <Date>2017-12-06</Date>
+                <FinYear number="2017" />
+                <FinPeriod number="12" />
+                <GLAccount code="1101" type="12" />
+                
+                <Description>ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Amount>
+                    <Currency code="EUR" />
+                    <Value>79.00</Value>
+                </Amount>
+                <ForeignAmount>
+                    <Currency code="EUR" />
+                    <Value>79.00</Value>
+                    <Rate>1</Rate>
+                </ForeignAmount>
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="4" status="20">
+                <Date>2017-12-06</Date>
+                <FinYear number="2017" />
+                <FinPeriod number="12" />
+                <GLAccount code="1514" type="90" />
+                <GLOffset code="1101" />
+                <Description>BTW ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Amount>
+                    <Currency code="EUR" />
+                    <Value>-21.00</Value>
+                </Amount>
+                <ForeignAmount>
+                    <Currency code="EUR" />
+                    <Value>-21.00</Value>
+                    <Rate>1</Rate>
+                </ForeignAmount>
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="4" status="20">
+                <Date>2017-12-06</Date>
+                <FinYear number="2017" />
+                <FinPeriod number="12" />
+                <GLAccount code="1101" type="12" />
+                
+                <Description>BTW ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Amount>
+                    <Currency code="EUR" />
+                    <Value>21.00</Value>
+                </Amount>
+                <ForeignAmount>
+                    <Currency code="EUR" />
+                    <Value>21.00</Value>
+                    <Rate>1</Rate>
+                </ForeignAmount>
+            </GLTransactionLine>
+        </GLTransaction>
+    </GLTransactions>
+</eExact>

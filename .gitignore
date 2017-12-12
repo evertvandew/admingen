@@ -114,6 +114,7 @@ venv.bak/
 *.json
 *.enc
 *.bak
+*.sock    # UNIX domain sockets
 
 # Temporarily ignore the paypal sdk
 src/paypalrestsdk
