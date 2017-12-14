@@ -13,12 +13,13 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.utils import formatdate
+from configobj import ConfigObj
 
 import cherrypy
 from cherrypy.lib.static import serve_file
 import calendar
 
-from admingen.clients.exact_rest import authenticateExact, getUsers, getTransactions, getDivisions, getAccounts, TESTMODE
+from admingen.clients.exact_rest import authenticateExact, getUsers, getTransactions, getDivisions, getAccounts, config
 from admingen.htmltools import *
 from .giften import (generate_overviews, generate_overview, amount2Str,
                     odataDate2Datetime, generate_pdfs, pdfName, PDF_DIR)
@@ -129,7 +130,7 @@ def verstuur_overzicht(**extra):
     year = extra['period_start'].strftime('%Y')
 
     def sendSingleMail(to_adres, name, fname):
-        if TESTMODE:
+        if config.TESTMODE:
             to_adres = 'evert.vandewaal@axians.com'
         md_msg = msg_template % {'voornaam': name, 'jaar': year, 'van': start, 'tot': end}
         msg = constructMail(md_msg, fname, To=to_adres, From=mailfrom,
@@ -290,7 +291,7 @@ class Worker(threading.Thread):
             if self.getState(self.org_id) == SystemStates.LoadingData:
                 try:
                     # Load the users
-                    if TESTMODE:
+                    if config.TESTMODE:
                         time.sleep(5)
                         users = json.load(open(USERS_FILE % self.org_id))
                         transactions = json.load(open(TRANSACTIONS_FILE % self.org_id))
@@ -555,19 +556,19 @@ def run(static_dir=None):
     print('STATIC DIR:', static_dir)
     cherrypy.config.update({'server.socket_port': 13958,
                             'server.socket_host': '0.0.0.0',
-                            'server.ssl_certificate': 'server.crt',
-                            'server.ssl_private_key': 'server.key',
+                            #'server.ssl_certificate': 'server.crt',
+                            #'server.ssl_private_key': 'server.key',
                             'tools.sessions.on': True
                             })
     # cherrypy.log.access_log.propagate = False
     logging.getLogger('cherrypy_error').setLevel(logging.ERROR)
-    #    cherrypy.quickstart(Overzichten(), '/', {
-    #        '/': {'tools.staticdir.debug': True},
-    #       '/static': {'tools.staticdir.on': True,
-    #                    'tools.staticdir.dir': static_dir,
-    #                    #'tools.staticdir.index': os.getcwd() + '/static/test.html'
-    #                    }})
-    cherrypy.quickstart(Overzichten(), '/', 'server.conf')
+    c = {'tools.staticdir.debug' :config.TESTMODE,
+        'tools.staticdir.root' : static_dir,
+        'tools.trailing_slash.on' : True,
+        'tools.staticdir.on' : True,
+        'tools.staticdir.dir' : "./public"}
+
+    cherrypy.quickstart(Overzichten(), '/', {'/': c})
 
 
 if __name__ == '__main__':

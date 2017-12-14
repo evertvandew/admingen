@@ -1,0 +1,14 @@
+[Unit]
+Description=Start Overzicht Generator server
+
+[Service]
+Type=simple
+User=ogen
+Group=ogen
+ExecStart=/mnt/usb/home/ogen/overzicht_generator/attempt3.py
+WorkingDirectory=/mnt/usb/home/ogen/overzicht_generator
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

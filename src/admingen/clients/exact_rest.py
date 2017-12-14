@@ -7,21 +7,31 @@ from urllib.parse import urlencode
 import json
 import threading
 import time
+from admingen.config import configtype
 
-base = ''
-client_secret = ''
-webhook_secret = ''
-client_id = ''
-redirect_uri = ''
-TESTMODE = False
 
-globals().update(json.load(open('settings.json')))
 
-auth_url = base + '/oauth2/auth'
-token_url = base + '/oauth2/token'
-transaction_url = base + r"/v1/%(division)i/financialtransaction/TransactionLines"
-users_url = base + r"/v1/%(division)i/crm/Accounts"
-accounts_url = base + r"/v1/%(division)i/financial/GLAccounts"
+@configtype
+class ExactClientConfig:
+    """ Define a singleton object that contains the configuration """
+    base = ''
+    client_secret = ''
+    webhook_secret = ''
+    client_id = ''
+    redirect_uri = ''
+    TESTMODE = False
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+        self.auth_url = self.base + '/oauth2/auth'
+        self.token_url = self.base + '/oauth2/token'
+        self.transaction_url = self.base + r"/v1/%(division)i/financialtransaction/TransactionLines"
+        self.users_url = self.base + r"/v1/%(division)i/crm/Accounts"
+        self.accounts_url = self.base + r"/v1/%(division)i/financial/GLAccounts"
+
+
+config = ExactClientConfig()
 
 
 def binquote(value):
@@ -91,18 +101,18 @@ def getTransactions(exact_division, token, start: datetime, end: datetime):
 
 def getUsers(exact_division, token):
     options = {'$select': 'Code,Name,Email'}
-    users = request(users_url % {'division': exact_division}, token, query=options)
+    users = request(config().users_url % {'division': exact_division}, token, query=options)
     return users
 
 
 def getAccounts(exact_division, token):
     options = {'$select': 'Code,Description'}
-    users = request(accounts_url % {'division': exact_division}, token, query=options)
+    users = request(config.accounts_url % {'division': exact_division}, token, query=options)
     return users
 
 
 def get_current_division(token):
-    url = base + '/v1/current/Me?$select=CurrentDivision'
+    url = config.base + '/v1/current/Me?$select=CurrentDivision'
     response = request(url, token)
     return response[0]['CurrentDivision']
 
@@ -112,9 +122,10 @@ def getDivisions(token):
     Get the "current" division and return a dictionary of divisions
     so the user can select the right one.
     """
-    if TESTMODE:
+    if config.TESTMODE:
         return 15972, [15972, 1621446]
     # The detection of divisions does not work when current is 1621446
+    # TODO: This needs to be implemented!
     return 15972, [15972, 1621446]
     current = get_current_division(token)
     url = base + '/v1/%(division)i/hrm/Divisions?$select=Code,Description'
@@ -126,16 +137,16 @@ def getDivisions(token):
 
 def getAccessToken(code):
     params = {'code': code,
-              'client_id': binquote(client_id),
+              'client_id': binquote(config.client_id),
               'grant_type': 'authorization_code',
-              'client_secret': binquote(client_secret),
-              'redirect_uri': binquote(redirect_uri)}
-    response = request(token_url, method='POST', params=params)
+              'client_secret': binquote(config.client_secret),
+              'redirect_uri': binquote(config.redirect_uri)}
+    response = request(config.token_url, method='POST', params=params)
     return response
 
 
 def authenticateExact(func):
-    if TESTMODE:
+    if config.TESTMODE:
         def request(*args, **kwargs):
             if 'token' not in kwargs:
                 kwargs['token'] = 'dummy'
@@ -153,8 +164,13 @@ def authenticateExact(func):
                 kwargs['token'] = token['access_token']
                 return func(*args, **kwargs)
             # Otherwise let the user login and get the OAUTH token.
-            raise cherrypy.HTTPRedirect(
-                "https://start.exactonline.nl/api/oauth2/auth?client_id=45e63a87-5943-4163-ab90-ccb23a738ad4&redirect_uri=https://vandewaal.xs4all.nl:13958&response_type=code&force_login=0")
+            values = '&'.join(['%s=%s'%(k, binquote(v)) \
+                           for k, v in dict(client_id=config.client_id,
+                                            redirect_uri=config.redirect_uri,
+                                            response_type='code',
+                                            force_login='0').items()])
+            url = config.auth_url + '?' + values
+            raise cherrypy.HTTPRedirect(url)
     return request
 
 

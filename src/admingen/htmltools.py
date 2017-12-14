@@ -554,7 +554,7 @@ def generateFields(table, hidden=None):
                     yield Text(a.column, a.column)
                 elif a.py_type.__name__ == 'Password':
                     # Passwords are edited in duplicates
-                    elements = Password(a.column, a.column)
+                    elements = SetPassword(a.column, a.column)
                     yield elements[0]
                     yield elements[1]
                 elif a.py_type == bool:
