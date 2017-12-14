@@ -14,7 +14,7 @@ class EngineTests(TestCase):
     def setUpClass(cls):
         """ Create a parser and parse the test case """
         with open('uren_crm.txt') as f:
-            cls.ast = model.parse(f.read(), start='config', whitespace=r'[ \t\r]')
+            cls.ast = model.parse(f.read(), start='projects', whitespace=r'[ \t\r]')
     def testSyntax(self):
         """ Test whether the parser can handle the test examples """
         ast = self.ast

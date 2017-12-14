@@ -6,7 +6,7 @@
 import tatsu
 
 fsm_syntax = r'''
-config = modules:[modules] '\n'%{[ fsms:fsm | tables:table | rules:rules | actions:actions ]} ;
+projects = modules:[modules] '\n'%{[ fsms:fsm | tables:table | rules:rules | actions:actions ]} ;
 
 modules = "import" path:module NEWLINE ;
 module  = "."%{ name } ; 

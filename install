@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Install the admingen system for a specific project
+
+# First create a virtenv
+virtualenv -p /usr/local/bin/python3.6 ~/.virtualenv
+ln -s ~/.virtualenv/bin/python3.6 ~/bin
+ln -s ~/.virtualenv/bin/python3 ~/bin
+ln -s ~/.virtualenv/bin/pip3.6 ~/bin
+
+# Load the required libraries
+~/.virtualenv/bin/pip3.6 install -r requirements.txt

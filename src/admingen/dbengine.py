@@ -122,7 +122,7 @@ def determineMsgHandlers(fsms):
 
 
 def readconfig(stream):
-    ast = model.parse(stream.read(), start='config', whitespace=r'[ \t\r]')
+    ast = model.parse(stream.read(), start='projects', whitespace=r'[ \t\r]')
     transitions = determineMsgHandlers(ast['fsms'])
     fsm_names = [fsm['name'] for fsm in ast['fsms']]
     db, dbmodel = createDbModel(ast['tables'], fsm_names)

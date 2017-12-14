@@ -7,6 +7,12 @@ from configobj import ConfigObj
 
 
 theconfig = {}
+configdir = '.'
+
+
+def set_configdir(p):
+    global configdir
+    configdir = p
 
 
 def testmode():
@@ -20,13 +26,13 @@ def getConfig(path, default):
 
 def fname():
     p = argparse.ArgumentParser()
-    p.add_argument('-c', '--config',
-                   default=os.environ.get('CONFIG_FILE', 'config.ini'))
+    p.add_argument('-c', '--projects',
+                   default=os.environ.get('CONFIG_FILE', 'projects.ini'))
     n = p.parse_args()
     return n.config
 
 def configtype(cls):
-    """ Decorator that turns a config specification into a getter for
+    """ Decorator that turns a projects specification into a getter for
         accessing the configuration. The configuration is returned as
         an object of type cls.
     """
