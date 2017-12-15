@@ -23,6 +23,9 @@ assert os.path.exists(proj_dir+'/%s'%args.project), 'Project %s does not exist'%
 # Add the proper directories to the system path so they can be imported
 sys.path.append(proj_dir)
 sys.path.append(root+'/src')
+os.environ['ROOTDIR'] = root
+os.environ['PROJDIR'] = proj_dir
+os.environ['SRCDIR'] = root + '/src'
 
 # Look for the configuration
 for confdir in [os.environ['HOME']+'/etc/%s'%args.project, '/etc/%s'%args.project, None]:

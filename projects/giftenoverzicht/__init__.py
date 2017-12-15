@@ -21,6 +21,7 @@ import calendar
 
 from admingen.clients.exact_rest import authenticateExact, getUsers, getTransactions, getDivisions, getAccounts, config
 from admingen.htmltools import *
+from admingen.config import getConfig
 from .giften import (generate_overviews, generate_overview, amount2Str,
                     odataDate2Datetime, generate_pdfs, pdfName, PDF_DIR)
 from . import model
@@ -552,23 +553,11 @@ class Overzichten:
 
 
 def run(static_dir=None):
-    static_dir = static_dir or os.path.dirname(__file__)
-    print('STATIC DIR:', static_dir)
-    cherrypy.config.update({'server.socket_port': 13958,
-                            'server.socket_host': '0.0.0.0',
-                            #'server.ssl_certificate': 'server.crt',
-                            #'server.ssl_private_key': 'server.key',
-                            'tools.sessions.on': True
-                            })
     # cherrypy.log.access_log.propagate = False
     logging.getLogger('cherrypy_error').setLevel(logging.ERROR)
-    c = {'tools.staticdir.debug' :config.TESTMODE,
-        'tools.staticdir.root' : static_dir,
-        'tools.trailing_slash.on' : True,
-        'tools.staticdir.on' : True,
-        'tools.staticdir.dir' : "./public"}
+    conf = getConfig('server')
 
-    cherrypy.quickstart(Overzichten(), '/', {'/': c})
+    cherrypy.quickstart(Overzichten(), '/', conf)
 
 
 if __name__ == '__main__':

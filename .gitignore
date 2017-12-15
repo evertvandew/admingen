@@ -111,7 +111,6 @@ venv.bak/
 
 # Databases and other operational files
 *.db
-*.json
 *.enc
 *.bak
 *.sock    # UNIX domain sockets

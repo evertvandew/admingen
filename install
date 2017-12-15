@@ -1,12 +1,73 @@
-#!/bin/bash
+#!/usr/bin/env python3
+""" Install the admingen system for a specific project.
 
-# Install the admingen system for a specific project
+    The script generates a virtualenv (if not already created),
+    loads the required libraries, and adds the project to systemd.
+"""
 
-# First create a virtenv
-virtualenv -p /usr/local/bin/python3.6 ~/.virtualenv
-ln -s ~/.virtualenv/bin/python3.6 ~/bin
-ln -s ~/.virtualenv/bin/python3 ~/bin
-ln -s ~/.virtualenv/bin/pip3.6 ~/bin
+from subprocess import call
+import os.path
+import os
+import shutil
+import argparse
+
+root = os.path.dirname(__file__)
+
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('project', help='The project to run')
+#parser.add_argument('--root', help='Root directory for the code', default=root)
+
+args = parser.parse_args()
+print (args)
+
+home = os.environ['HOME']
+user = os.environ['USER']
+virtdir = home + '/.virtualenv'
+python = shutil.which('python3.6')
+virtbin = virtdir + '/bin'
+bindir = home + '/bin'
+
+
+# First create a virtenv (if necessary)
+if not os.path.exists(virtdir):
+    cmnd = 'virtualenv -p {python} {virtdir}'
+    cmnd = cmnd.format(**globals()).split()
+    print (cmnd)
+    call(cmnd, shell=True)
+    for f in ['python3.6', 'python3', 'pip3.6', 'pip3']:
+        target = os.path.join(bindir, f)
+        if os.path.exists(target):
+            os.remove(target)
+        cmnd = 'ln -s {virtbin}/{f} {target}'
+        call(cmnd.format(**globals()).split())
 
 # Load the required libraries
-~/.virtualenv/bin/pip3.6 install -r requirements.txt
+cmnd = '{bindir}/pip3.6 install -r requirements.txt'
+call(cmnd.format(**globals()).split())
+
+# Create a service file so systemd will manage the project
+service = '''[Unit]
+Description=Start admingen project {args.project}
+
+[Service]
+Type=simple
+User={user}
+Group={user}
+ExecStart={bindir}/python3.6 {root}/run {args.project}
+WorkingDirectory={root}/projects/{args.project}
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+
+'''
+service_file = os.path.join(root, 'projects', args.project, args.project+'.service')
+if not os.path.exists(service_file):
+    # Generate the service file
+    with open(service_file, 'w') as f:
+        f.write(service.format(**globals()))
+
+# Install the service file
+
+# Inform systemd about the system and start it
