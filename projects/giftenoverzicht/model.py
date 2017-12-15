@@ -101,9 +101,9 @@ dbupdates = [DbUpdate(1, 2, updatequeries([
              ]
 
 
-def updateDb(parts):
-    if os.path.exists(parts.netloc):
-        conn = sqlite3.connect(parts.netloc)
+def updateDb(path):
+    if os.path.exists(path):
+        conn = sqlite3.connect(path)
         c = conn.cursor()
         c.execute('SELECT * from dbaseversion')
         v = c.fetchone()
@@ -123,10 +123,12 @@ def updateDb(parts):
 def openDb(url):
     ''' Create a new database from the URL
     '''
+    print ('Using database', url)
     parts = urlparse(url)
     if parts.scheme == 'sqlite':
-        updateDb(parts)
-        db.bind(parts.scheme, parts.netloc, create_db=True)
+        path = parts.netloc or parts.path
+        updateDb(path)
+        db.bind(parts.scheme, path, create_db=True)
         db.generate_mapping(create_tables=True)
         with orm.db_session:
             if orm.count(d for d in DbaseVersion) == 0:

@@ -27,6 +27,11 @@ os.environ['ROOTDIR'] = os.path.abspath(root)
 os.environ['PROJDIR'] = os.path.abspath(proj_dir)
 os.environ['SRCDIR'] = os.path.abspath(root + '/src')
 
+# Find a var directory
+for fname in [os.environ['HOME']+'/var', '/var/lib/'+args.project]:
+    if os.path.exists(fname):
+        os.environ['PRODDIR'] = fname
+
 # Look for the configuration
 for confdir in [os.environ['HOME']+'/etc/%s'%args.project, '/etc/%s'%args.project, None]:
     if not confdir:

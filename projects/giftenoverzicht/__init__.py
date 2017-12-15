@@ -6,6 +6,7 @@ import logging
 import json
 import threading
 import os.path
+import os
 import urllib
 from decimal import Decimal
 from enum import IntEnum
@@ -39,7 +40,8 @@ USERS_FILE = '%i.users.json'
 TRANSACTIONS_FILE = '%i.transactions.json'
 ACCOUNTS_FILE = '%i.accounts.json'
 
-model.openDb('sqlite://overzichtgen.db')
+proddir = os.environ.get('PRODDIR', os.getcwd())
+model.openDb('sqlite://%s/overzichtgen.db'%proddir)
 
 
 def constructMail(md_msg, fname, **headers):
