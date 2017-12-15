@@ -17,15 +17,15 @@ args = parser.parse_args()
 print (args)
 
 # Check the project exists
-proj_dir = os.path.join(root, 'projects')
-assert os.path.exists(proj_dir+'/%s'%args.project), 'Project %s does not exist'%args.project
+proj_dir = os.path.join(root, 'projects', args.project)
+assert os.path.exists(proj_dir), 'Project %s does not exist'%args.project
 
 # Add the proper directories to the system path so they can be imported
-sys.path.append(proj_dir)
+sys.path.append(os.path.join(root, 'projects'))
 sys.path.append(root+'/src')
-os.environ['ROOTDIR'] = root
-os.environ['PROJDIR'] = proj_dir
-os.environ['SRCDIR'] = root + '/src'
+os.environ['ROOTDIR'] = os.path.abspath(root)
+os.environ['PROJDIR'] = os.path.abspath(proj_dir)
+os.environ['SRCDIR'] = os.path.abspath(root + '/src')
 
 # Look for the configuration
 for confdir in [os.environ['HOME']+'/etc/%s'%args.project, '/etc/%s'%args.project, None]:
