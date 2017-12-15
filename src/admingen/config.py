@@ -87,7 +87,10 @@ def configtype(cls):
     # The path is derived from the class name, but in lowercase
     # and with all occurences of 'config' removed.
     path = cls.__name__.lower().replace('config', '')
-    config = cls()
+    # There may already be values in the config: use them!
+    init = theconfig.get(path, {})
+    config = cls(**init)
+    # Overwrite any existing config, so it gets the correct type.
     theconfig[path] = config
 
     def update(kwargs):
