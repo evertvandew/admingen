@@ -4,6 +4,7 @@ import os
 import os.path
 import sys
 import argparse
+import re
 from configobj import ConfigObj
 import json
 from io import StringIO
@@ -14,12 +15,29 @@ theconfig = {}
 configdir = '.'
 
 
-config_extensions = ['.ini', '.json']
+def confparser(s):
+    """ CONF files all consist of lines with <key> <value> pairs.
+        Unix conventions on quoting and comments are followed.
+    """
+    comments_re = r'(^[^#]*)'
+    def reader():
+        while True:
+            k = next(tokens)
+            v = next(tokens)
+            yield k, v
+    return {k:v for k, v in reader()}
+
+
+
+
+config_parsers = {'.ini': lambda s: ConfigObj(StringIO(s)), '.json': json.loads,
+                  '.conf': confparser}
+
 def configfiles():
     """ Generator that returns the full paths to configuration files """
     for dirpath, dirnames, fnames in os.walk(configdir):
         for fname in fnames:
-            if os.path.splitext(fname)[1] in config_extensions:
+            if os.path.splitext(fname)[1] in config_parsers:
                 yield os.path.join(dirpath, fname)
 
 
@@ -31,8 +49,7 @@ def set_configdir(p):
 
 
 def parse(fname):
-    parsers = {'.ini': lambda s: ConfigObj(StringIO(s)), '.json': json.loads}
-    parser = parsers[os.path.splitext(fname)[1]]
+    parser = config_parsers[os.path.splitext(fname)[1]]
     with open(fname) as f:
         # Substitute global variables
         txt = f.read()
@@ -101,3 +118,42 @@ def configtype(cls):
         return config
     return factory
 
+
+
+def test():
+    s = '''# Automatically created by the clamav-freshclam postinst
+# Comments will get lost when you reconfigure the clamav-freshclam package
+
+DatabaseOwner clamav
+UpdateLogFile /var/log/clamav/freshclam.log
+LogVerbose false
+LogSyslog false
+LogFacility LOG_LOCAL6
+LogFileMaxSize 0
+LogRotate true
+LogTime true
+Foreground false
+Debug false
+MaxAttempts 5
+DatabaseDirectory /var/lib/clamav
+DNSDatabaseInfo current.cvd.clamav.net
+AllowSupplementaryGroups false
+ConnectTimeout 30
+ReceiveTimeout 30
+TestDatabases yes
+ScriptedUpdates yes
+CompressLocalDatabase no
+SafeBrowsing false
+Bytecode true
+NotifyClamd /etc/clamav/clamd.conf
+# Check for new database 24 times a day
+Checks 24
+DatabaseMirror db.local.clamav.net
+DatabaseMirror database.clamav.net
+'''
+    d = confparser(s)
+    print (d)
+
+
+if __name__ == '__main__':
+    test()

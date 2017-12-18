@@ -14,7 +14,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.utils import formatdate
-from configobj import ConfigObj
 
 import cherrypy
 from cherrypy.lib.static import serve_file
@@ -36,12 +35,12 @@ from . import model
 
 logging.getLogger().setLevel(logging.DEBUG)
 
-USERS_FILE = '%i.users.json'
-TRANSACTIONS_FILE = '%i.transactions.json'
-ACCOUNTS_FILE = '%i.accounts.json'
+USERS_FILE = '{}/{}.users.json'
+TRANSACTIONS_FILE = '{}/{}.transactions.json'
+ACCOUNTS_FILE = '{}/{}.accounts.json'
 
-proddir = os.environ.get('PRODDIR', os.getcwd())
-model.openDb('sqlite://%s/overzichtgen.db'%proddir)
+vardir = os.environ.get('VARDIR', os.getcwd())
+model.openDb('sqlite://%s/overzichtgen.db' % vardir)
 
 
 def constructMail(md_msg, fname, **headers):
@@ -131,6 +130,7 @@ def verstuur_overzicht(**extra):
     start = extra['period_start'].strftime('%d-%m-%Y')
     end = extra['period_end'].strftime('%d-%m-%Y')
     year = extra['period_start'].strftime('%Y')
+    usersfname = USERS_FILE.format(vardir, org_id)
 
     def sendSingleMail(to_adres, name, fname):
         if config.TESTMODE:
@@ -148,7 +148,7 @@ def verstuur_overzicht(**extra):
         # Send a single overview to a specific person
         sendSingleMail(extra['mailto'], extra['name'], extra['file'])
     else:
-        users = json.loads(open(USERS_FILE % org_id, 'r').read())
+        users = json.loads(open(usersfname, 'r').read())
         for user in users:
             fname = pdfName(org_id, user['Name'], user['Code'])
             mailto = user['Email']
@@ -266,6 +266,9 @@ class Worker(threading.Thread):
         self.period_end = org.period_end
         self.access_token = cherrypy.session['token']
         self.org_id = org_id
+        self.ufname = USERS_FILE.format(vardir, org_id)
+        self.tfname = TRANSACTIONS_FILE.format(vardir, org_id)
+        self.afname = ACCOUNTS_FILE.format(vardir, org_id)
         self.start()
 
     @staticmethod
@@ -296,23 +299,23 @@ class Worker(threading.Thread):
                     # Load the users
                     if config.TESTMODE:
                         time.sleep(5)
-                        users = json.load(open(USERS_FILE % self.org_id))
-                        transactions = json.load(open(TRANSACTIONS_FILE % self.org_id))
-                        accounts = json.load(open(ACCOUNTS_FILE % self.org_id))
+                        users = json.load(open(self.ufname))
+                        transactions = json.load(open(self.tfname))
+                        accounts = json.load(open(self.afname))
                         # TODO: Load the accounts file
                     else:
                         logging.info('Reading data from exact')
                         users = getUsers(exact_division, self.access_token)
-                        with open(USERS_FILE % self.org_id, 'w') as out:
+                        with open(self.ufname, 'w') as out:
                             out.write(json.dumps(users))
                         logging.info('Read user data')
                         # Load the transactions
                         transactions = getTransactions(exact_division, self.access_token,
                                                        self.period_start, self.period_end)
-                        with open(TRANSACTIONS_FILE % self.org_id, 'w') as out:
+                        with open(self.tfname, 'w') as out:
                             out.write(json.dumps(transactions))
                         accounts = getAccounts(exact_division, self.access_token)
-                        with open(ACCOUNTS_FILE % self.org_id, 'w') as out:
+                        with open(self.afname, 'w') as out:
                             out.write(json.dumps(accounts))
                         logging.info('Read transaction data for organisation %s' % self.org_id)
                         logging.info('There are %s transactions and %s users' % (
@@ -322,9 +325,9 @@ class Worker(threading.Thread):
                     logging.exception('Exception while loading data from exact')
                     return
             else:
-                users = json.load(open(USERS_FILE % self.org_id))
-                transactions = json.load(open(TRANSACTIONS_FILE % self.org_id))
-                accounts = json.load(open(ACCOUNTS_FILE % self.org_id))
+                users = json.load(open(self.ufname))
+                transactions = json.load(open(self.tfname))
+                accounts = json.load(open(self.afname))
 
             if self.getState(self.org_id) == SystemStates.GeneratingPDF:
                 try:

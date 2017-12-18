@@ -1,15 +1,18 @@
 PROJECT ADMINGEN TODO
 
+Giftenoverzicht:
+* Generation of JSON files gives exceptions: ERROR:root:Exception while loading data from exact
+Traceback (most recent call last):
+  File "./projects/giftenoverzicht/__init__.py", line 299, in run
+    users = json.load(open(USERS_FILE % self.org_id))
+FileNotFoundError: [Errno 2] No such file or directory: '12.users.json'
+
 PayPal:
-* finish scraper for PayPal overview
-* Implement rules for converting PayPal transactions into Exact transactions
-* Upload Exact transactions to Exact
 * Implement maintenance & operations GUI
 * Deploy to server
 * Implement automatic testing
 
 Server:
-* Get certificate on server
 * Implement multi-site frontend
 * Implement DNS on server for multiple sites
 * Implement check_mk
@@ -20,3 +23,10 @@ Report Generator
 
 Website:
 * Create customer website
+
+
+Done:
+* finish scraper for PayPal overview
+* Implement rules for converting PayPal transactions into Exact transactions
+* Upload Exact transactions to Exact
+* Get certificate on server
