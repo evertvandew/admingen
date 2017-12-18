@@ -418,10 +418,10 @@ class Overzichten:
         # Use the state suggested by the database
         state = self.getState() or 1
         # Check if the state of the file system corresponds
-        if not os.path.exists(PDF_DIR % org_id):
+        if not os.path.exists(PDF_DIR.format(vardir, org_id)):
             state = min(state, SystemStates.GeneratingPDF)
-        if not os.path.exists(USERS_FILE % org_id) or not os.path.exists(
-                        TRANSACTIONS_FILE % org_id):
+        if not os.path.exists(USERS_FILE.format(vardir, org_id)) or not os.path.exists(
+                        TRANSACTIONS_FILE.format(vardir, org_id)):
             state = min(state, SystemStates.LoadingData)
         if org.period_start is None or org.period_end is None:
             state = min(state, SystemStates.Start)
@@ -434,9 +434,10 @@ class Overzichten:
     def periode(self, **kwargs):
         # Clear the directory containing the PDF files
         org_id = cherrypy.session['org_id']
-        if os.path.exists(PDF_DIR % org_id):
-            shutil.rmtree(PDF_DIR % org_id)
-        os.mkdir(PDF_DIR % org_id)
+        pdfdir = PDF_DIR.format(vardir, org_id)
+        if os.path.exists(pdfdir):
+            shutil.rmtree(pdfdir)
+        os.mkdir(pdfdir)
         self.setState(SystemStates.Start)
 
         # Present a form to generate a new overview
@@ -509,7 +510,7 @@ class Overzichten:
     @cherrypy.expose
     @check_token
     def all(self, fname):
-        p = os.path.join(PDF_DIR % cherrypy.session['org_id'], fname)
+        p = os.path.join(PDF_DIR.format(vardir, cherrypy.session['org_id']), fname)
         print('REQUESTED', fname, os.path.exists(p))
         return serve_file(os.path.abspath(p), "application/x-pdf", fname)
 

@@ -15,7 +15,7 @@ if sys.platform == 'linux2':
     RST2PDF = '/usr/bin/rst2pdf'
 
 TRANSACTION_FILE = 'FinTransactionSearch.csv'
-PDF_DIR = '%s.all'
+PDF_DIR = '{}/{}.all'
 
 print('Platform:', sys.platform)
 RST2PDF = r'c:\Python26\Scripts\rst2pdf.exe'
@@ -27,6 +27,8 @@ REMOVE_PUNC[ord(u' ')] = u'_'
 REMOVE_PUNC = str.maketrans(REMOVE_PUNC)
 
 UK_2_EU = t = str.maketrans({',': '.', '.': ','})
+
+vardir = os.environ.get('VARDIR', os.getcwd())
 
 
 def datesKey(record):
@@ -190,14 +192,15 @@ def generate_overviews(org, users, transactions):
 
 
 def pdfName(org_id, user_name, user_code):
-    return os.path.join(PDF_DIR % org_id,
+    return os.path.join(PDF_DIR(vardir, org_id),
                         user_name.translate(REMOVE_PUNC) + '_%s' % user_code.strip('_ ') + '.pdf')
 
 
 def generate_pdfs(org, users, transactions):
     temp_file = '%i.temp.rst' % org['id']
-    if not os.path.exists(PDF_DIR % org['id']):
-        os.mkdir(PDF_DIR % org['id'])
+    pdfdir = PDF_DIR(vardir, org['id'])
+    if not os.path.exists(pdfdir):
+        os.mkdir(pdfdir)
     for code, name, email, total, rst in generate_overviews(org, users, transactions):
         open(temp_file, 'w').write(rst)
         fname = pdfName(org['id'], name, code)
