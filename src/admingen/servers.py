@@ -3,7 +3,7 @@ import time
 import asyncio
 import json
 import os, os.path
-from inspect import getmembers, isroutine, Signature, Parameter
+from inspect import getmembers, Signature, Parameter
 from urllib.parse import urlparse
 import socket
 import cherrypy

@@ -302,7 +302,6 @@ class Worker(threading.Thread):
                         users = json.load(open(self.ufname))
                         transactions = json.load(open(self.tfname))
                         accounts = json.load(open(self.afname))
-                        # TODO: Load the accounts file
                     else:
                         logging.info('Reading data from exact')
                         users = getUsers(exact_division, self.access_token)

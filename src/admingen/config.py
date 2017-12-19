@@ -9,29 +9,17 @@ from configobj import ConfigObj
 import json
 from io import StringIO
 from string import Template
+from inspect import signature
 
 
 theconfig = {}
 configdir = '.'
 
 
-def confparser(s):
-    """ CONF files all consist of lines with <key> <value> pairs.
-        Unix conventions on quoting and comments are followed.
-    """
-    comments_re = r'(^[^#]*)'
-    def reader():
-        while True:
-            k = next(tokens)
-            v = next(tokens)
-            yield k, v
-    return {k:v for k, v in reader()}
-
-
 
 
 config_parsers = {'.ini': lambda s: ConfigObj(StringIO(s)), '.json': json.loads,
-                  '.conf': confparser}
+                  '.conf': None}
 
 def configfiles():
     """ Generator that returns the full paths to configuration files """
@@ -100,22 +88,49 @@ def configtype(cls):
     """ Decorator that turns a projects specification into a getter for
         accessing the configuration. The configuration is returned as
         an object of type cls.
+        The configuration is a singleton. Instantiating it returns the
+        one and only configuration object.
     """
+    def default_constructor(self, **kwargs):
+        self.__dict__.update(kwargs)
+    def convert_types(d):
+        """ Ensure the provided configuration set is of the right type """
+        result = {}
+        for k, v in d.items():
+            original = getattr(cls, k)
+            if type(original) == bool and type(v) == str:
+                # Decide that value based on the first character: Yes or True.
+                result[k] = v[0].lower() in ['y', 't']
+            else:
+                result[k] = type(original)(v)
+        return result
+
+    def update(kwargs):
+        """ Update the value of the configuration. """
+        new_config = cls(**convert_types(kwargs))
+        config.__dict__.update(new_config.__dict__)
+
+    def factory():
+        """ The function called when a user tries to instantiate the config
+            class. It returns the configuration singleton.
+        """
+        return config
+
+    # Ensure the class has a constructor that accepts parameters.
+    sig = signature(cls)
+    if not sig.parameters:
+        cls.__init__ = default_constructor
+
     # The path is derived from the class name, but in lowercase
     # and with all occurences of 'config' removed.
     path = cls.__name__.lower().replace('config', '')
     # There may already be values in the config: use them!
     init = theconfig.get(path, {})
-    config = cls(**init)
+    config = cls(**convert_types(init))
     # Overwrite any existing config, so it gets the correct type.
     theconfig[path] = config
 
-    def update(kwargs):
-        new_config = cls(**kwargs)
-        config.__dict__.update(new_config.__dict__)
     config.update = update
-    def factory():
-        return config
     return factory
 
 
