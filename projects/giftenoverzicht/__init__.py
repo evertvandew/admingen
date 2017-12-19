@@ -22,7 +22,7 @@ import calendar
 from admingen.clients.exact_rest import authenticateExact, getUsers, getTransactions, getDivisions, getAccounts, config
 from admingen.htmltools import *
 from admingen.config import getConfig
-from .giften import (generate_overviews, generate_overview, amount2Str,
+from .giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
                     odataDate2Datetime, generate_pdfs, pdfName, PDF_DIR)
 from . import model
 
@@ -497,11 +497,11 @@ class Overzichten:
                 totaal = amount2Str(totaal)
                 email = email if email else '-'
                 pdf = pdfName('', naam, rid)[1:]  # Remove the prefix '.'
-                pdf_internal = pdfName(org_id, naam, rid)
+                pdf_internal = pdfUrl(naam, rid)
                 yield rid, naam, email, totaal, pdf, pdf_internal
 
-        t = json.loads(open(TRANSACTIONS_FILE % org_id).read(), parse_float=Decimal)
-        u = json.loads(open(USERS_FILE % org_id).read())
+        t = json.loads(open(TRANSACTIONS_FILE.format(vardir, org_id)).read(), parse_float=Decimal)
+        u = json.loads(open(USERS_FILE.format(vardir, org_id)).read())
         data = generate_overviews(org, u, t)
 
         return overzicht(data_gen(data))

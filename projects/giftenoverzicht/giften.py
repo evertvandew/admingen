@@ -190,6 +190,8 @@ def pdfName(org_id, user_name, user_code):
     return os.path.join(PDF_DIR.format(vardir, org_id),
                         user_name.translate(REMOVE_PUNC) + '_%s' % user_code.strip('_ ') + '.pdf')
 
+def pdfUrl(user_name, user_code):
+    return os.path.join('/all/' + user_name.translate(REMOVE_PUNC) + '_%s' % user_code.strip('_ ') + '.pdf')
 
 def generate_pdfs(org, users, transactions):
     temp_file = '%i.temp.rst' % org['id']
