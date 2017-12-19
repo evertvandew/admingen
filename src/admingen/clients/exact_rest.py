@@ -101,7 +101,7 @@ def getTransactions(exact_division, token, start: datetime, end: datetime):
 
 def getUsers(exact_division, token):
     options = {'$select': 'Code,Name,Email'}
-    users = request(config().users_url % {'division': exact_division}, token, query=options)
+    users = request(config.users_url % {'division': exact_division}, token, query=options)
     return users
 
 

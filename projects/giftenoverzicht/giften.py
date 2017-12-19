@@ -8,11 +8,11 @@ import os, os.path
 import sys
 import re
 import datetime
+import shutil
 import cherrypy
 
-RST2PDF = r'c:\Python26\Scripts\rst2pdf.exe'
-if sys.platform == 'linux2':
-    RST2PDF = '/usr/bin/rst2pdf'
+RST2PDF = shutil.which('rst2pdf') if sys.platform == 'linux2' else 'rst2pdf.exe'
+assert RST2PDF, 'Could not find an executable for rst2pdf'
 
 TRANSACTION_FILE = 'FinTransactionSearch.csv'
 PDF_DIR = '{}/{}.all'
@@ -28,7 +28,7 @@ REMOVE_PUNC = str.maketrans(REMOVE_PUNC)
 
 UK_2_EU = t = str.maketrans({',': '.', '.': ','})
 
-vardir = os.environ.get('VARDIR', os.getcwd())
+vardir = os.environ.get('OPSDIR', os.getcwd())
 
 
 def datesKey(record):
@@ -192,13 +192,13 @@ def generate_overviews(org, users, transactions):
 
 
 def pdfName(org_id, user_name, user_code):
-    return os.path.join(PDF_DIR(vardir, org_id),
+    return os.path.join(PDF_DIR.format(vardir, org_id),
                         user_name.translate(REMOVE_PUNC) + '_%s' % user_code.strip('_ ') + '.pdf')
 
 
 def generate_pdfs(org, users, transactions):
     temp_file = '%i.temp.rst' % org['id']
-    pdfdir = PDF_DIR(vardir, org['id'])
+    pdfdir = PDF_DIR.format(vardir, org['id'])
     if not os.path.exists(pdfdir):
         os.mkdir(pdfdir)
     for code, name, email, total, rst in generate_overviews(org, users, transactions):

@@ -39,7 +39,7 @@ USERS_FILE = '{}/{}.users.json'
 TRANSACTIONS_FILE = '{}/{}.transactions.json'
 ACCOUNTS_FILE = '{}/{}.accounts.json'
 
-vardir = os.environ.get('VARDIR', os.getcwd())
+vardir = os.environ.get('OPSDIR', os.getcwd())
 model.openDb('sqlite://%s/overzichtgen.db' % vardir)
 
 

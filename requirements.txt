@@ -9,3 +9,4 @@ configobj
 pandas
 selenium
 markdown
+rst2pdf
