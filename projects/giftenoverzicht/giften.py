@@ -11,7 +11,8 @@ import datetime
 import shutil
 import cherrypy
 
-RST2PDF = shutil.which('rst2pdf') if sys.platform == 'linux2' else 'rst2pdf.exe'
+binfile = 'rst2pdf.exe' if 'win' in sys.platform else 'rst2pdf'
+RST2PDF = shutil.which(binfile)
 assert RST2PDF, 'Could not find an executable for rst2pdf'
 
 TRANSACTION_FILE = 'FinTransactionSearch.csv'
