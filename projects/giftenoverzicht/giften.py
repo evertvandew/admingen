@@ -9,11 +9,10 @@ import sys
 import re
 import datetime
 import shutil
-import cherrypy
 
 binfile = 'rst2pdf.exe' if 'win' in sys.platform else 'rst2pdf'
 RST2PDF = shutil.which(binfile)
-assert RST2PDF, 'Could not find an executable for rst2pdf'
+assert RST2PDF, 'Could not find an executable for rst2pdf, please do sudo apt install rst2pdf'
 
 TRANSACTION_FILE = 'FinTransactionSearch.csv'
 PDF_DIR = '{}/{}.all'

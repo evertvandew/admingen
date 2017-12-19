@@ -73,6 +73,9 @@ for confdir in [os.environ['HOME']+'/etc/%s'%args.project, '/etc/%s'%args.projec
 from admingen import config
 config.set_configdir(confdir)
 
+# Make the project directory the current directory
+os.chdir(proj_dir)
+
 # Run the project
 print ('Starting project', args.project)
 mod = importlib.import_module(args.project)
