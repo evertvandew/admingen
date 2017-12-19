@@ -18,11 +18,6 @@ assert RST2PDF, 'Could not find an executable for rst2pdf'
 TRANSACTION_FILE = 'FinTransactionSearch.csv'
 PDF_DIR = '{}/{}.all'
 
-print('Platform:', sys.platform)
-RST2PDF = r'c:\Python26\Scripts\rst2pdf.exe'
-if 'linux' in sys.platform:
-    RST2PDF = '/usr/bin/rst2pdf'
-
 REMOVE_PUNC = {ord(char): None for char in string.punctuation}
 REMOVE_PUNC[ord(u' ')] = u'_'
 REMOVE_PUNC = str.maketrans(REMOVE_PUNC)
