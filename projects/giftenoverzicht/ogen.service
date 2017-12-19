@@ -5,8 +5,8 @@ Description=Start Overzicht Generator server
 Type=simple
 User=ogen
 Group=ogen
-ExecStart=/mnt/usb/home/ogen/overzicht_generator/attempt3.py
-WorkingDirectory=/mnt/usb/home/ogen/overzicht_generator
+ExecStart=/home/ogen/.virtualenv/bin/python3.6 /home/ogen/giftenoverzicht/run giftenoverzicht
+WorkingDirectory=/home/ogen/giftenoverzicht
 Restart=always
 RestartSec=3
 

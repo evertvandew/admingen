@@ -496,8 +496,8 @@ class Overzichten:
             for rid, naam, email, totaal, _ in d:
                 totaal = amount2Str(totaal)
                 email = email if email else '-'
-                pdf = pdfName('', naam, rid)[1:]  # Remove the prefix '.'
-                pdf_internal = pdfUrl(naam, rid)
+                pdf = pdfUrl(naam, rid)[1:]  # Remove the prefix '.'
+                pdf_internal = pdfName(org_id, naam, rid)
                 yield rid, naam, email, totaal, pdf, pdf_internal
 
         t = json.loads(open(TRANSACTIONS_FILE.format(vardir, org_id)).read(), parse_float=Decimal)

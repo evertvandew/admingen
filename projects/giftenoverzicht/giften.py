@@ -105,7 +105,7 @@ def odataDate2Datetime(transaction):
 
 
 def generateRstConsolidated(org, relnr, name, gifts, total):
-    logo_path = 'public/static/' + org['logo']
+    logo_path = os.environ['PROJDIR']+'/public/static/' + org['logo']
     yield org['template'] % {'logo': logo_path}
     section_details = dict(jaar=gifts[0]['Date'].year,
                            naam=name,
