@@ -3,10 +3,10 @@ from io import StringIO
 from datetime import datetime, date, time, timedelta
 from unittest import TestCase
 
-import tatsu
+from tatsu.ast import AST
 
-from admingen.dbengine import readconfig, engine, Message, model
-from pony.orm import db_session, select
+from admingen.dbengine import readconfig, engine, Message, model, createDbModel
+from pony.orm import db_session, select, commit
 
 
 class EngineTests(TestCase):
@@ -47,6 +47,17 @@ class EngineTests(TestCase):
 
     def testDefaults(self):
         """ Test if the default property is properly set in the database """
+        tt = [AST(dict(name='TestTable',
+                      columns=[AST({'name': 'ma',
+                                    'details':'float, default=1.234'})]))]
+        db, dbmodel = createDbModel(tt, ['TestTable'])
+        db.bind(provider='sqlite', filename=':memory:')
+        db.generate_mapping(create_tables=True)
+        with db_session:
+            t = dbmodel['TestTable']()
+            commit()
+            self.assertEqual(t.ma, 1.234)
+
 
     def testRules(self):
         """ Test if the rules are properly guarded """

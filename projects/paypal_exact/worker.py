@@ -28,6 +28,7 @@ from admingen import config
 from admingen.clients.rest import OAuth2
 from admingen.clients.paypal import downloadTransactions, pp_reader, EU_COUNTRY_CODES
 from admingen import logging
+from admingen.db_api import the_db
 
 
 @Message
@@ -51,15 +52,19 @@ class taskdetails:
     administration: int
     paypalbook: int
 
+@config.configtype
+class mailconfig:
+    adminmail='evert.vandewaal@xs4all.nl'
+    appname='Paypal Exporter'
+    keyring='paypalreaderring.enc'
+    readersock='paypalreader.sock'
 
-mailconfig = dict(adminmail='evert.vandewaal@xs4all.nl',
-                  selfmail='paypalchecker@ehud',
-                  appname='Paypal Exporter',
-                  keyring='appkeyring.enc')
+
+appconfig = mailconfig()
 
 bootmail = '''I have restarted, and need my keyring unlocked!
 
-Your faithful servant, %s'''
+Your faithful servant, {appconfig.appname}'''
 
 if False:
     # First let the maintainer know we are WAITING!
@@ -77,7 +82,7 @@ WorkerConfig = namedtuple('WorkerConfig',
 
 
 # Create a cache for storing the details of earlier transactions
-db = orm.Database()
+db = the_db
 class TransactionLog(db.Entity):
     timestamp = orm.Required(datetime.datetime)
     pp_tx = orm.Required(str)
@@ -264,7 +269,8 @@ class PaypalExactTask:
         return ' '.join(parts)
 
     def make_transaction(self, transaction, rate=1):
-        """ :param rate: euro_amount / foreign_amount
+        """ Translate a PayPal transaction into a set of Exact bookings
+            :param rate: euro_amount / foreign_amount
         """
         # A regular payment in euro's
         gb_sales, vat_percentage = self.determineAccountVat(transaction)
@@ -277,6 +283,13 @@ class PaypalExactTask:
         # Fourth booking: the VAT on the sale
 
         foreign_valuta = transaction['Valuta']
+
+        # Cache the results
+        with orm.db_session():
+            c = TransactionLog(timestamp=)
+            txs = orm.select(_ for _ in TransactionLog if _.pp_tx == transaction['Reference Txn ID'])
+            for tx in txs:
+                return tx.account, tx.vat_percent
 
         lines = []
         if transaction['Fee']:
@@ -407,9 +420,14 @@ class Worker:
     tasks = {}
     exact_token = None
     oauth = None
-    sockname = '/home/ehwaal/tmp/paypalreader.sock' if config.testmode() else \
-        '/run/paypalreader/readersock'
-    keyringname = '/home/ehwaal/tmp/paypalreader.encr'
+
+    @property
+    def sockname(self):
+        return os.path.join(config.opsdir, appconfig.readersock)
+
+    @property
+    def keyringname(self):
+        return os.path.join(config.opsdir, appconfig.keyring)
 
     @expose
     def unlock(self, password):

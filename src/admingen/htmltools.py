@@ -7,7 +7,8 @@ import logging
 import json
 import re
 import bcrypt
-from .db_api import sessionScope, commit
+from .db_api import sessionScope, commit, getHmiDetails
+from pony.orm.core import EntityMeta
 
 UNAME_FIELD_NAME = '__login_name__'
 PWD_FIELD_NAME = '__login_password__'
@@ -525,48 +526,50 @@ def ACM(permissions, login_func):
 
 def generateFields(table, hidden=None):
     hidden = hidden or []
-    for a in table._attrs_:
-        if a.column:
-            if type(a).__name__ == 'PrimaryKey' or a.column in hidden:
-                yield Hidden(a.column)
+    for name, details in table['columns'].items():
+        if type(a).__name__ == 'PrimaryKey' or a.column in hidden:
+            yield Hidden(a.column)
+        else:
+            if a.type.__name__ == 'ImagePath':
+                yield ImgPathField(name, name)
+            elif details.options:
+                yield Selection(name, details.options(), name)
+            elif details.related_columns is not None:
+                def makeGetter():
+                    def options_getter():
+                        with sessionScope:
+                            cols = details.related_columns
+                            result = [o for o in details.type.select()]
+                            result = [(o._vals_[cols[0]], o._vals_[cols[1]]) for o in result]
+                            if not result and details.is_required:
+                                raise cherrypy.HTTPError(424,
+                                                         "Please define an %s first" % details.type.__name__)
+                            return result
+
+                    return options_getter
+
+                yield Selection(name, makeGetter(), name)
+            elif details.type.__name__ == 'LongStr':
+                yield Text(a.column, a.column)
+            elif details.type.__name__ == 'Password':
+                # Passwords are edited in duplicates
+                elements = SetPassword(name, name)
+                yield elements[0]
+                yield elements[1]
+            elif a.py_type == bool:
+                yield Tickbox(name, name)
             else:
-                print(a.column, [c.__name__ for c in type(a.py_type).__bases__])
-                if a.py_type.__name__ == 'ImagePath':
-                    yield ImgPathField(a.column, a.column)
-                elif hasattr(a.py_type, 'options'):
-                    yield Selection(a.column, a.py_type.options(), a.column)
-                elif a.is_relation:
-                    def makeGetter(col):
-                        def options_getter():
-                            with sessionScope:
-                                cols = (col.py_type._attrs_[0], col.py_type._attrs_[1])
-                                result = [o for o in col.py_type.select()]
-                                result = [(o._vals_[cols[0]], o._vals_[cols[1]]) for o in result]
-                                if not result and col.is_required:
-                                    raise cherrypy.HTTPError(424,
-                                                             "Please define an %s first" % col.py_type._table_)
-                                return result
-
-                        return options_getter
-
-                    yield Selection(a.column, makeGetter(a), a.column)
-                elif a.py_type.__name__ == 'LongStr':
-                    yield Text(a.column, a.column)
-                elif a.py_type.__name__ == 'Password':
-                    # Passwords are edited in duplicates
-                    elements = SetPassword(a.column, a.column)
-                    yield elements[0]
-                    yield elements[1]
-                elif a.py_type == bool:
-                    yield Tickbox(a.column, a.column)
-                else:
-                    yield String(a.column, a.column)
+                yield String(name, name)
 
 
 def generateCrud(table, Page=Page, hidden=None, acm=dummyacm, index_show=None):
-    tablename = table._table_
+    if isinstance(table, EntityMeta):
+        # We have a database table definition: extract the necessary info
+        table = getHmiDetails(table)
+
+    tablename = table['name']
     columns = list(generateFields(table, hidden))
-    column_names = [a.column for a in table._attrs_ if a.column]
+    column_names = table['columns'].keys()
     index_show = index_show or column_names
 
     class Crud:

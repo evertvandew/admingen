@@ -15,7 +15,7 @@ import cherrypy
 from .parsers import fsm_model as model
 from .htmltools import generateCrud
 
-
+# TODO: when py3.7 replace with data classes
 Message = namedtuple('Message', ['method', 'path', 'details'])
 Transition = namedtuple('Transition', ['fsm', 'start', 'end'])
 
@@ -65,6 +65,32 @@ class TrackingEnv(dict):
             return item
 
 
+
+explicit_match = re.compile(r'((Set)|(Optional)|(Required))\(.*\)')
+
+
+def parseColumnDetails(s:str, track: TrackingEnv):
+    """ Parse the details. Two cases are supported:
+            1: The details are an explicit call to orm.Set, orm.Optional, orm.Required etc.
+            2: The details for a set of arguments to orm.Optional.
+    """
+    if explicit_match.match(s):
+        # This is an explicit call, execute it.
+        return eval(s, track)
+    # There follows a set of arguments for Optional.
+    # Split into seperate arguments, and feed them to Optional.
+    parts = s.split(',')
+    args = []
+    kwargs = {}
+    for p in parts:
+        if '=' in p:
+            k, v  = p.split('=')
+            kwargs[k.strip()] = eval(v)
+        else:
+            args.append(eval(p, track))
+    return orm.Optional(*args, **kwargs)
+
+
 def createDbModel(tables, fsm_names):
     """ Instantiate the database tables """
     trackingenv = TrackingEnv()   # Track references to tables
@@ -74,7 +100,7 @@ def createDbModel(tables, fsm_names):
         name = table['name']
         columns = {}
         for column in table['columns']:
-            coltype = eval(column['details'], trackingenv)
+            coltype = parseColumnDetails(column['details'], trackingenv)
             if coltype in [bytes, blob]:
                 continue
             # If the coltype is not already a Pony Attribute, wrap it in an 'Optional'

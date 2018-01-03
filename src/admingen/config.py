@@ -16,8 +16,6 @@ theconfig = {}
 configdir = '.'
 
 
-
-
 config_parsers = {'.ini': lambda s: ConfigObj(StringIO(s)), '.json': json.loads,
                   '.conf': None}
 
@@ -133,6 +131,13 @@ def configtype(cls):
     config.update = update
     return factory
 
+
+
+logdir = os.environ.get('LOGDIR', '') or os.getcwd()
+opsdir = os.environ.get('OPSDIR', '') or os.getcwd()
+rundir = os.environ.get('RUNDIR', '') or os.getcwd()
+
+downloaddir = os.path.join(rundir, 'downloads')
 
 
 def test():

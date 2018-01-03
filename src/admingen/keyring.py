@@ -51,14 +51,19 @@ class KeyRing:
     """ File format: the first line contains a base64 encoded salt.
         Then follows the encrypted data: JSON data with key:value pairs.
     """
-    def __init__(self, fname, passwd):
-        # Get a password
-        passwd = passwd or getpass('Keyring Password:')
-        # Try opening the file if it exists, create it if it doesn't
-        if not os.path.exists(fname):
-            writeFile(fname, passwd, {})
-        # Read the data
-        self.data = readFile(fname, passwd)
+    theKeyring = None
+    def __init__(self, fname=None, passwd=None):
+        if fname is passwd is None:
+            # This is a memory-only test keyring
+            self.data = {}
+        else:
+            # Get a password
+            passwd = passwd or getpass('Keyring Password:')
+            # Try opening the file if it exists, create it if it doesn't
+            if not os.path.exists(fname):
+                writeFile(fname, passwd, {})
+            # Read the data
+            self.data = readFile(fname, passwd)
         self.passwd = passwd
         self.fname = fname
 
@@ -70,16 +75,21 @@ class KeyRing:
         if self[key] == value:
             return
         self.data[key] = value
-        # Make a backup to protect against file corruption due to crashes
-        writeFile(self.fname+'.new', self.passwd, self.data)
-        shutil.move(self.fname, self.fname+'.bak')
-        shutil.move(self.fname+'.new', self.fname)
+        if self.fname:
+            # Make a backup to protect against file corruption due to crashes
+            writeFile(self.fname+'.new', self.passwd, self.data)
+            shutil.move(self.fname, self.fname+'.bak')
+            shutil.move(self.fname+'.new', self.fname)
 
 
     def items(self):
         return self.data.items()
     def keys(self):
         return self.data.keys()
+
+    @staticmethod
+    def setTheKeyring(ring):
+        KeyRing.theKeyring = ring
 
 
 

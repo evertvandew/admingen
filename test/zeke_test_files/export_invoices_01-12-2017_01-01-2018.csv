@@ -1,0 +1,423 @@
+Factuurnummer,Factuurdatum,Order ID,Herkomst,Valuta,Totaalbedrag incl. BTW,BTW-bedrag,Naam klant,Land factuuradres,Betaalmethode,,
+8174215,02-12-2017,12736,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174216,02-12-2017,12737,amazon,USD,106,99,0,0,Pietje Puk,US,Amazon
+8174217,02-12-2017,12739,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174218,02-12-2017,12740,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174219,02-12-2017,12747,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174220,03-12-2017,12748,amazon,USD,55,18,0,0,Pietje Puk,US,Amazon
+8174221,03-12-2017,12749,amazon,USD,127,94,0,0,Pietje Puk,US,Amazon
+8174222,03-12-2017,12756,amazon,USD,64,99,0,0,Pietje Puk,US,Amazon
+8174223,03-12-2017,12757,amazon,USD,129,98,0,0,Pietje Puk,US,Amazon
+8174224,03-12-2017,12758,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174225,04-12-2017,12763,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174226,04-12-2017,12764,amazon,USD,127,94,0,0,Pietje Puk,US,Amazon
+8174227,04-12-2017,12766,amazon,USD,19,98,0,0,Pietje Puk,US,Amazon
+8174228,04-12-2017,12767,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174229,04-12-2017,12768,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174230,04-12-2017,12770,email,EUR,0,0,0,0,Pietje Puk,EE,Vooruitbetaling
+8174231,04-12-2017,12771,email,EUR,0,0,0,0,Pietje Puk,EE,Vooruitbetaling
+8174232,04-12-2017,12771,email,EUR,315,14,0,0,Pietje Puk,EE,Vooruitbetaling
+8174233,04-12-2017,12738,webshop,EUR,0,0,0,0,Pietje Puk,KE,Sisow PayPal
+8174234,04-12-2017,12738,webshop,EUR,206,45,0,0,Pietje Puk,KE,Sisow PayPal
+8174235,04-12-2017,12773,amazon,USD,170,0,0,0,Pietje Puk,US,Amazon
+8174236,04-12-2017,12775,webshop,EUR,163,5,28,30,Pietje Puk,FI,Sisow PayPal
+8174237,04-12-2017,12769,webshop,EUR,17,49,3,4,Pietje Puk,DE,Sisow PayPal
+8174238,04-12-2017,12765,webshop,EUR,46,70,8,10,Pietje Puk,FR,Sisow PayPal
+8174239,04-12-2017,12762,ebay,EUR,165,90,28,79,Pietje Puk,HU,Paypal
+8174240,04-12-2017,12761,webshop,EUR,179,41,31,14,Pietje Puk,IT,Sisow PayPal
+8174241,04-12-2017,12760,webshop,EUR,219,89,38,16,Pietje Puk,FR,Sisow Credit Card
+8174242,04-12-2017,12759,webshop,EUR,296,42,51,45,Pietje Puk,SE,Sisow Credit Card
+8174243,04-12-2017,12755,webshop,EUR,51,90,9,1,Pietje Puk,NL,iDeal
+8174244,04-12-2017,12754,webshop,EUR,188,72,32,75,Pietje Puk,FI,Sisow PayPal
+8174245,04-12-2017,12753,webshop,EUR,169,22,29,37,Pietje Puk,IT,Sisow PayPal
+8174246,04-12-2017,12752,webshop,EUR,21,90,3,80,Pietje Puk,NL,iDeal
+8174247,04-12-2017,12750,webshop,EUR,45,17,7,84,Pietje Puk,FR,Sisow PayPal
+8174248,04-12-2017,12745,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174249,04-12-2017,12744,webshop,EUR,116,63,20,24,Pietje Puk,FI,Sisow Credit Card
+8174250,04-12-2017,12743,webshop,EUR,168,65,29,27,Pietje Puk,FR,Sisow PayPal
+8174251,04-12-2017,12735,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174252,04-12-2017,12734,webshop,EUR,302,37,52,48,Pietje Puk,FR,Sisow PayPal
+8174253,04-12-2017,12733,webshop,EUR,155,74,27,3,Pietje Puk,FI,Sisow PayPal
+8174254,04-12-2017,12732,webshop,EUR,162,48,28,20,Pietje Puk,DE,Sisow PayPal
+8174255,04-12-2017,12712,webshop,EUR,159,44,27,67,Pietje Puk,FI,Sisow Bankoverschrijving
+8174256,04-12-2017,12776,amazon,USD,106,99,0,0,Pietje Puk,US,Amazon
+8174257,04-12-2017,12777,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174258,04-12-2017,12778,amazon,USD,109,91,0,0,Pietje Puk,US,Amazon
+8174259,04-12-2017,12787,amazon,USD,106,99,0,0,Pietje Puk,US,Amazon
+8174260,05-12-2017,12789,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174261,05-12-2017,12790,amazon,USD,75,27,0,0,Pietje Puk,US,Amazon
+8174262,05-12-2017,12791,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174263,05-12-2017,12792,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174264,05-12-2017,12793,amazon,USD,109,95,0,0,Pietje Puk,US,Amazon
+8174265,05-12-2017,12794,amazon,USD,117,13,0,0,Pietje Puk,US,Amazon
+8174266,05-12-2017,12795,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174267,05-12-2017,12796,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174268,05-12-2017,12797,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174269,05-12-2017,12788,webshop,EUR,24,54,4,26,Pietje Puk,BE,Sisow PayPal
+8174270,05-12-2017,12786,webshop,EUR,209,76,36,40,Pietje Puk,DE,Sisow PayPal
+8174271,05-12-2017,12785,webshop,EUR,169,22,29,37,Pietje Puk,AT,Sisow PayPal
+8174272,05-12-2017,12784,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174273,05-12-2017,12783,webshop,EUR,37,51,6,51,Pietje Puk,DK,Sisow PayPal
+8174274,05-12-2017,12779,webshop,EUR,155,13,26,92,Pietje Puk,GB,Sisow Credit Card
+8174275,05-12-2017,11061,webshop,EUR,-129,95,-22,55,Pietje Puk,NL,Sisow PayPal
+8174276,05-12-2017,12801,amazon,USD,150,54,0,0,Pietje Puk,US,Amazon
+8174277,05-12-2017,12804,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174278,05-12-2017,12805,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174279,05-12-2017,12807,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174280,06-12-2017,12808,amazon,USD,158,52,0,0,Pietje Puk,US,Amazon
+8174281,06-12-2017,12810,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174282,06-12-2017,12811,amazon,USD,117,13,0,0,Pietje Puk,US,Amazon
+8174283,06-12-2017,12812,amazon,USD,117,13,0,0,Pietje Puk,US,Amazon
+8174284,06-12-2017,12814,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174285,06-12-2017,12815,amazon,USD,117,13,0,0,Pietje Puk,US,Amazon
+8174286,06-12-2017,12820,amazon,USD,64,99,0,0,Pietje Puk,US,Amazon
+8174287,06-12-2017,12821,amazon,USD,64,99,0,0,Pietje Puk,US,Amazon
+8174288,06-12-2017,12818,webshop,EUR,58,30,0,0,Pietje Puk,IN,Sisow PayPal
+8174289,06-12-2017,12822,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174290,06-12-2017,12771,email,EUR,0,0,0,0,Pietje Puk,EE,Vooruitbetaling
+8174291,06-12-2017,12819,webshop,EUR,178,43,30,97,Pietje Puk,FI,Sisow PayPal
+8174292,06-12-2017,12817,webshop,EUR,0,0,0,0,Pietje Puk,SE,Sisow Credit Card
+8174293,06-12-2017,12816,email,EUR,85,90,14,91,Pietje Puk,FI,Paypal
+8174294,06-12-2017,12813,webshop,EUR,146,90,25,49,Pietje Puk,NL,iDeal
+8174295,06-12-2017,12809,webshop,EUR,30,36,5,27,Pietje Puk,GB,Sisow PayPal
+8174296,06-12-2017,12806,webshop,EUR,286,85,49,78,Pietje Puk,NL,iDeal
+8174297,06-12-2017,12803,webshop,EUR,35,45,6,15,Pietje Puk,NL,iDeal
+8174298,06-12-2017,12800,webshop,EUR,143,97,24,99,Pietje Puk,NL,Sisow PayPal
+8174299,06-12-2017,12799,webshop,EUR,116,90,20,29,Pietje Puk,NL,iDeal
+8174300,06-12-2017,12798,webshop,EUR,42,9,7,30,Pietje Puk,GB,Sisow PayPal
+8174301,06-12-2017,12780,webshop,EUR,209,44,36,35,Pietje Puk,FI,Sisow Bankoverschrijving
+8174302,06-12-2017,12087,webshop,EUR,199,40,34,61,Pietje Puk,NL,iDeal
+8174303,06-12-2017,12824,amazon,USD,117,13,0,0,Pietje Puk,US,Amazon
+8174304,07-12-2017,12832,amazon,USD,106,99,0,0,Pietje Puk,US,Amazon
+8174305,07-12-2017,12833,amazon,USD,140,60,0,0,Pietje Puk,US,Amazon
+8174306,07-12-2017,12834,amazon,USD,9,99,0,0,Pietje Puk,US,Amazon
+8174307,07-12-2017,12835,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174308,07-12-2017,12836,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174309,07-12-2017,12837,amazon,USD,79,26,0,0,Pietje Puk,US,Amazon
+8174310,07-12-2017,12817,webshop,EUR,134,62,0,0,Pietje Puk,SE,Sisow Credit Card
+8174311,07-12-2017,12840,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174312,07-12-2017,12843,amazon,USD,150,54,0,0,Pietje Puk,US,Amazon
+8174313,07-12-2017,12847,webshop,EUR,196,87,34,17,Pietje Puk,NL,iDeal
+8174314,07-12-2017,12845,webshop,EUR,290,90,50,49,Pietje Puk,DE,Sisow PayPal
+8174315,07-12-2017,12842,webshop,EUR,86,58,0,0,Pietje Puk,PT,Sisow PayPal
+8174316,07-12-2017,12839,email,EUR,82,19,14,26,Pietje Puk,FI,Paypal
+8174317,07-12-2017,12838,phone,EUR,327,86,56,90,Pietje Puk,NL,Op rekening
+8174318,07-12-2017,12831,webshop,EUR,59,44,0,0,Pietje Puk,US,Sisow Credit Card
+8174319,07-12-2017,12829,webshop,EUR,295,55,51,29,Pietje Puk,IT,Sisow PayPal
+8174320,07-12-2017,12828,webshop,EUR,224,6,38,89,Pietje Puk,DE,Sisow PayPal
+8174321,07-12-2017,12827,webshop,EUR,265,60,46,10,Pietje Puk,NL,iDeal
+8174322,07-12-2017,12826,webshop,EUR,78,98,13,71,Pietje Puk,NL,AfterPay
+8174323,07-12-2017,12825,webshop,EUR,245,13,42,54,Pietje Puk,SE,Sisow Credit Card
+8174324,07-12-2017,12823,webshop,EUR,77,97,13,53,Pietje Puk,GB,Sisow Credit Card
+8174325,07-12-2017,12781,webshop,EUR,265,38,46,6,Pietje Puk,DE,Sisow PayPal
+8174326,07-12-2017,12848,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174327,07-12-2017,12851,amazon,USD,31,58,0,0,Pietje Puk,US,Amazon
+8174328,08-12-2017,12853,amazon,USD,14,92,0,0,Pietje Puk,US,Amazon
+8174329,08-12-2017,12854,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174330,08-12-2017,12855,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174331,08-12-2017,12844,webshop,EUR,135,67,23,55,Pietje Puk,HR,Sisow PayPal
+8174332,08-12-2017,12577,webshop,EUR,-121,32,-21,6,Pietje Puk,DE,Sisow PayPal
+8174333,08-12-2017,12857,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174334,08-12-2017,11797,webshop,EUR,-169,95,-29,50,Pietje Puk,GB,Sisow Credit Card
+8174335,08-12-2017,12858,email,EUR,90,91,15,78,Pietje Puk,NL,Op rekening
+8174336,08-12-2017,12852,webshop,EUR,146,90,25,50,Pietje Puk,NL,iDeal
+8174337,08-12-2017,12849,webshop,EUR,135,0,23,43,Pietje Puk,BE,Sisow PayPal
+8174338,08-12-2017,12846,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174339,08-12-2017,12860,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174340,09-12-2017,12863,amazon,USD,105,99,0,0,Pietje Puk,US,Amazon
+8174341,09-12-2017,12864,amazon,USD,113,86,0,0,Pietje Puk,US,Amazon
+8174342,09-12-2017,12865,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174343,09-12-2017,12866,amazon,USD,105,99,0,0,Pietje Puk,US,Amazon
+8174344,09-12-2017,12867,amazon,USD,29,97,0,0,Pietje Puk,US,Amazon
+8174345,09-12-2017,12868,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174346,09-12-2017,12869,amazon,USD,105,99,0,0,Pietje Puk,US,Amazon
+8174347,09-12-2017,12870,amazon,USD,9,99,0,0,Pietje Puk,US,Amazon
+8174348,09-12-2017,12871,amazon,USD,105,99,0,0,Pietje Puk,US,Amazon
+8174349,09-12-2017,12872,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174350,09-12-2017,12873,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174351,09-12-2017,12874,amazon,USD,70,26,0,0,Pietje Puk,US,Amazon
+8174352,09-12-2017,12880,amazon,USD,109,87,0,0,Pietje Puk,US,Amazon
+8174353,09-12-2017,12882,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174354,10-12-2017,12884,amazon,USD,148,50,0,0,Pietje Puk,US,Amazon
+8174355,10-12-2017,12885,amazon,USD,170,0,0,0,Pietje Puk,US,Amazon
+8174356,10-12-2017,12886,amazon,USD,164,99,0,0,Pietje Puk,US,Amazon
+8174357,10-12-2017,12887,amazon,USD,129,99,0,0,Pietje Puk,US,Amazon
+8174358,10-12-2017,12888,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174359,10-12-2017,12892,amazon,USD,129,99,0,0,Pietje Puk,US,Amazon
+8174360,10-12-2017,12894,amazon,USD,105,99,0,0,Pietje Puk,US,Amazon
+8174361,11-12-2017,12895,amazon,USD,137,98,0,0,Pietje Puk,US,Amazon
+8174362,11-12-2017,12881,webshop,EUR,84,95,0,0,Pietje Puk,CH,Sisow PayPal
+8174363,11-12-2017,12896,email,EUR,132,90,23,7,Pietje Puk,CZ,Paypal
+8174364,11-12-2017,12897,amazon,USD,9,99,0,0,Pietje Puk,US,Amazon
+8174365,11-12-2017,12883,webshop,EUR,57,47,9,97,Pietje Puk,GB,Sisow PayPal
+8174366,11-12-2017,12876,webshop,EUR,166,90,28,97,Pietje Puk,NL,iDeal
+8174367,11-12-2017,12875,phone,EUR,0,0,0,0,Pietje Puk,NL,Op rekening
+8174368,11-12-2017,12862,webshop,EUR,111,3,19,27,Pietje Puk,DE,Sisow PayPal
+8174369,11-12-2017,12850,webshop,EUR,162,32,28,17,Pietje Puk,DE,Sisow Credit Card
+8174370,11-12-2017,12899,amazon,USD,164,99,0,0,Pietje Puk,US,Amazon
+8174371,11-12-2017,12900,amazon,USD,129,99,0,0,Pietje Puk,US,Amazon
+8174372,12-12-2017,12903,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174373,12-12-2017,12904,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174374,12-12-2017,12906,amazon,USD,164,99,0,0,Pietje Puk,US,Amazon
+8174375,12-12-2017,12908,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174376,12-12-2017,12909,amazon,USD,104,99,0,0,Pietje Puk,US,Amazon
+8174377,12-12-2017,12910,amazon,USD,129,99,0,0,Pietje Puk,US,Amazon
+8174378,12-12-2017,12912,amazon,USD,129,99,0,0,Pietje Puk,US,Amazon
+8174379,12-12-2017,12911,webshop,EUR,162,89,28,27,Pietje Puk,FI,Sisow Credit Card
+8174380,12-12-2017,12901,webshop,EUR,18,42,3,20,Pietje Puk,DE,Sisow PayPal
+8174381,12-12-2017,12898,webshop,EUR,166,90,28,97,Pietje Puk,NL,iDeal
+8174382,12-12-2017,12893,webshop,EUR,268,21,46,55,Pietje Puk,GB,Sisow Credit Card
+8174383,12-12-2017,12891,webshop,EUR,294,34,51,8,Pietje Puk,FI,Sisow Bankoverschrijving
+8174384,12-12-2017,12889,webshop,EUR,216,86,37,64,Pietje Puk,FI,Sisow Credit Card
+8174385,12-12-2017,12861,webshop,EUR,109,44,18,99,Pietje Puk,FI,Sisow Bankoverschrijving
+8174386,12-12-2017,12856,webshop,EUR,276,13,47,92,Pietje Puk,FI,Sisow PayPal
+8174387,12-12-2017,12913,email,EUR,287,85,0,0,Pietje Puk,FI,Vooruitbetaling
+8174388,12-12-2017,12915,amazon,USD,29,60,0,0,Pietje Puk,US,Amazon
+8174389,12-12-2017,12916,amazon,USD,21,99,0,0,Pietje Puk,US,Amazon
+8174390,13-12-2017,12921,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174391,13-12-2017,12922,amazon,USD,14,92,0,0,Pietje Puk,US,Amazon
+8174392,13-12-2017,12923,amazon,USD,9,99,0,0,Pietje Puk,US,Amazon
+8174393,13-12-2017,12924,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174394,13-12-2017,12925,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174395,13-12-2017,12913,email,EUR,0,0,0,0,Pietje Puk,FI,Vooruitbetaling
+8174396,13-12-2017,12927,amazon,USD,21,99,0,0,Pietje Puk,US,Amazon
+8174397,13-12-2017,12928,amazon,USD,29,97,0,0,Pietje Puk,US,Amazon
+8174398,13-12-2017,12920,webshop,EUR,234,51,40,70,Pietje Puk,DE,Sisow PayPal
+8174399,13-12-2017,12919,webshop,EUR,162,48,28,20,Pietje Puk,DE,Sisow PayPal
+8174400,13-12-2017,12914,webshop,EUR,39,0,6,77,Pietje Puk,DE,Sisow PayPal
+8174401,13-12-2017,12830,webshop,EUR,45,17,7,84,Pietje Puk,FR,Sisow PayPal
+8174402,13-12-2017,12467,webshop,EUR,-30,0,-5,21,Pietje Puk,DE,Sisow GiroPay
+8174403,13-12-2017,12929,webshop,EUR,229,37,39,81,Pietje Puk,FR,Sisow PayPal
+8174404,13-12-2017,12930,amazon,USD,74,75,0,0,Pietje Puk,US,Amazon
+8174405,13-12-2017,12932,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174406,14-12-2017,12935,amazon,USD,134,99,0,0,Pietje Puk,US,Amazon
+8174407,14-12-2017,12937,amazon,USD,140,52,0,0,Pietje Puk,US,Amazon
+8174408,14-12-2017,12940,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174409,14-12-2017,12934,webshop,EUR,155,16,0,0,Pietje Puk,CH,Sisow PayPal
+8174410,14-12-2017,12939,webshop,EUR,69,40,12,4,Pietje Puk,NL,iDeal
+8174411,14-12-2017,12938,webshop,EUR,36,90,6,40,Pietje Puk,NL,iDeal
+8174412,14-12-2017,12936,webshop,EUR,70,44,12,22,Pietje Puk,FI,Sisow PayPal
+8174413,14-12-2017,12933,webshop,EUR,272,60,47,31,Pietje Puk,PL,Sisow Sofort Banking
+8174414,14-12-2017,11975,webshop,EUR,-75,95,-13,18,Pietje Puk,NL,iDeal
+8174415,14-12-2017,12943,amazon,USD,154,52,0,0,Pietje Puk,US,Amazon
+8174416,15-12-2017,12945,amazon,USD,9,99,0,0,Pietje Puk,US,Amazon
+8174417,15-12-2017,12946,amazon,USD,134,99,0,0,Pietje Puk,US,Amazon
+8174418,15-12-2017,12947,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174419,15-12-2017,12948,amazon,USD,70,26,0,0,Pietje Puk,US,Amazon
+8174420,15-12-2017,12953,amazon,USD,170,0,0,0,Pietje Puk,US,Amazon
+8174421,15-12-2017,12952,webshop,EUR,172,77,29,98,Pietje Puk,DE,Sisow PayPal
+8174422,15-12-2017,12950,webshop,EUR,215,90,37,47,Pietje Puk,NL,iDeal
+8174423,15-12-2017,12949,webshop,EUR,14,90,2,59,Pietje Puk,NL,iDeal
+8174424,15-12-2017,12944,webshop,EUR,159,80,27,73,Pietje Puk,EE,Sisow Credit Card
+8174425,15-12-2017,12942,webshop,EUR,167,92,29,14,Pietje Puk,NL,iDeal
+8174426,15-12-2017,12941,webshop,EUR,16,35,2,84,Pietje Puk,BE,Sisow Credit Card
+8174427,15-12-2017,12597,webshop,EUR,26,85,4,66,Pietje Puk,NL,iDeal
+8174428,15-12-2017,12956,amazon,USD,14,92,0,0,Pietje Puk,US,Amazon
+8174429,15-12-2017,12957,amazon,USD,113,38,0,0,Pietje Puk,US,Amazon
+8174430,16-12-2017,12962,amazon,USD,154,52,0,0,Pietje Puk,US,Amazon
+8174431,16-12-2017,12963,amazon,USD,134,99,0,0,Pietje Puk,US,Amazon
+8174432,16-12-2017,12964,amazon,USD,134,99,0,0,Pietje Puk,US,Amazon
+8174433,16-12-2017,12965,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174434,16-12-2017,12967,amazon,USD,104,39,0,0,Pietje Puk,US,Amazon
+8174435,16-12-2017,12968,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174436,16-12-2017,12969,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174437,16-12-2017,12971,amazon,USD,70,26,0,0,Pietje Puk,US,Amazon
+8174438,16-12-2017,12974,amazon,USD,68,99,0,0,Pietje Puk,US,Amazon
+8174439,17-12-2017,12977,amazon,USD,77,26,0,0,Pietje Puk,US,Amazon
+8174440,17-12-2017,12978,amazon,USD,154,52,0,0,Pietje Puk,US,Amazon
+8174441,17-12-2017,12980,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174442,18-12-2017,12989,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174443,18-12-2017,12992,amazon,USD,164,99,0,0,Pietje Puk,US,Amazon
+8174444,18-12-2017,12994,amazon,USD,14,92,0,0,Pietje Puk,US,Amazon
+8174445,18-12-2017,12970,webshop,EUR,74,55,0,0,Pietje Puk,JP,Sisow PayPal
+8174446,18-12-2017,12995,amazon,USD,77,26,0,0,Pietje Puk,US,Amazon
+8174447,18-12-2017,12996,amazon,USD,70,26,0,0,Pietje Puk,US,Amazon
+8174448,18-12-2017,12979,webshop,EUR,239,61,41,58,Pietje Puk,NL,iDeal
+8174449,18-12-2017,12993,webshop,EUR,0,0,0,0,Pietje Puk,SE,Sisow Credit Card
+8174450,18-12-2017,12990,webshop,EUR,286,88,49,79,Pietje Puk,NL,iDeal
+8174451,18-12-2017,12987,webshop,EUR,75,84,13,16,Pietje Puk,NL,AfterPay
+8174452,18-12-2017,12985,webshop,EUR,250,46,43,47,Pietje Puk,FI,Sisow PayPal
+8174453,18-12-2017,12983,webshop,EUR,255,61,44,36,Pietje Puk,GB,Sisow PayPal
+8174454,18-12-2017,12982,webshop,EUR,36,85,6,40,Pietje Puk,NL,iDeal
+8174455,18-12-2017,12981,webshop,EUR,64,67,11,22,Pietje Puk,DE,Sisow PayPal
+8174456,18-12-2017,12975,webshop,EUR,161,45,28,2,Pietje Puk,NL,Sisow PayPal
+8174457,18-12-2017,12973,webshop,EUR,14,90,2,59,Pietje Puk,NL,iDeal
+8174458,18-12-2017,12961,webshop,EUR,190,21,33,1,Pietje Puk,SI,Sisow PayPal
+8174459,18-12-2017,12991,webshop,EUR,20,93,3,63,Pietje Puk,NL,iDeal
+8174460,18-12-2017,12960,webshop,EUR,59,44,0,0,Pietje Puk,US,Sisow Credit Card
+8174461,18-12-2017,12959,webshop,EUR,318,6,55,20,Pietje Puk,DK,Sisow Credit Card
+8174462,18-12-2017,12958,webshop,EUR,87,85,15,25,Pietje Puk,NL,iDeal
+8174463,18-12-2017,12999,webshop,EUR,21,90,3,80,Pietje Puk,NL,iDeal
+8174464,18-12-2017,13002,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174465,18-12-2017,13005,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174466,19-12-2017,13007,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174467,19-12-2017,12651,webshop,EUR,160,40,0,0,Pietje Puk,US,Sisow PayPal
+8174468,19-12-2017,13010,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174469,19-12-2017,13011,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174470,19-12-2017,12993,webshop,EUR,153,87,0,0,Pietje Puk,SE,Sisow Credit Card
+8174471,19-12-2017,13004,webshop,EUR,26,20,4,55,Pietje Puk,NL,AfterPay
+8174472,19-12-2017,13009,webshop,EUR,259,3,0,0,Pietje Puk,IN,Sisow Credit Card
+8174473,19-12-2017,13014,email,EUR,0,0,0,0,Pietje Puk,DE,Paypal
+8174474,19-12-2017,13013,webshop,EUR,54,38,9,44,Pietje Puk,DE,Sisow PayPal
+8174475,19-12-2017,13008,webshop,EUR,141,90,24,63,Pietje Puk,DE,Sisow PayPal
+8174476,19-12-2017,13006,webshop,EUR,255,82,44,40,Pietje Puk,FR,Sisow Credit Card
+8174477,19-12-2017,13001,webshop,EUR,120,91,20,98,Pietje Puk,NL,iDeal
+8174478,19-12-2017,12907,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174479,19-12-2017,13016,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174480,20-12-2017,13018,amazon,USD,68,99,0,0,Pietje Puk,US,Amazon
+8174481,20-12-2017,13019,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174482,20-12-2017,12998,email,EUR,287,93,0,0,Pietje Puk,US,Paypal
+8174483,20-12-2017,13020,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174484,20-12-2017,13021,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174485,20-12-2017,13017,webshop,EUR,45,25,0,0,Pietje Puk,US,Sisow PayPal
+8174486,21-12-2017,13031,amazon,USD,14,92,0,0,Pietje Puk,US,Amazon
+8174487,21-12-2017,13032,amazon,USD,14,92,0,0,Pietje Puk,US,Amazon
+8174488,21-12-2017,13024,webshop,EUR,172,94,0,0,Pietje Puk,MD,Sisow Credit Card
+8174489,21-12-2017,13035,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174490,21-12-2017,13037,webshop,EUR,138,2,0,0,Pietje Puk,NO,Sisow Credit Card
+8174491,21-12-2017,13038,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174492,21-12-2017,13036,webshop,EUR,149,38,25,93,Pietje Puk,DE,Sisow Sofort Banking
+8174493,21-12-2017,13034,webshop,EUR,162,48,28,20,Pietje Puk,DE,Sisow PayPal
+8174494,21-12-2017,13030,webshop,EUR,72,20,12,53,Pietje Puk,NL,AfterPay
+8174495,21-12-2017,13027,webshop,EUR,152,61,26,49,Pietje Puk,FI,Sisow Credit Card
+8174496,21-12-2017,13026,webshop,EUR,21,90,3,80,Pietje Puk,NL,iDeal
+8174497,21-12-2017,13023,webshop,EUR,136,90,23,76,Pietje Puk,NL,iDeal
+8174498,21-12-2017,13022,webshop,EUR,135,21,23,47,Pietje Puk,DE,Sisow PayPal
+8174499,21-12-2017,13003,webshop,EUR,167,57,29,8,Pietje Puk,DE,Sisow PayPal
+8174500,21-12-2017,13000,webshop,EUR,227,95,39,56,Pietje Puk,FI,Sisow PayPal
+8174501,21-12-2017,12986,webshop,EUR,69,83,12,12,Pietje Puk,GB,Paypal
+8174502,21-12-2017,12972,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174503,21-12-2017,12966,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174504,21-12-2017,12802,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174505,21-12-2017,12782,webshop,EUR,253,90,44,7,Pietje Puk,NL,iDeal
+8174506,21-12-2017,12772,webshop,EUR,144,85,25,14,Pietje Puk,GB,Sisow Credit Card
+8174507,21-12-2017,12746,webshop,EUR,155,28,26,95,Pietje Puk,GB,Paypal
+8174508,21-12-2017,12741,webshop,EUR,144,85,25,14,Pietje Puk,GB,Sisow Credit Card
+8174509,21-12-2017,12706,webshop,EUR,148,89,25,84,Pietje Puk,DE,Sisow Bankoverschrijving
+8174510,21-12-2017,12663,webshop,EUR,162,48,28,20,Pietje Puk,DE,Sisow PayPal
+8174511,21-12-2017,12495,webshop,EUR,140,73,24,42,Pietje Puk,NL,Sisow Credit Card
+8174512,21-12-2017,12490,webshop,EUR,384,52,66,73,Pietje Puk,AT,Vooruitbetaling
+8174513,21-12-2017,13044,amazon,USD,116,7,0,0,Pietje Puk,US,Amazon
+8174514,21-12-2017,13045,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174515,22-12-2017,13048,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174516,22-12-2017,13052,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174517,22-12-2017,13040,webshop,EUR,143,39,0,0,Pietje Puk,MK,Sisow PayPal
+8174518,22-12-2017,13046,webshop,EUR,15,37,2,67,Pietje Puk,NL,Sisow Credit Card
+8174519,22-12-2017,13053,webshop,EUR,38,41,6,67,Pietje Puk,NL,Op rekening
+8174520,22-12-2017,13054,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174521,22-12-2017,13056,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174522,22-12-2017,12292,webshop,EUR,156,39,27,14,Pietje Puk,DE,Sisow PayPal
+8174523,22-12-2017,13058,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174524,22-12-2017,12878,webshop,EUR,138,2,0,0,Pietje Puk,NO,Sisow Credit Card
+8174525,22-12-2017,12890,ebay,EUR,165,90,28,79,Pietje Puk,FI,Paypal
+8174526,22-12-2017,13057,webshop,EUR,23,49,4,8,Pietje Puk,NL,Sisow Credit Card
+8174527,22-12-2017,13055,webshop,EUR,162,89,28,27,Pietje Puk,SE,Sisow Credit Card
+8174528,22-12-2017,13050,webshop,EUR,54,38,9,44,Pietje Puk,BE,Sisow PayPal
+8174529,22-12-2017,13049,webshop,EUR,213,93,37,13,Pietje Puk,DE,Sisow PayPal
+8174530,22-12-2017,13047,webshop,EUR,69,45,12,5,Pietje Puk,NL,iDeal
+8174531,22-12-2017,13043,webshop,EUR,246,55,42,79,Pietje Puk,GB,Sisow PayPal
+8174532,22-12-2017,13042,webshop,EUR,162,89,28,27,Pietje Puk,FI,Sisow Credit Card
+8174533,22-12-2017,13041,webshop,EUR,175,17,30,40,Pietje Puk,LT,Sisow Credit Card
+8174534,22-12-2017,13039,webshop,EUR,254,6,44,9,Pietje Puk,NL,Sisow PayPal
+8174535,22-12-2017,13025,webshop,EUR,162,48,28,20,Pietje Puk,DE,Sisow PayPal
+8174536,22-12-2017,13012,webshop,EUR,183,63,31,87,Pietje Puk,SE,Sisow PayPal
+8174537,22-12-2017,12984,webshop,EUR,211,39,36,69,Pietje Puk,AT,Sisow Bankoverschrijving
+8174538,22-12-2017,12976,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174539,22-12-2017,12951,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174540,22-12-2017,12926,webshop,EUR,332,40,57,69,Pietje Puk,FI,Sisow Credit Card
+8174541,22-12-2017,12918,webshop,EUR,188,54,32,72,Pietje Puk,FI,Sisow Credit Card
+8174542,22-12-2017,12917,webshop,EUR,217,32,37,72,Pietje Puk,EE,Sisow Credit Card
+8174543,22-12-2017,13060,amazon,USD,104,99,0,0,Pietje Puk,US,Amazon
+8174544,22-12-2017,13061,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174545,23-12-2017,13064,amazon,USD,164,99,0,0,Pietje Puk,US,Amazon
+8174546,23-12-2017,13065,amazon,USD,104,99,0,0,Pietje Puk,US,Amazon
+8174547,23-12-2017,13066,amazon,USD,27,59,0,0,Pietje Puk,US,Amazon
+8174548,23-12-2017,13068,amazon,USD,8,99,0,0,Pietje Puk,US,Amazon
+8174549,23-12-2017,13072,amazon,USD,59,0,0,0,Pietje Puk,US,Amazon
+8174550,23-12-2017,13074,amazon,USD,123,9,0,0,Pietje Puk,US,Amazon
+8174551,24-12-2017,13077,amazon,USD,154,52,0,0,Pietje Puk,US,Amazon
+8174552,24-12-2017,13078,amazon,USD,108,98,0,0,Pietje Puk,US,Amazon
+8174553,24-12-2017,13079,amazon,USD,163,2,0,0,Pietje Puk,US,Amazon
+8174554,24-12-2017,13080,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174555,24-12-2017,13081,amazon,USD,8,99,0,0,Pietje Puk,US,Amazon
+8174556,24-12-2017,13086,amazon,USD,70,26,0,0,Pietje Puk,US,Amazon
+8174557,27-12-2017,13106,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174558,27-12-2017,13107,amazon,USD,77,26,0,0,Pietje Puk,US,Amazon
+8174559,27-12-2017,13102,webshop,EUR,138,2,0,0,Pietje Puk,NO,Sisow Credit Card
+8174560,27-12-2017,13101,webshop,EUR,56,26,0,0,Pietje Puk,CH,Sisow Sofort Banking
+8174561,27-12-2017,13109,amazon,USD,19,98,0,0,Pietje Puk,US,Amazon
+8174562,27-12-2017,13110,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174563,27-12-2017,13104,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174564,27-12-2017,13103,webshop,EUR,21,90,3,80,Pietje Puk,NL,iDeal
+8174565,27-12-2017,13099,webshop,EUR,170,34,29,56,Pietje Puk,SE,Sisow Credit Card
+8174566,27-12-2017,13098,webshop,EUR,152,19,26,41,Pietje Puk,DE,Sisow PayPal
+8174567,27-12-2017,13096,webshop,EUR,35,2,6,8,Pietje Puk,BE,Sisow MisterCash
+8174568,27-12-2017,13095,webshop,EUR,56,90,9,88,Pietje Puk,NL,iDeal
+8174569,27-12-2017,13094,webshop,EUR,136,90,23,76,Pietje Puk,NL,iDeal
+8174570,27-12-2017,13093,webshop,EUR,27,25,4,73,Pietje Puk,NL,iDeal
+8174571,27-12-2017,13092,webshop,EUR,128,6,22,23,Pietje Puk,IT,Sisow PayPal
+8174572,27-12-2017,13091,webshop,EUR,157,90,27,40,Pietje Puk,GR,Sisow PayPal
+8174573,27-12-2017,13090,webshop,EUR,267,58,46,44,Pietje Puk,BE,Sisow MisterCash
+8174574,27-12-2017,13088,webshop,EUR,81,75,14,19,Pietje Puk,NL,iDeal
+8174575,27-12-2017,13085,webshop,EUR,14,90,2,59,Pietje Puk,NL,iDeal
+8174576,27-12-2017,13084,webshop,EUR,16,36,2,84,Pietje Puk,DE,Sisow PayPal
+8174577,27-12-2017,13083,webshop,EUR,158,36,27,48,Pietje Puk,FR,Sisow PayPal
+8174578,27-12-2017,13082,webshop,EUR,152,76,26,51,Pietje Puk,FI,Sisow PayPal
+8174579,27-12-2017,13076,webshop,EUR,134,80,23,40,Pietje Puk,NL,iDeal
+8174580,27-12-2017,13075,webshop,EUR,14,90,2,59,Pietje Puk,NL,iDeal
+8174581,27-12-2017,13073,webshop,EUR,168,49,29,24,Pietje Puk,FR,Sisow Credit Card
+8174582,27-12-2017,13070,webshop,EUR,172,77,29,98,Pietje Puk,DE,Sisow PayPal
+8174583,27-12-2017,13069,webshop,EUR,53,41,9,27,Pietje Puk,NL,Sisow PayPal
+8174584,27-12-2017,13067,webshop,EUR,91,87,15,94,Pietje Puk,NL,iDeal
+8174585,27-12-2017,13063,webshop,EUR,172,77,29,98,Pietje Puk,ES,Sisow PayPal
+8174586,27-12-2017,13062,webshop,EUR,145,34,25,22,Pietje Puk,FR,Sisow Sofort Banking
+8174587,27-12-2017,13029,webshop,EUR,165,44,28,71,Pietje Puk,AT,Sisow Bankoverschrijving
+8174588,27-12-2017,13111,webshop,EUR,86,77,15,6,Pietje Puk,NL,iDeal
+8174589,27-12-2017,13089,webshop,EUR,228,21,0,0,Pietje Puk,RU,Sisow Credit Card
+8174590,27-12-2017,13112,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174591,27-12-2017,13113,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174592,27-12-2017,13115,ebay,EUR,137,90,22,55,Pietje Puk,DE,Paypal
+8174593,27-12-2017,13116,webshop,EUR,51,90,9,1,Pietje Puk,NL,iDeal
+8174594,27-12-2017,13118,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174595,28-12-2017,13131,amazon,USD,162,50,0,0,Pietje Puk,US,Amazon
+8174596,28-12-2017,13132,amazon,USD,162,50,0,0,Pietje Puk,US,Amazon
+8174597,28-12-2017,13133,amazon,USD,21,99,0,0,Pietje Puk,US,Amazon
+8174598,28-12-2017,13135,amazon,USD,8,99,0,0,Pietje Puk,US,Amazon
+8174599,28-12-2017,13136,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174600,28-12-2017,13137,amazon,USD,8,99,0,0,Pietje Puk,US,Amazon
+8174601,28-12-2017,13140,amazon,USD,104,99,0,0,Pietje Puk,US,Amazon
+8174602,28-12-2017,13144,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174603,28-12-2017,13145,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174604,29-12-2017,13151,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174605,29-12-2017,13152,amazon,USD,21,99,0,0,Pietje Puk,US,Amazon
+8174606,29-12-2017,13153,amazon,USD,12,98,0,0,Pietje Puk,US,Amazon
+8174607,29-12-2017,13155,amazon,USD,32,98,0,0,Pietje Puk,US,Amazon
+8174608,29-12-2017,13156,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174609,29-12-2017,13159,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174610,29-12-2017,13160,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174611,29-12-2017,13161,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174612,29-12-2017,13162,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174613,29-12-2017,13163,amazon,USD,21,99,0,0,Pietje Puk,US,Amazon
+8174614,29-12-2017,13164,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174615,29-12-2017,13165,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174616,29-12-2017,13166,amazon,USD,77,26,0,0,Pietje Puk,US,Amazon
+8174617,29-12-2017,13168,amazon,USD,104,99,0,0,Pietje Puk,US,Amazon
+8174618,29-12-2017,13169,amazon,USD,77,26,0,0,Pietje Puk,US,Amazon
+8174619,29-12-2017,13170,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174620,30-12-2017,13171,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174621,30-12-2017,13172,amazon,USD,121,7,0,0,Pietje Puk,US,Amazon
+8174622,30-12-2017,13173,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174623,30-12-2017,13174,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174624,30-12-2017,13175,amazon,USD,47,98,0,0,Pietje Puk,US,Amazon
+8174625,30-12-2017,13176,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174626,30-12-2017,13177,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174627,30-12-2017,13179,amazon,USD,8,99,0,0,Pietje Puk,US,Amazon
+8174628,30-12-2017,13180,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174629,30-12-2017,13181,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174630,31-12-2017,13186,amazon,USD,154,52,0,0,Pietje Puk,US,Amazon
+8174631,31-12-2017,13187,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174632,31-12-2017,13189,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174633,31-12-2017,13191,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174634,01-01-2018,13192,amazon,USD,23,99,0,0,Pietje Puk,US,Amazon
+8174635,01-01-2018,13193,amazon,USD,112,8,0,0,Pietje Puk,US,Amazon
+8174636,01-01-2018,13194,amazon,USD,15,1,0,0,Pietje Puk,US,Amazon

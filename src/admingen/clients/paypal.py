@@ -9,21 +9,18 @@ import os.path
 import time
 import shutil
 from csv import DictReader
-from contextlib import contextmanager
+from admingen.util import quitter, findNewFile
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from admingen.config import getConfig
+from admingen.config import getConfig, downloaddir
 
 EU_COUNTRY_CODES = ['BE', 'BG', 'CY', 'DK', 'DU', 'EE', 'FI', 'FR', 'GR', 'HU', 'IE', 'IT', 'HR',
                     'LV', 'LT', 'LU', 'MT', 'NL', 'AT', 'PL', 'PT', 'RO', 'SI', 'SK', 'ES', 'CZ',
                     'GB', 'SE']
 
-DOWNLOAD_DIR = getConfig('paypalclient.downloaddir', os.getcwd() + '/downloads')
-if not os.path.exists(DOWNLOAD_DIR):
-    os.makedirs(DOWNLOAD_DIR)
 
 def login(browser, username, password):
     """ Login to the PayPal reports page """
@@ -84,17 +81,8 @@ def checkReportAvailable(browser, daterange):
 
 def downloadTransactions(username, password, range_value='YESTERDAY') -> str:
     """ Download the transactions for yesterday. Returns the filename of the download """
-
-    @contextmanager
-    def quitter(item):
-        """ Make sure the item is 'quit' """
-        try:
-            yield
-        finally:
-            item.quit()
-
     chromeOptions = webdriver.ChromeOptions()
-    prefs = {"download.default_directory": DOWNLOAD_DIR}
+    prefs = {"download.default_directory": downloaddir}
     chromeOptions.add_experimental_option("prefs", prefs)
     browser = webdriver.Chrome(chrome_options=chromeOptions)
 
@@ -136,25 +124,14 @@ def downloadTransactions(username, password, range_value='YESTERDAY') -> str:
                 break
 
         # First make a snapshot of the files in the download directory
-        files = os.listdir(DOWNLOAD_DIR)
+        files = os.listdir(downloaddir)
 
         # Download the desired report
         p = e.find_element_by_xpath('..')
         b = p.find_element_by_tag_name('button')
         b.click()
 
-        # Wait until a new CSV file appears
-        start = time.time()
-        while True:
-            time.sleep(0.1)
-            # This is safe, because Chrome will only rename the file to its final name when complete
-            new_files = [f for f in os.listdir(DOWNLOAD_DIR) if
-                         f not in files and f.lower().endswith('.csv')]
-            if new_files:
-                return os.path.join(DOWNLOAD_DIR, new_files[0])
-            # Wait at most 5 minutes until the download is complete
-            if time.time() - start > 5 * 60:
-                raise RuntimeError('Download not complete in time')
+        return findNewFile(downloaddir, files, '.csv')
 
 
 def myopen(fname):

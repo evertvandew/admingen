@@ -5,6 +5,7 @@ import json
 import os, os.path
 from inspect import getmembers, Signature, Parameter
 from urllib.parse import urlparse
+from collections import Mapping
 import socket
 import cherrypy
 from .keyring import KeyRing, DecodeError
@@ -145,7 +146,13 @@ def Message(cls):
 
     cls.__init__ = constructor
 
-    return cls
+    # Define a number of functions to satisfy the Mapping protocol
+    cls.__getitem__ = lambda self, key, default=None: getattr(self, key, default)
+    cls.__len__ = lambda self: len(sig.parameters)
+    cls.__iter__ = lambda self: iter(sig.parameters)
+
+    # Ensure the target class is also a mapping
+    return type(cls.__name__, (cls, Mapping), {})
 
 
 def wraphandlers(cls, decorator):
