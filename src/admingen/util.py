@@ -37,3 +37,6 @@ def findNewFile(downloaddir, files, extension, check=None):
 def checkExists(dirname):
     if not os.path.exists(dirname):
         os.makedirs(dirname)
+
+class EmptyClass:
+    pass

@@ -6,7 +6,7 @@ py-bcrypt==0.4
 requests
 pycrypto
 configobj
-pandas
+jinja2
 selenium
 markdown
 rst2pdf

@@ -52,18 +52,28 @@ werkgevers: Klant
 table Werker
 naam: str
 standaardtarief: money
+sofinr: str
 inzet : Set(WerkerTarief)
-uren: Set(Urenregel)
 .
 
 table WerkerTarief
 werker: Werker
 opdracht: Opdracht
 tarief: money
+uren: Set(Urenregel)
+.
+
+table Adres
+straat_nummer: str
+postcode: str
+plaats: str
+land: str
+gevestigde: Klant
 .
 
 table Klant
 naam: str
+adres: Adres
 contactpersoon: Persoon
 projecten: Set(Opdracht)
 .
@@ -73,6 +83,7 @@ naam: str
 omschrijving: str
 start: date
 end: date
+ref: str
 opdrachtgever: Klant
 werkers: Set(WerkerTarief)
 uren: Set(Urenregel)
@@ -83,7 +94,7 @@ pdf: blob
 table Urenregel
 week: Weekstaat
 opdracht: Opdracht
-werker: Werker
+werker: WerkerTarief
 ma: float, default=0.0
 di: float, default=0.0
 wo: float, default=0.0
@@ -96,17 +107,20 @@ zo: float, default=0.0
 table Weekstaat
 weeknr: int
 jaar: int
-periode_start: datetime
-periode_eind: datetime
+start: datetime
+eind: datetime
 uren: Set(Urenregel)
 .
 
 table Factuur
 opdracht: Opdracht
-periode_start: datetime
-periode_eind: datetime
-totaal_uren: float
-totaal_geld: money
+periode: datetime
+uren: float
+netto: money
+btw: money
+bruto: money
+nummer: str
+datum: datetime
 pdf: blob
 .
 

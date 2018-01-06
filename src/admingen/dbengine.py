@@ -14,6 +14,7 @@ import cherrypy
 
 from .parsers import fsm_model as model
 from .htmltools import generateCrud
+from .db_api import the_db
 
 # TODO: when py3.7 replace with data classes
 Message = namedtuple('Message', ['method', 'path', 'details'])
@@ -94,7 +95,7 @@ def parseColumnDetails(s:str, track: TrackingEnv):
 def createDbModel(tables, fsm_names):
     """ Instantiate the database tables """
     trackingenv = TrackingEnv()   # Track references to tables
-    db = orm.Database()
+    db = the_db
     db_model = {}
     for table in tables:
         name = table['name']
