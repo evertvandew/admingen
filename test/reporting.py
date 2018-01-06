@@ -42,14 +42,15 @@ def fillDb(tables):
         weken = [tables['Weekstaat'](weeknr=w,
                  jaar=2017,
                  start=week1+timedelta(7*(w-1)),
-                 eind=week1+timedelta(7*w)) for w in [39, 40, 41, 42, 43, 44]]
+                 eind=week1+timedelta(7*w)) for w in [39, 40, 41, 42, 43, 44, 45]]
 
-        staten = [[6, 7, 0, 0, 0],
+        staten = [[6, 7, 1, 1, 1],
                   [0, 0, 8, 0, 7.5],
                   [0, 0, 8, 0, 8],
                   [0, 0, 8, 0, 8],
                   [0, 0, 8, 0, 8],
-                  [5, 6, 7, 8, 0]]
+                  [5, 6, 7, 8, 0],
+                  [1, 2, 3, 4, 5]]
 
         staten = [dict(zip(['ma', 'di', 'wo', 'do', 'vr'], staat)) \
                   for staat in staten]
@@ -80,12 +81,12 @@ class TestReporting(TestCase):
         end = start + timedelta(nr_days, 0)
 
         def day_list(regel):
-            return [getattr(regel, i) for i in ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za']]
+            return [getattr(regel, i) for i in ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']]
 
         with sessionScope():
             # Get the weekstaten that are relevant
             opdracht = select(o for o in Opdracht).first()
-            weeks = list(select(w for w in Weekstaat if w.eind >= start and w.start < end))
+            weeks = list(select(w for w in Weekstaat if (w.start+timedelta(4)) >= start and w.start < end))
 
             data = EmptyClass()
             data.naam = opdracht.opdrachtgever.naam
@@ -134,9 +135,9 @@ class TestReporting(TestCase):
             data.werker = werkertarief.werker
 
 
-        # Now generate the factuur
-        with open('templates/factuur.fodt') as f:
-            t = Template(f.read())
-        s = t.render(data.__dict__)
+            # Now generate the factuur
+            with open('templates/factuur.fodt') as f:
+                t = Template(f.read())
+            s = t.render(data.__dict__)
         with open('%s-%s.fodt'%(factuurnr, opdracht.omschrijving), 'w') as f:
             f.write(s)
