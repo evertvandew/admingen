@@ -4,14 +4,24 @@ from datetime import date, datetime, timedelta
 from unittest import TestCase
 import os, os.path
 from pony import orm
-from jinja2 import Template
+from jinja2 import FileSystemLoader, Environment, Template
 import calendar
+from decimal import Decimal, ROUND_HALF_UP
+from babel.numbers import format_currency
 
 from admingen.dbengine import readconfig
 from admingen.db_api import sessionScope, select, the_db
 from admingen.util import EmptyClass
 
 TESTDB = 'test.db'
+
+
+def moneyformat(input):
+    return format_currency(input, 'EUR', locale='nl_NL.utf8')
+
+env = Environment(autoescape=True)
+
+env.filters['moneyformat'] = moneyformat
 
 def fillDb(tables):
     with sessionScope():
@@ -29,6 +39,7 @@ def fillDb(tables):
                                      opdrachtgever=klant)
 
         werker = tables['Werker'](naam='Evert van de Waal',
+                                  sofinr='1234.567.89',
                                   standaardtarief=90)
         wt = tables['WerkerTarief'](werker=werker, opdracht=opdracht, tarief=70)
 
@@ -95,36 +106,30 @@ class TestReporting(TestCase):
 
             werkertarief = list(opdracht.werkers)[0]
 
-            data.weeks = []
+            weeks = select(w for w in Weekstaat if (w.start + timedelta(4)) >= start and w.start < end)[:]
+            week_filter = {w.weeknr:[1.0 if (start <= d < end) else 0.0 for d in [w.start + timedelta(i) for i in range(7)]] for w in weeks}
+            lines = [(w.weeknr, l) for w in weeks for l in w.uren
+                                if l.werker == werkertarief and l.opdracht == opdracht]
+            lines2 = [(w, [getattr(l, d) for d in ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']]) for
+                     w, l in lines]
+            lines_filtered = [(w, [a * b for a, b in zip(l, week_filter[w])]) for w, l in lines2]
+            weeks = [{'nr': w, 'days': d, 'all': sum(d)} for w, d in lines_filtered]
+            all_hours = sum(u for w, l in lines_filtered for u in l)
 
-            all_hours = 0.0
-
-            for week in weeks:
-                days = [week.start + timedelta(i, 0) for i in range(7)]
-                for line in week.uren:
-                    all_week = 0.0
-                    if line.opdracht != opdracht or line.werker != werkertarief:
-                        continue
-                    values = day_list(line)
-                    days_filtered = [v if d>= start and d < end else 0.0 for d, v in zip(days, values)]
-                    all_week += sum(days_filtered)
-                    weekdata = EmptyClass()
-                    weekdata.days = days_filtered
-                    weekdata.all = all_week
-                    all_hours += all_week
-                    weekdata.nr = week.start.isocalendar()[1]
-                    data.weeks.append(weekdata)
+            data.weeks = weeks
 
             # Determine how many facturen have been created for this customer
             fact_count = select(f for f in Factuur
                     if f.periode==start and f.opdracht.opdrachtgever == opdracht.opdrachtgever).count()
             factuurnr = '%4i%03i%02i%i'%(start.year, opdracht.opdrachtgever.id, start.month, fact_count+1)
-            netto = all_hours*float(werkertarief.tarief)
+            netto = Decimal(all_hours*float(werkertarief.tarief)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            tax = (netto * Decimal('0.21')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            bruto = netto + tax
             # Create the factuur record
             factuur = Factuur(uren=all_hours,
                               netto=netto,
-                              btw=netto*0.21,
-                              bruto=netto*1.21,
+                              btw=tax,
+                              bruto=bruto,
                               opdracht=opdracht,
                               periode=start,
                               nummer=factuurnr,
@@ -137,7 +142,7 @@ class TestReporting(TestCase):
 
             # Now generate the factuur
             with open('templates/factuur.fodt') as f:
-                t = Template(f.read())
+                t = env.from_string(f.read())
             s = t.render(data.__dict__)
         with open('%s-%s.fodt'%(factuurnr, opdracht.omschrijving), 'w') as f:
             f.write(s)

@@ -21858,7 +21858,7 @@
       <text:p text:style-name="P6">Factuurdatum:</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="Table2.A1" office:value-type="string">
-      <text:p text:style-name="P10">{{factuur.datum}}</text:p>
+      <text:p text:style-name="P10">{{factuur.datum.strftime('%d-%m-%Y')}}</text:p>
      </table:table-cell>
     </table:table-row>
     <table:table-row>
@@ -21992,7 +21992,7 @@
       <text:p text:style-name="P12"/>
      </table:table-cell>
      <table:table-cell table:style-name="Table4.C3" office:value-type="string">
-      <text:p text:style-name="P13">{{factuur.netto}}</text:p>
+      <text:p text:style-name="P13">{{factuur.netto|moneyformat}}</text:p>
      </table:table-cell>
     </table:table-row>
     <table:table-row>
@@ -22003,7 +22003,7 @@
       <text:p text:style-name="P12"/>
      </table:table-cell>
      <table:table-cell table:style-name="Table4.C4" office:value-type="string">
-      <text:p text:style-name="P13">{{factuur.btw}}</text:p>
+      <text:p text:style-name="P13">{{factuur.btw|moneyformat}}</text:p>
      </table:table-cell>
     </table:table-row>
     <table:table-row>
@@ -22014,7 +22014,7 @@
       <text:p text:style-name="P5"/>
      </table:table-cell>
      <table:table-cell table:style-name="Table4.A1" office:value-type="string">
-      <text:p text:style-name="P13">{{factuur.bruto}}</text:p>
+      <text:p text:style-name="P13">{{factuur.bruto|moneyformat}}</text:p>
      </table:table-cell>
     </table:table-row>
    </table:table>
