@@ -27,6 +27,7 @@ sys.path.append(root+'/src')
 os.environ['ROOTDIR'] = os.path.abspath(root)
 os.environ['PROJDIR'] = os.path.abspath(proj_dir)
 os.environ['SRCDIR'] = os.path.abspath(root + '/src')
+os.environ['PROJECTNAME'] = args.project
 
 
 

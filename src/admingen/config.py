@@ -10,7 +10,8 @@ import json
 from io import StringIO
 from string import Template
 from inspect import signature
-
+import logging
+import logging.handlers
 
 theconfig = {}
 configdir = '.'
@@ -49,6 +50,7 @@ def parse(fname):
 def load():
     global theconfig
     for fname in configfiles():
+        logging.info('Loading config file %s'%fname)
         path = os.path.splitext(fname)[0]
         path = os.path.relpath(path, configdir)
         parts = path.split(os.pathsep)
@@ -63,8 +65,10 @@ def load():
 
 
 def testmode():
-    """ We are still developing... """
-    return True
+    """ Test whether we are running deployed or not.
+        When deployed, several environment variables will be set.
+    """
+    return 'PROJECTNAME' in os.environ
 
 
 def getConfig(path, default=None):
@@ -132,7 +136,7 @@ def configtype(cls):
     return factory
 
 
-
+projectname = os.environ.get('PROJECTNAME', os.path.basename(sys.argv[0]))
 logdir = os.environ.get('LOGDIR', '') or os.getcwd()
 opsdir = os.environ.get('OPSDIR', '') or os.getcwd()
 rundir = os.environ.get('RUNDIR', '') or os.getcwd()
@@ -140,40 +144,23 @@ rundir = os.environ.get('RUNDIR', '') or os.getcwd()
 downloaddir = os.path.join(rundir, 'downloads')
 
 
-def test():
-    s = '''# Automatically created by the clamav-freshclam postinst
-# Comments will get lost when you reconfigure the clamav-freshclam package
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
-DatabaseOwner clamav
-UpdateLogFile /var/log/clamav/freshclam.log
-LogVerbose false
-LogSyslog false
-LogFacility LOG_LOCAL6
-LogFileMaxSize 0
-LogRotate true
-LogTime true
-Foreground false
-Debug false
-MaxAttempts 5
-DatabaseDirectory /var/lib/clamav
-DNSDatabaseInfo current.cvd.clamav.net
-AllowSupplementaryGroups false
-ConnectTimeout 30
-ReceiveTimeout 30
-TestDatabases yes
-ScriptedUpdates yes
-CompressLocalDatabase no
-SafeBrowsing false
-Bytecode true
-NotifyClamd /etc/clamav/clamd.conf
-# Check for new database 24 times a day
-Checks 24
-DatabaseMirror db.local.clamav.net
-DatabaseMirror database.clamav.net
-'''
-    d = confparser(s)
-    print (d)
+# create console handler and set level to debug
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
 
+# add ch to logger
+logger.addHandler(ch)
 
-if __name__ == '__main__':
-    test()
+if not testmode():
+    # create file handler and set level to warning
+    logfile = os.path.join(logdir, projectname+'.log')
+    ch = logging.handlers.RotatingFileHandler(logfile, maxBytes=10e6, backupCount=5)
+    ch.setLevel(logging.WARNING)
+    formatter = logging.Formatter('%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+
+    # add ch to logger
+    logger.addHandler(ch)

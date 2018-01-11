@@ -1,4 +1,6 @@
-
+""" Some utilities for logging.
+    The actual log handlers etc. are set in admingen.config.
+"""
 
 from logging import *
 
