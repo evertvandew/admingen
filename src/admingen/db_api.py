@@ -10,17 +10,15 @@ commit = orm.commit
 
 
 # TODO: replace with dataclass once py3.7 is out
-ColumnDetails = namedtuple('ColumnDetails', ['name', 'primarykey', 'type', 'relation', 'nullable',
-                                             'collection', 'options', 'required'])
+ColumnDetails = namedtuple('ColumnDetails', ['name', 'primarykey', 'type', 'nullable',
+                                             'collection', 'options', 'required', 'related_columns'])
 
+TableDetails = namedtuple('TableDetails', ['name', 'compoundkey', 'columns'])
 
-def getHmiDetails(table):
-    details = {}
-    details['name'] = table._table_
-    details['compoundkey'] = False
+def getHmiDetails(table) -> TableDetails:
     colum_names = [a.column for a in table._attrs_ if a.column]
 
-    details['columns'] = {}
+    columndetails = {}
     for name in colum_names:
         a = getattr(table, name)
         d = ColumnDetails(name=name,
@@ -29,11 +27,11 @@ def getHmiDetails(table):
                           # For now, relations are known by cols 0 and 1 (id and name)
                           related_columns= (a.py_type._attrs_[0]) if a.is_relation else None,
                           nullable=a.is_required,
-                          collection=a.is_colletion,
+                          collection=a.is_collection,
                           options=getattr(a.py_type, 'options', None),
                           required=a.is_required)
-        details['columns'][name] = d
-    return details
+        columndetails[name] = d
+    return TableDetails(name=table._table_, compoundkey=False, columns=columndetails)
 
 the_db = orm.Database()
 

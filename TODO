@@ -1,5 +1,8 @@
 PROJECT ADMINGEN TODO
 
+BUGS:
+De template engine van het mailtje struikelt over het percentage teken. Gebruik iets dat robuster is!
+
 Giftenoverzicht:
 * Generation of JSON files gives exceptions: ERROR:root:Exception while loading data from exact
 Traceback (most recent call last):

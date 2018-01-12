@@ -10,6 +10,7 @@ import socket
 import cherrypy
 from .keyring import KeyRing, DecodeError
 from .htmltools import SimpleForm, Title, form_input
+from .dataclasses import dataclass
 
 
 # TODO: implement checking the parameters in a unix server message
@@ -127,33 +128,7 @@ def unixproxy(cls, path):
     return p
 
 
-def Message(cls):
-    """
-        Decorate a class to turn it into a message.
-        All annotated members are assumed to be part of the message.
-     """
-
-    # Make a signature from the annotations to use in the constructor
-    params = [Parameter(n, Parameter.POSITIONAL_OR_KEYWORD,
-                        default=getattr(cls, n) if hasattr(cls, n) else Parameter.empty,
-                        annotation=a) for n, a in cls.__annotations__.items()]
-    sig = Signature(params)
-
-    def constructor(self, *args, **kwargs):
-        """ Generate a constructor for the Message """
-        ba = sig.bind(*args, **kwargs)
-        self.__dict__.update(ba.arguments)
-
-    cls.__init__ = constructor
-
-    # Define a number of functions to satisfy the Mapping protocol
-    cls.__getitem__ = lambda self, key, default=None: getattr(self, key, default)
-    cls.__len__ = lambda self: len(sig.parameters)
-    cls.__iter__ = lambda self: iter(sig.parameters)
-
-    # Ensure the target class is also a mapping
-    return type(cls.__name__, (cls, Mapping), {})
-
+Message = dataclass
 
 def wraphandlers(cls, decorator):
     """ Decorate all exposed request handlers in a class """

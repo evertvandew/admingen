@@ -13,11 +13,10 @@ import asyncio
 import datetime
 from collections import namedtuple
 import os
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN, ROUND_UP
 import traceback
 from enum import IntEnum
 from typing import List
-from pony import orm
 
 import paypalrestsdk
 from paypalrestsdk.payments import Payment
@@ -26,9 +25,11 @@ from admingen.keyring import KeyRing
 from admingen.email import sendmail
 from admingen import config
 from admingen.clients.rest import OAuth2
-from admingen.clients.paypal import downloadTransactions, pp_reader, EU_COUNTRY_CODES
+from admingen.clients.paypal import downloadTransactions, pp_reader, EU_COUNTRY_CODES, PPTransactionDetails
 from admingen import logging
-from admingen.db_api import the_db
+from admingen.db_api import the_db, sessionScope, DbTable, select, Required
+from admingen.international import SalesType
+from admingen.dataclasses import dataclass, fields, asdict
 
 
 @Message
@@ -72,25 +73,50 @@ if False:
              'Waiting for action',
              bootmail % config['appname'])
 
-ExactTransaction = namedtuple('ExactTransaction', ['date', 'ledger', 'lines', 'closingbalance'])
-ExactTransactionLine = namedtuple('ExactTransactionLine',
-                                  ['GLAccount', 'GLType', 'Description', 'Amount', 'ForeignAmount',
-                                   'ForeignCurrency', 'ConversionRate', 'additional'])
-WorkerConfig = namedtuple('WorkerConfig',
-                          ['ledger', 'costs_account', 'pp_account', 'sale_account_nl', 'sale_account_eu_no_vat', 'sale_account_world',
-                           'purchase_account_nl', 'purchase_account_eu_no_vat', 'purchase_account_world', 'pp_kruispost', 'vat_account'])
+@dataclass
+class ExactTransactionLine:
+    GLAccount: int
+    GLType: int
+    Description: str
+    Amount: Decimal
+    ForeignAmount: Decimal
+    ForeignCurrency: str
+    ConversionRate: Decimal
+    additional: str
+
+@dataclass
+class ExactTransaction:
+    date: datetime
+    ledger: int
+    lines: List[ExactTransactionLine]
+    closingbalance: Decimal
+
+@dataclass
+class WorkerConfig:
+    ledger: str
+    costs_account: str
+    pp_account: str
+    sale_account_nl: str
+    sale_account_eu_vat: str
+    sale_account_eu_no_vat: str
+    sale_account_world: str
+    purchase_account_nl: str
+    purchase_account_eu_vat: str
+    purchase_account_eu_no_vat: str
+    purchase_account_world: str
+    pp_kruispost: str
+    vat_account: str
 
 
 # Create a cache for storing the details of earlier transactions
-db = the_db
-class TransactionLog(db.Entity):
-    timestamp = orm.Required(datetime.datetime)
-    pp_tx = orm.Required(str)
-    vat_percent = orm.Required(Decimal)
-    account = orm.Required(int)
+@DbTable
+class TransactionLog:
+    timestamp : datetime.datetime
+    pp_tx : str
+    vat_percent : Decimal
+    pp_username : Required(str, index=True)
+    account: int
 
-db.bind(provider='sqlite', filename='transaction_cache.db', create_db=True)
-db.generate_mapping(create_tables=True)
 
 # TODO: Periodically clean up the cache
 
@@ -198,79 +224,100 @@ def generateExactTransactionsFile(transactions: List[ExactTransaction]):
     return FileTemplate.format(transactions = '\n'.join(transactions))
 
 
-class Region(IntEnum):
-    NL = 1
-    EU = 2
-    World = 3
-    Unknown = 4
 
 
 class PaypalExactTask:
     """ Produce exact transactions based on the PayPal transactions """
 
-    def __init__(self, pp_login, config: WorkerConfig, exact_token):
+    def __init__(self, pp_login, config: WorkerConfig, exact_token, classifier=None):
         self.pp_login, self.config, self.exact_token = pp_login, config, exact_token
-        self.sale_accounts = {Region.NL: self.config.sale_account_nl,
-                              Region.EU: self.config.sale_account_eu_no_vat,
-                              Region.World: self.config.sale_account_world,
-                              Region.Unknown: self.config.sale_account_nl}
-        self.purchase_accounts = {Region.NL: self.config.purchase_account_nl,
-                              Region.EU: self.config.purchase_account_eu_no_vat,
-                              Region.World: self.config.purchase_account_world,
-                                  Region.Unknown: self.config.purchase_account_nl}
-        self.vat_percentages = {Region.NL: Decimal('0.21'),
-                                Region.EU: Decimal('0.00'),
-                                Region.World: Decimal('0.00'),
-                                Region.Unknown: Decimal('0.21')}
+        self.sale_accounts = {SalesType.Local: self.config.sale_account_nl,
+                              SalesType.EU_private: self.config.sale_account_eu_vat,
+                              SalesType.EU_ICP: self.config.sale_account_eu_no_vat,
+                              SalesType.Other: self.config.sale_account_world,
+                              SalesType.Unknown: self.config.sale_account_nl}
+        self.purchase_accounts = {SalesType.Local: self.config.purchase_account_nl,
+                              SalesType.EU_private: self.config.purchase_account_eu_vat,
+                              SalesType.EU_ICP: self.config.purchase_account_eu_no_vat,
+                              SalesType.Other: self.config.purchase_account_world,
+                              SalesType.Unknown: self.config.purchase_account_nl}
+        self.vat_percentages = {SalesType.Local: Decimal('0.21'),
+                                SalesType.EU_private: Decimal('0.21'),
+                                SalesType.EU_ICP: Decimal('0.00'),
+                                SalesType.Other: Decimal('0.00'),
+                                SalesType.Unknown: Decimal('0.21')}
+        self.classifier = classifier
+        self.pp_username = pp_login[0]
 
-    def determineAccountVat(self, transaction):
+    def classifyTransaction(self, transaction: PPTransactionDetails):
+        """ Classify a transaction to determine account and VAT percentage """
+        if self.classifier:
+            t = self.classifier(transaction)
+            # Check if the classifier could handle it.
+            if t != SalesType.Unknown:
+                return t
+
+        # The classifier could not handle this transaction, classify it directly
+        if transaction.Landcode == 'NL':
+            return SalesType.Local
+        elif transaction.Landcode in EU_COUNTRY_CODES:
+            # EU is complex due to the ICP rules.
+            return SalesType.Unknown
+        elif transaction.Landcode:
+            return SalesType.Other
+        else:
+            return SalesType.Unknown
+
+
+    def determineAccountVat(self, transaction: PPTransactionDetails):
         """ Determine the grootboeken to be used for a specific transaction """
 
-        if transaction['Type'] == 'Algemene opname':
-            # A bank withdrawl goes to the kruispost
+        if transaction.Type == 'Algemene opname':
+            # A bank withdrawl goes directly to the kruispost
             return self.config.pp_kruispost, Decimal('0.00')
 
         # Determine if the transaction is within the Netherlands, the EU or the world.
-        if transaction['Landcode'] == 'NL':
-            region = Region.NL
-        elif transaction['Landcode'] in EU_COUNTRY_CODES:
-            region = Region.EU
-        elif transaction['Landcode']:
-            region = Region.World
-        else:
-            region = Region.Unknown
+        region = self.classifyTransaction(transaction)
 
+        # Sales with an unknown region are parked on the kruispost
+        if region == SalesType.Unknown and transaction.Net > 0:
+            return self.config.pp_kruispost, Decimal('0.00')
 
-        accounts = self.sale_accounts if transaction['Net'] > 0 else self.purchase_accounts
-        if transaction['Reference Txn ID']:
+        accounts = self.sale_accounts if transaction.Net > 0 else self.purchase_accounts
+        if transaction.ReferenceTxnID:
             # This is related to another payment, in almost all cases a return of a previous payment
             # If available, use the details from the previous transaction
-            with orm.db_session():
-                txs = orm.select(_ for _ in TransactionLog if _.pp_tx == transaction['Reference Txn ID'])
+            with sessionScope():
+                txs = select(_ for _ in TransactionLog if _.pp_tx == transaction.ReferenceTxnID)
                 for tx in txs:
                     return tx.account, tx.vat_percent
             # Transaction unknown, try to guess the details
             # This means that debtors and creditors are reversed
-            accounts = self.sale_accounts if transaction['Net'] < 0 else self.purchase_accounts
+            accounts = self.sale_accounts if transaction.Net < 0 else self.purchase_accounts
 
         return accounts[region], self.vat_percentages[region]
 
 
-    def determineComment(self, transaction):
+    def determineComment(self, transaction: PPTransactionDetails):
         """ Determine the comment for a specific transaction """
-        parts = [('ref:%s', transaction['Transactiereferentie']),
-                 ('Fact: %s', transaction['Factuurnummer']),
-                 ('%s', transaction['Note'])
+        # For purchases, insert the email address
+        parts = []
+        if transaction.Bruto < 0 and transaction.ReferenceTxnID == '':
+            parts.append(transaction.Naaremailadres)
+        if transaction.Valuta != 'EUR':
+            parts.append(str(transaction.Valuta))
+            parts.append(str(transaction.Bruto))
+        parts += ['Fact: %s'%transaction.Factuurnummer,
+                  transaction.Note,
+                  'ref:%s' % transaction.Transactiereferentie
                  ]
-        if transaction['Valuta'] != 'EUR':
-            parts.append(('%s', transaction['Valuta']))
-            parts.append(('%s', transaction['Bruto']))
-        parts = [a%b for a, b in parts if b]
         return ' '.join(parts)
 
-    def make_transaction(self, transaction, rate=1):
+    def make_transaction(self, transaction: PPTransactionDetails, rate=1):
         """ Translate a PayPal transaction into a set of Exact bookings
             :param rate: euro_amount / foreign_amount
+
+            The amounts are rounded such that VAT payable benefits
         """
         # A regular payment in euro's
         gb_sales, vat_percentage = self.determineAccountVat(transaction)
@@ -282,29 +329,33 @@ class PaypalExactTask:
         # Third booking: the actual sale
         # Fourth booking: the VAT on the sale
 
-        foreign_valuta = transaction['Valuta']
+        foreign_valuta = transaction.Valuta
 
         # Cache the results
-        with orm.db_session():
-            c = TransactionLog(timestamp=)
-            txs = orm.select(_ for _ in TransactionLog if _.pp_tx == transaction['Reference Txn ID'])
-            for tx in txs:
-                return tx.account, tx.vat_percent
+        with sessionScope():
+            c = TransactionLog(timestamp=transaction.Datum,
+                               pp_tx=transaction.ReferenceTxnID,
+                               vat_percent=vat_percentage,
+                               pp_username=self.pp_username,
+                               account=gb_sales)
 
         lines = []
-        if transaction['Fee']:
-            # Assume that PayPal always imposes 21% VAT on its transaction fee.
-            net, vat = [(transaction['Fee'] * Decimal(p)).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) for p in ['0.79', '0.21']]
+        if transaction.Fee:
+            # If the payment includes VAT, the VAT on the fee can be deducted
+            # The gross amount equals 1.21 times the net amount, so dividing should get the net.
+            net = (transaction.Fee / (Decimal(1.00)+vat_percentage)).quantize(Decimal('.01'), rounding=ROUND_UP)
+            vat = transaction.Fee - net
             net_euro, vat_euro = [(x*rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) for x in [net, vat]]
-            # The VAT over the fee
-            lines.append((self.config.vat_account, GLAccountTypes.General,
-                         comment,
-                         -vat_euro, -vat, foreign_valuta, rate,
-                         '<GLOffset code="%s" />'%self.config.pp_account))
-            lines.append((self.config.pp_account, GLAccountTypes.Bank,
-                          comment,
-                          vat_euro, vat, foreign_valuta, rate,
-                          ''))
+            if vat_euro != Decimal(0.00):
+                # The VAT over the fee
+                lines.append((self.config.vat_account, GLAccountTypes.General,
+                             comment,
+                             -vat_euro, -vat, foreign_valuta, rate,
+                             '<GLOffset code="%s" />'%self.config.pp_account))
+                lines.append((self.config.pp_account, GLAccountTypes.Bank,
+                              comment,
+                              vat_euro, vat, foreign_valuta, rate,
+                              ''))
             # The actual fee
             lines.append((self.config.costs_account, GLAccountTypes.SalesMarketingGeneralExpenses,
                          comment,
@@ -316,7 +367,9 @@ class PaypalExactTask:
                           ''))
 
         # The actual sale
-        net, vat = [(transaction['Bruto'] * p).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) for p in [1-vat_percentage, vat_percentage]]
+        net = (transaction.Bruto / (Decimal(1.00) + vat_percentage)).quantize(Decimal('.01'),
+                                                                            rounding=ROUND_DOWN)
+        vat = transaction.Bruto - net
         net_euro, vat_euro = [(x * rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) for x in
                               [net, vat]]
         lines.append((gb_sales, GLAccountTypes.Revenue,
@@ -341,33 +394,34 @@ class PaypalExactTask:
 
         lines = [ExactTransactionLine(*l) for l in lines]
 
-        exact_transaction = ExactTransaction(transaction['Datum'], self.config.ledger, lines,
-                                       transaction['Saldo'])
+        exact_transaction = ExactTransaction(transaction.Datum, self.config.ledger, lines,
+                                       transaction.Saldo)
         return exact_transaction
 
-    def make_foreign_transaction(self, transactions):
+    def make_foreign_transaction(self, transactions: List[PPTransactionDetails]):
         # Get the details from the original transaction
-        sale = next(t for t in transactions if
-                    t['Type'] != 'Algemeen valutaomrekening' and t['Valuta'] != 'EUR')
-        euro_details = next(t for t in transactions if
-                            t['Type'] == 'Algemeen valutaomrekening' and t['Valuta'] == 'EUR')
-        foreign_details = next(t for t in transactions if
-                               t['Type'] == 'Algemeen valutaomrekening' and t['Valuta'] != 'EUR')
+        sale:PPTransactionDetails = next(t for t in transactions if
+                    t.Type != 'Algemeen valutaomrekening' and t.Valuta != 'EUR')
+        euro_details:PPTransactionDetails = next(t for t in transactions if
+                            t.Type == 'Algemeen valutaomrekening' and t.Valuta == 'EUR')
+        foreign_details:PPTransactionDetails = next(t for t in transactions if
+                               t.Type == 'Algemeen valutaomrekening' and t.Valuta != 'EUR')
         # Check the right transactions were found
-        assert euro_details['Reference Txn ID'] == sale['Reference Txn ID'] or sale['Transactiereferentie']
-        assert foreign_details['Reference Txn ID'] == sale['Reference Txn ID'] or sale['Transactiereferentie']
+        assert euro_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
+        assert foreign_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
 
-        rate = (euro_details['Bruto'] / -foreign_details['Net']).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
+        rate = (euro_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
 
         exact_transaction = self.make_transaction(sale, rate)
+        exact_transaction.closingbalance = euro_details.Saldo
 
         # Check if an extra line is necessary to handle any left-over foreign species
         # This happens (very rarly), probably due to bugs at PayPal.
-        diff = sale['Net'] + foreign_details['Bruto']
+        diff = sale.Net + foreign_details.Bruto
         diff_euros = (diff * rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
         if diff:
-            comment = 'Restant in vreemde valuta, ref: %s'%foreign_details['Transactiereferentie']
-            foreign_valuta = sale['Valuta']
+            comment = 'Restant in vreemde valuta, ref: %s'%foreign_details.Transactiereferentie
+            foreign_valuta = sale.Valuta
             lines = [(self.config.pp_kruispost, GLAccountTypes.General,
                          comment,
                       diff_euros, diff, foreign_valuta, rate,
@@ -386,15 +440,15 @@ class PaypalExactTask:
         conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
         try:
             # Download the PayPal Transactions
-            reader = pp_reader(fname)
+            reader: List(PPTransactionDetails) = pp_reader(fname)
             # For each transaction, extract the accounting details
             for transaction in reader:
                 # Skip memo transactions.
-                if transaction['Effect op saldo'].lower() == 'memo':
+                if transaction.Effectopsaldo.lower() == 'memo':
                     continue
-                if transaction['Type'] == 'Algemeen valutaomrekening' or transaction['Valuta'] != 'EUR':
+                if transaction.Type == 'Algemeen valutaomrekening' or transaction.Valuta != 'EUR':
                     # We need to compress the next three transactions into a single, foreign valuta one.
-                    ref = transaction['Reference Txn ID'] or transaction['Transactiereferentie']
+                    ref = transaction.ReferenceTxnID or transaction.Transactiereferentie
                     txs = conversions_stack.setdefault(ref, [])
                     txs.append(transaction)
                     if len(txs) == 3:
@@ -405,7 +459,8 @@ class PaypalExactTask:
         except StopIteration:
             return
         except Exception as e:
-            traceback.print_exc()
+            #traceback.print_exc()
+            raise
 
     def run(self):
         # The actual worker
@@ -481,6 +536,9 @@ class Worker:
     @logging.log_exceptions
     def run():
         # In test mode, we need to create our own event loop
+        the_db.bind(provider='sqlite', filename='transaction_cache.db', create_db=True)
+        the_db.generate_mapping(create_tables=True)
+
         print('Starting worker')
         if config.testmode():
             loop = asyncio.new_event_loop()

@@ -5,7 +5,11 @@ import xml.etree.ElementTree as ET
 from unittest import TestCase, main
 from io import StringIO
 
-from paypal_exact.worker import PaypalExactTask, WorkerConfig, generateExactTransactionsFile
+from paypal_exact.worker import PaypalExactTask, WorkerConfig, generateExactTransactionsFile, PPTransactionDetails
+from admingen.clients import zeke
+from admingen.db_api import the_db, sessionScope
+from admingen.dataclasses import asdict
+from admingen.international import SalesType
 
 
 def as_csv(l):
@@ -18,17 +22,24 @@ config = WorkerConfig(ledger=21,
                       sale_account_nl=8000,
                       sale_account_eu_no_vat=8100,
                       sale_account_world=8101,
+                      sale_account_eu_vat=8102,
                       purchase_account_nl=7100,
-                      purchase_account_eu_no_vat=7104,
-                      purchase_account_world=7104,
+                      purchase_account_eu_no_vat=7101,
+                      purchase_account_world=7102,
+                      purchase_account_eu_vat=7103,
                       pp_kruispost=2100,
                       vat_account=1514)
 
 
 class TestPayPalExport(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        the_db.bind(provider='sqlite', filename=':memory:', create_db=True)
+        the_db.generate_mapping(create_tables=True)
+
     def testConversion(self):
         fname = os.path.join(os.path.dirname(__file__), 'pp_testdata.csv')
-        converter = PaypalExactTask(None, config, None)
+        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
 
         # Check that the transactions are consistent
         saldo = Decimal('1875.88') - Decimal('49.87')
@@ -38,7 +49,7 @@ class TestPayPalExport(TestCase):
             # Check the transaction connects to the previous saldo
             for l in details.lines:
                 saldo = saldo + l.Amount if  l.GLAccount==1101 else saldo
-            self.assertEqual(saldo, details.ClosingBalance)
+            self.assertEqual(saldo, details.closingbalance)
 
             # Check the sum of all transaction lines is zero
             self.assertEqual(sum(l.Amount for l in details.lines), Decimal('0.00'))
@@ -54,7 +65,7 @@ class TestPayPalExport(TestCase):
     def testXmlGeneration(self):
 
         fname = os.path.join(os.path.dirname(__file__), 'pp_testdata.csv')
-        converter = PaypalExactTask(None, config, None)
+        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
 
         # Check that the result is valid XML
@@ -82,7 +93,7 @@ class TestPayPalExport(TestCase):
 06-12-2017,17:47:00,CEST,Pietje Puk,Express Checkout betaling,Voltooid,EUR,"100,00","-5,00","95,00",p.puk@sesamstraat.nl,iniminie@sesamstraat.nl,1A207897G9979282J,"Pietje Puk, sesamstraat 1234, Hilversum, 1234AB, NL",Bevestigd,,,"0,00",,"0,00",,,,,,papa 8344,,1,,"1.875,88",sesamstraat 1234,,Hilversum,Noord Holland,1234AB,Nederland,,,,NL,Bij
 """)
 
-        converter = PaypalExactTask(None, config, None)
+        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
         xml = generateExactTransactionsFile(converter.detailsGenerator(f))
 
         with open('output.xml', 'w') as f:
@@ -113,7 +124,7 @@ class TestPayPalExport(TestCase):
 2-12-2017,05:23:35,CEST,Pietje Puk,Express Checkout betaling,Voltooid,EUR,"160,40","-5,48","154,92",p.puk@sesamstraat.nl,iniminie@sesamstraat.nl,94Y71337XM919902F,"Pietje Puk, sesamstraat 1234, Hilversum, 1234AB, NL",Bevestigd,,,"0,00",,"0,00",,,,,,papa 9293,,1,,"1.331,90",sesamstraat 1234,,Hilversum,Noord Holland,1234AB,Nederland,,,,NL,Bij
 30-12-2017,01:33:18,CEST,Pietje Puk,Terugbetaling,Voltooid,EUR,"-128,45","4,11","-124,34",iniminie@sesamstraat.nl,p.puk@sesamstraat.nl,97R07110EC540663X,"Pietje Puk, sesamstraat 1234, Hilversum, 1234AB, NL",Niet-bevestigd,,,"0,00",,"0,00",,,,,94Y71337XM919902F,papa 9293,,,,"391,25",,,,,,,,,,,Af
 """)
-        converter = PaypalExactTask(None, config, None)
+        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
         xml = generateExactTransactionsFile(converter.detailsGenerator(f))
 
         with open('output.xml', 'w') as f:
@@ -123,14 +134,32 @@ class TestPayPalExport(TestCase):
     def testRealFile(self):
         # Test converting a real file.
         fname = os.path.join('/home/ehwaal/tmp/pp_retro_q1-3.csv')
-        converter = PaypalExactTask(None, config, None)
+        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
         with open('/home/ehwaal/tmp/pp_retro_q1-3.xml', 'w') as f:
             f.write(xml)
 
+    def testWithZekeData(self):
+        details = zeke.ZekeDetails(username='pietje', url='http://pietje_puk.com')
 
+        with sessionScope():
+            _account = zeke.ZekeAccount(**asdict(details))
 
+        zeke.readTransactions(['export_icp_01-01-2017_30-09-2017.csv',
+                               'export_invoices_01-01-2017_30-09-2017.csv'], details)
 
+        def zeke_classifier(transaction: PPTransactionDetails):
+            if transaction.Factuurnummer:
+                return zeke.classifySale(transaction.Factuurnummer)
+            return SalesType.Unknown
+
+        # Now process the paypal transactions
+        fname = os.path.join('pp_testdata.csv')
+        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None, zeke_classifier)
+        transactions = list(converter.detailsGenerator(fname))
+        xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
+        with open('pp_testdata.xml', 'w') as f:
+            f.write(xml)
 
 
 

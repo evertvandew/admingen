@@ -16,10 +16,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from admingen.config import getConfig, downloaddir
-
-EU_COUNTRY_CODES = ['BE', 'BG', 'CY', 'DK', 'DU', 'EE', 'FI', 'FR', 'GR', 'HU', 'IE', 'IT', 'HR',
-                    'LV', 'LT', 'LU', 'MT', 'NL', 'AT', 'PL', 'PT', 'RO', 'SI', 'SK', 'ES', 'CZ',
-                    'GB', 'SE']
+from admingen.dataclasses import dataclass, fields, asdict
+from admingen.international import EU_COUNTRY_CODES
 
 
 def login(browser, username, password):
@@ -150,6 +148,50 @@ def myopen(fname):
     raise RuntimeError('Could not find correct encoding')
 
 
+@dataclass
+class PPTransactionDetails:
+    Datum: str
+    Tijd: str
+    Tijdzone: str
+    Naam: str
+    Type: str
+    Status: str
+    Valuta: str
+    Bruto: Decimal
+    Fee: Decimal
+    Net: Decimal
+    Vanemailadres: str
+    Naaremailadres: str
+    Transactiereferentie: str
+    Verzendadres: str
+    Statusadres: str
+    ItemTitle: str
+    Objectreferentie: str
+    Verzendkosten: str
+    Verzekeringsbedrag: str
+    SalesTax: str
+    Naamoptie1: str
+    Waardeoptie1: str
+    Naamoptie2: str
+    Waardeoptie2: str
+    ReferenceTxnID: str
+    Factuurnummer: str
+    CustomNumber: str
+    Hoeveelheid: str
+    Ontvangstbewijsreferentie: str
+    Saldo: str
+    Adresregel1: str
+    Adresregel2regioomgeving: str
+    Plaats: str
+    StaatProvincieRegioGebied: str
+    ZipPostalCode: str
+    Land: str
+    Telefoonnummercontactpersoon: str
+    Onderwerp: str
+    Note: str
+    Landcode: str
+    Effectopsaldo: str
+
 
 def pp_reader(fname):
     """ Generator that yields paypal transactions """
@@ -158,6 +200,12 @@ def pp_reader(fname):
         reader = DictReader(myopen(fname), delimiter=',', quotechar='"')
     else:
         reader = DictReader(fname, delimiter=',', quotechar='"')
+
+    translator = str.maketrans({' ':None, '-':None, '/':None, })
+    allfields = [f.name for f in fields(PPTransactionDetails)]
+    keys = [(k.translate(translator), k) for k in reader.fieldnames]
+    keys = [(k1, k2) for k1, k2 in keys if k1 in allfields]
+
     # The only thing wrong with reader is that the numbers are strings, not numbers,
     # and the date is a string, not a datetime.
     for line in reader:
@@ -168,4 +216,7 @@ def pp_reader(fname):
             s = s.replace(',', '.')
             line[key] = Decimal(s, ) if s else Decimal('0.00')
         line['Datum'] = datetime.datetime.strptime(line['Datum'], '%d-%m-%Y')
-        yield line
+        # Strip keys from illegal element characters and unused elements
+        line = {k1:line[k2] for k1, k2 in keys}
+
+        yield PPTransactionDetails(**line)

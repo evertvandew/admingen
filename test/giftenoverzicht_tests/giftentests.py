@@ -46,8 +46,6 @@ class TestServer(TestCase):
 
 
     def testNoBrowser(self):
-        while True:
-            time.sleep(1)
         r = get('http://localhost:13958/')
         self.assertEqual(r.status_code, 200)
         pass
@@ -56,7 +54,7 @@ class TestServer(TestCase):
         conf = config.getConfig('exactclient')
         self.assertEqual(conf.base, 'http://localhost:12345')
         self.assertEqual(conf.auth_url, 'http://localhost:12345/oauth2/auth')
-        self.assertTrue(isinstance(conf, ExactClientConfig))
+        self.assertEqual(type(conf).__name__, 'ExactClientConfig')
 
 
 if __name__ == '__main__':

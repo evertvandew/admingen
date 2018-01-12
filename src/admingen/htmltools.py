@@ -7,7 +7,7 @@ import logging
 import json
 import re
 import bcrypt
-from .db_api import sessionScope, commit, getHmiDetails
+from .db_api import sessionScope, commit, getHmiDetails, TableDetails, ColumnDetails
 from pony.orm.core import EntityMeta
 
 UNAME_FIELD_NAME = '__login_name__'
@@ -524,13 +524,13 @@ def ACM(permissions, login_func):
     return decorate
 
 
-def generateFields(table, hidden=None):
+def generateFields(table: TableDetails, hidden=None):
     hidden = hidden or []
-    for name, details in table['columns'].items():
-        if type(a).__name__ == 'PrimaryKey' or a.column in hidden:
-            yield Hidden(a.column)
+    for name, details in table.columns.items():
+        if details.primarykey or details.name in hidden:
+            yield Hidden(details.name)
         else:
-            if a.type.__name__ == 'ImagePath':
+            if details.type.__name__ == 'ImagePath':
                 yield ImgPathField(name, name)
             elif details.options:
                 yield Selection(name, details.options(), name)
@@ -550,26 +550,26 @@ def generateFields(table, hidden=None):
 
                 yield Selection(name, makeGetter(), name)
             elif details.type.__name__ == 'LongStr':
-                yield Text(a.column, a.column)
+                yield Text(details.name, details.name)
             elif details.type.__name__ == 'Password':
                 # Passwords are edited in duplicates
                 elements = SetPassword(name, name)
                 yield elements[0]
                 yield elements[1]
-            elif a.py_type == bool:
+            elif details.type == bool:
                 yield Tickbox(name, name)
             else:
                 yield String(name, name)
 
 
-def generateCrud(table, Page=Page, hidden=None, acm=dummyacm, index_show=None):
+def generateCrud(table: TableDetails, Page=Page, hidden=None, acm=dummyacm, index_show=None):
     if isinstance(table, EntityMeta):
         # We have a database table definition: extract the necessary info
         table = getHmiDetails(table)
 
-    tablename = table['name']
+    tablename = table.name
     columns = list(generateFields(table, hidden))
-    column_names = table['columns'].keys()
+    column_names = table.columns.keys()
     index_show = index_show or column_names
 
     class Crud:
