@@ -49,14 +49,16 @@ class TestPayPalExport(TestCase):
             # Check the transaction connects to the previous saldo
             for l in details.lines:
                 saldo = saldo + l.Amount if  l.GLAccount==1101 else saldo
+            print ('Expected saldo:', details.closingbalance)
             self.assertEqual(saldo, details.closingbalance)
 
             # Check the sum of all transaction lines is zero
             self.assertEqual(sum(l.Amount for l in details.lines), Decimal('0.00'))
 
             # Check the foreign amount times rate equals the euro amount
+            # As not all amounts are rounded in the same direction, allow an error of 2 cents.
             for l in details.lines:
-                self.assertEqual(l.Amount, (l.ForeignAmount * l.ConversionRate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP))
+                self.assertLess(abs(l.Amount - (l.ForeignAmount * l.ConversionRate)), 0.02)
 
         # Check the final saldo
         self.assertEqual(saldo, Decimal('1201.28'))

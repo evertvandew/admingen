@@ -340,38 +340,55 @@ class PaypalExactTask:
                                account=gb_sales)
 
         lines = []
+        net_costs_euro = vat_costs_euro = Decimal('0.00')
         if transaction.Fee:
             # If the payment includes VAT, the VAT on the fee can be deducted
             # The gross amount equals 1.21 times the net amount, so dividing should get the net.
-            net = (transaction.Fee / (Decimal(1.00)+vat_percentage)).quantize(Decimal('.01'), rounding=ROUND_UP)
-            vat = transaction.Fee - net
-            net_euro, vat_euro = [(x*rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) for x in [net, vat]]
-            if vat_euro != Decimal(0.00):
+            net_costs = (transaction.Fee / (Decimal(1.00)+vat_percentage)).quantize(Decimal('.01'), rounding=ROUND_UP)
+            vat_costs = transaction.Fee - net_costs
+            net_costs_euro  = (net_costs*rate).quantize(Decimal('.01'), rounding=ROUND_UP)
+            vat_costs_euro = (vat_costs*rate).quantize(Decimal('.01'), rounding=ROUND_DOWN)
+            if vat_costs_euro != Decimal(0.00):
                 # The VAT over the fee
                 lines.append((self.config.vat_account, GLAccountTypes.General,
                              comment,
-                             -vat_euro, -vat, foreign_valuta, rate,
+                             -vat_costs_euro, -vat_costs, foreign_valuta, rate,
                              '<GLOffset code="%s" />'%self.config.pp_account))
                 lines.append((self.config.pp_account, GLAccountTypes.Bank,
                               comment,
-                              vat_euro, vat, foreign_valuta, rate,
+                              vat_costs_euro, vat_costs, foreign_valuta, rate,
                               ''))
             # The actual fee
             lines.append((self.config.costs_account, GLAccountTypes.SalesMarketingGeneralExpenses,
                          comment,
-                          -net_euro, -net, foreign_valuta, rate,
+                          -net_costs_euro, -net_costs, foreign_valuta, rate,
                          '<GLOffset code="%s" />'%self.config.pp_account))
             lines.append((self.config.pp_account, GLAccountTypes.Bank,
                           comment,
-                          net_euro, net, foreign_valuta, rate,
+                          net_costs_euro, net_costs, foreign_valuta, rate,
                           ''))
 
-        # The actual sale
+        # Here, the difference between Net and Gross is the taxes to be deducted.
+        # The actual sale. The net figure still includes the fee, only the sales tax is deducted,
+        # as the sales price to the customer always includes all costs incurred for that sale.
+        # These calculations must be exact as they must reflect the bank saldo in Paypal.
         net = (transaction.Bruto / (Decimal(1.00) + vat_percentage)).quantize(Decimal('.01'),
                                                                             rounding=ROUND_DOWN)
         vat = transaction.Bruto - net
-        net_euro, vat_euro = [(x * rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) for x in
-                              [net, vat]]
+
+        if rate != Decimal('1.00'):
+            # The rate was determine by dividing the net amounts of foreign money and the gross local valuta
+            # Thus this calculation should be exact to the resolution of rate (0.0000001)
+            # PayPal net amounts have the transaction costs deducted, not the taxes.
+            # Thus to get the real gross in local currency, the costs must be added.
+            ppnet_euro = (transaction.Net * rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+            gross_euro = ppnet_euro - net_costs_euro - vat_costs_euro
+        else:
+            gross_euro = transaction.Bruto
+        # Our definition of 'Net' is the amount after taxes
+        net_euro = (gross_euro / (Decimal(1.00) + vat_percentage)).quantize(Decimal('.01'),
+                                                                            rounding=ROUND_DOWN)
+        vat_euro = gross_euro - net_euro
         lines.append((gb_sales, GLAccountTypes.Revenue,
                          comment,
                       -net_euro, -net, foreign_valuta, rate,
@@ -410,6 +427,7 @@ class PaypalExactTask:
         assert euro_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
         assert foreign_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
 
+        # Paypal converts the net amount of foreign money into the gross amount of local money
         rate = (euro_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
 
         exact_transaction = self.make_transaction(sale, rate)
