@@ -196,7 +196,7 @@ def generateExactLine(transaction: ExactTransaction, line: ExactTransactionLine,
     date = transaction.date.strftime('%Y-%m-%d')
     year = transaction.date.strftime('%Y')
     period = transaction.date.strftime('%m')
-    return LineTemplate.format(**locals(), **line._asdict())
+    return LineTemplate.format(**locals(), **asdict(line))
 
 
 TransactionTemplate = '''        <GLTransaction>
@@ -216,7 +216,7 @@ FileTemplate = '''<?xml version="1.0" encoding="utf-8"?>
 def generateExactTransaction(transaction: ExactTransaction):
     transactionlines = '\n'.join([generateExactLine(transaction, line, int((count+2)/2)) \
                                   for count, line in enumerate(transaction.lines)])
-    return TransactionTemplate.format(**locals(), **transaction._asdict())
+    return TransactionTemplate.format(**locals(), **asdict(transaction))
 
 
 def generateExactTransactionsFile(transactions: List[ExactTransaction]):
@@ -321,7 +321,7 @@ class PaypalExactTask:
         """
         # A regular payment in euro's
         gb_sales, vat_percentage = self.determineAccountVat(transaction)
-        comment = self.determineComment(transaction)
+        base_comment = self.determineComment(transaction)
 
         # Use the following sequence:
         # First booking: the VAT return on the transaction fee (if any)
@@ -350,6 +350,7 @@ class PaypalExactTask:
             vat_costs_euro = (vat_costs*rate).quantize(Decimal('.01'), rounding=ROUND_DOWN)
             if vat_costs_euro != Decimal(0.00):
                 # The VAT over the fee
+                comment = 'BTW kosten ' + base_comment
                 lines.append((self.config.vat_account, GLAccountTypes.General,
                              comment,
                              -vat_costs_euro, -vat_costs, foreign_valuta, rate,
@@ -359,6 +360,7 @@ class PaypalExactTask:
                               vat_costs_euro, vat_costs, foreign_valuta, rate,
                               ''))
             # The actual fee
+            comment = 'Kosten ' + base_comment
             lines.append((self.config.costs_account, GLAccountTypes.SalesMarketingGeneralExpenses,
                          comment,
                           -net_costs_euro, -net_costs, foreign_valuta, rate,
@@ -389,6 +391,7 @@ class PaypalExactTask:
         net_euro = (gross_euro / (Decimal(1.00) + vat_percentage)).quantize(Decimal('.01'),
                                                                             rounding=ROUND_DOWN)
         vat_euro = gross_euro - net_euro
+        comment = base_comment
         lines.append((gb_sales, GLAccountTypes.Revenue,
                          comment,
                       -net_euro, -net, foreign_valuta, rate,
@@ -400,6 +403,7 @@ class PaypalExactTask:
 
         # The VAT over the sale
         if vat_euro != Decimal('0.00'):
+            comment = 'BTW ' + base_comment
             lines.append((self.config.vat_account, GLAccountTypes.General,
                           comment,
                           -vat_euro, -vat, foreign_valuta, rate,

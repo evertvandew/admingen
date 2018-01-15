@@ -60,6 +60,19 @@ class TestPayPalExport(TestCase):
             for l in details.lines:
                 self.assertLess(abs(l.Amount - (l.ForeignAmount * l.ConversionRate)), 0.02)
 
+            # Check the BTW amounts, depending on the number of lines returned.
+            pairs = []
+            if len(details.lines) == 8:
+                # VAT and costs, so two checks
+                pairs = [[0, 2], [6, 4]]
+            if len(details.lines) == 4 and details.lines[0].GLAccount!=5561:
+                # Only VAT, no costs, one check.
+                pairs = [[2, 0]]
+            for a, b in pairs:
+                diff = details.lines[a].Amount - details.lines[b].Amount * Decimal('0.21')
+                # Allow 2 cents difference, due to rouding effects
+                self.assertLess(abs(diff), 0.02)
+
         # Check the final saldo
         self.assertEqual(saldo, Decimal('1201.28'))
 

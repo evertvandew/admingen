@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <eExact xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="eExact-XML.xsd">
     <GLTransactions>
         <GLTransaction>
@@ -10,14 +10,14 @@
                 <FinPeriod number="12" />
                 <GLAccount code="1514" type="90" />
                 <GLOffset code="1101" />
-                <Description>BTW over kosten ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Description>BTW kosten Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>1.05</Value>
+                    <Value>0.86</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>1.05</Value>
+                    <Value>0.86</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
@@ -27,14 +27,14 @@
                 <FinPeriod number="12" />
                 <GLAccount code="1101" type="12" />
                 
-                <Description>BTW over kosten ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Description>BTW kosten Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>-1.05</Value>
+                    <Value>-0.86</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>-1.05</Value>
+                    <Value>-0.86</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
@@ -44,14 +44,14 @@
                 <FinPeriod number="12" />
                 <GLAccount code="5561" type="121" />
                 <GLOffset code="1101" />
-                <Description>Transactiekosten ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Description>Kosten Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>3.95</Value>
+                    <Value>4.14</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>3.95</Value>
+                    <Value>4.14</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
@@ -61,14 +61,14 @@
                 <FinPeriod number="12" />
                 <GLAccount code="1101" type="12" />
                 
-                <Description>Transactiekosten ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Description>Kosten Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>-3.95</Value>
+                    <Value>-4.14</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>-3.95</Value>
+                    <Value>-4.14</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
@@ -78,14 +78,14 @@
                 <FinPeriod number="12" />
                 <GLAccount code="8000" type="110" />
                 <GLOffset code="1101" />
-                <Description>ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Description>Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>-79.00</Value>
+                    <Value>-82.64</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>-79.00</Value>
+                    <Value>-82.64</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
@@ -95,14 +95,14 @@
                 <FinPeriod number="12" />
                 <GLAccount code="1101" type="12" />
                 
-                <Description>ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Description>Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>79.00</Value>
+                    <Value>82.64</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>79.00</Value>
+                    <Value>82.64</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
@@ -112,14 +112,14 @@
                 <FinPeriod number="12" />
                 <GLAccount code="1514" type="90" />
                 <GLOffset code="1101" />
-                <Description>BTW ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Description>BTW Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>-21.00</Value>
+                    <Value>-17.36</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>-21.00</Value>
+                    <Value>-17.36</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
@@ -129,14 +129,14 @@
                 <FinPeriod number="12" />
                 <GLAccount code="1101" type="12" />
                 
-                <Description>BTW ref:1A207897G9979282J Factuur: papa 8344</Description>
+                <Description>BTW Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>21.00</Value>
+                    <Value>17.36</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>21.00</Value>
+                    <Value>17.36</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
