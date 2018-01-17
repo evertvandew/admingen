@@ -15,7 +15,7 @@ from admingen.keyring import KeyRing
 from admingen.util import quitter, findNewFile, checkExists, DownloadError
 from admingen.config import downloaddir
 from admingen.db_api import DbTable, sessionScope, Required, Set, select, Optional
-from admingen.international import SalesType, EU_COUNTRY_CODES
+from admingen.international import SalesType, ISO_EU_COUNTRY_CODES
 
 
 @Message
@@ -93,7 +93,7 @@ class ZekeAccount:
 @DbTable
 class ZekeTransaction:
     account: Required(ZekeAccount, index=True)
-    order_nr: Required(int, index=True)
+    order_nr: Required(int, index=True)   # The order number is what is referred to in PayPal
     timestamp: datetime
     herkomst: str
     valuta: str
@@ -108,10 +108,10 @@ def readTransactions(fnames, details: ZekeDetails):
     # These records have additional data for those transactions
     icp_transactions = {}
     if fnames[0]:
-        # There are no ICP transactions during the period
+        # There are ICP transactions during the period
         with open(fnames[0], newline='') as f:
             reader = csv.DictReader(f, delimiter=';')
-            icp_transactions = {t['Factuurnummer']:t for t in reader}
+            icp_transactions = {t['Order ID']:t for t in reader}
 
     # Now handle the non-icp transactions
     fname = fnames[1]
@@ -138,18 +138,29 @@ def readTransactions(fnames, details: ZekeDetails):
                                                'countrycode':'Land factuuradres'}.items()}
             td['timestamp'] = datetime.strptime(transactie['Factuurdatum'], '%d-%m-%Y')
             td['account'] = account
-            td['gross'] = Decimal(transactie['Totaalbedrag incl. BTW'].replace(',', '.'))
-            td['tax'] = Decimal(transactie['BTW-bedrag'].replace(',', '.'))
-            if transactie['Factuurnummer'] in icp_transactions:
-                icp = icp_transactions[transactie['Factuurnummer']]
+            gross = Decimal(transactie['Totaalbedrag incl. BTW'].replace(',', '.'))
+            tax = Decimal(transactie['BTW-bedrag'].replace(',', '.'))
+            if transactie['Order ID'] in icp_transactions:
+                icp = icp_transactions[transactie['Order ID']]
                 td['btwcode'] = icp['BTW-nummer klant']
-                assert Decimal(icp['Totaalbedrag incl. BTW'].replace(',', '.')) == td['gross']
-                assert Decimal(icp['BTW-bedrag'].replace(',', '.')) == td['tax']
             else:
                 td['btwcode'] = None
 
-            # Add a new transaction
-            existing[td['order_nr']] = ZekeTransaction(**td)
+            if transactie['Order ID'] in existing:
+                print ('Overwriting existing transaction')
+                existing_zt = existing[transactie['Order ID']]
+
+                existing_zt.gross = gross
+                existing_zt.tax = tax
+
+            else:
+                td['gross'] = gross
+                td['tax'] = tax
+
+                # Add a new transaction
+                new_zt = ZekeTransaction(**td)
+                existing[td['order_nr']] = new_zt
+
 
 
 def loadTransactions(start: datetime, end: datetime, details: ZekeDetails):
@@ -162,12 +173,12 @@ def loadTransactions(start: datetime, end: datetime, details: ZekeDetails):
 
 def classifySale(order_nr):
     with sessionScope():
-        t = select(t for t in ZekeTransaction if t.order_nr==order_nr).first()
+        t: ZekeTransaction = select(t for t in ZekeTransaction if t.order_nr==order_nr).first()
         if t is None:
             return SalesType.Unknown
         if t.countrycode.upper() == 'NL':
             return SalesType.Local
-        if t.countrcode.upper() in EU_COUNTRY_CODES:
+        if t.countrycode.upper() in ISO_EU_COUNTRY_CODES:
             if t.btwcode:
                 return SalesType.EU_ICP
             return SalesType.EU_private

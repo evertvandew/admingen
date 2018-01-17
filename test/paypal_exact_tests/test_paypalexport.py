@@ -4,10 +4,11 @@ import os.path
 import xml.etree.ElementTree as ET
 from unittest import TestCase, main
 from io import StringIO
+import re
 
-from paypal_exact.worker import PaypalExactTask, WorkerConfig, generateExactTransactionsFile, PPTransactionDetails
+from paypal_exact.worker import PaypalExactTask, WorkerConfig, generateExactTransactionsFile, PPTransactionDetails, zeke_classifier
 from admingen.clients import zeke
-from admingen.db_api import the_db, sessionScope
+from admingen.db_api import the_db, sessionScope, select
 from admingen.dataclasses import asdict
 from admingen.international import SalesType
 
@@ -30,6 +31,10 @@ config = WorkerConfig(ledger=21,
                       pp_kruispost=2100,
                       vat_account=1514)
 
+
+# In PayPal, the order_nr has a strange string prepended ('papa xxxx')
+# Define an RE to strip it.
+order_nr_re = re.compile(r'\D+(\d+)')
 
 class TestPayPalExport(TestCase):
     @classmethod
@@ -160,13 +165,33 @@ class TestPayPalExport(TestCase):
         with sessionScope():
             _account = zeke.ZekeAccount(**asdict(details))
 
-        zeke.readTransactions(['export_icp_01-01-2017_30-09-2017.csv',
-                               'export_invoices_01-01-2017_30-09-2017.csv'], details)
+        zeke.readTransactions(['export_icp_01-01-2017_02-10-2017.csv',
+                               'export_invoices_01-01-2017_02-10-2017.csv'], details)
 
-        def zeke_classifier(transaction: PPTransactionDetails):
-            if transaction.Factuurnummer:
-                return zeke.classifySale(transaction.Factuurnummer)
-            return SalesType.Unknown
+        # Check that the ICp transactions were properly found
+        icp = [8472, 8496, 8594, 8595, 8697, 8695, 9023, 9105, 9079, 9159, 9174, 9384, 9449, 9559,
+               10845, 11415, 11589, 11660]
+        with sessionScope():
+            for t in zeke.ZekeTransaction.select(lambda t: True):
+                self.assertEqual(t.btwcode is not None, t.order_nr in icp)
+                region = zeke.classifySale(t.order_nr)
+                if t.order_nr in icp:
+                    self.assertEqual(zeke.classifySale(t.order_nr), SalesType.EU_ICP)
+                else:
+                    self.assertNotEqual(region, SalesType.EU_ICP)
+                    self.assertNotEqual(region, SalesType.Unknown)
+
+        ignore = ['8315', '8451', '7918', '0000706854522914', '27292918474', '9506', '27292554504', '9506', '9506', '10001', '10001', '28169824223', '11012', '11012', '11029', '11029', '11169', '11169', '11531', '11531', '17091205', '17091205', '17091205', '17091205', '17091205', '7918', '0000706854522914', '27292918474', '9506', '27292554504', '9506', '9506', '10001', '10001', '28169824223', '11012', '11012', '11029', '11029', '11169', '11169', '11531', '11531', '17091205', '17091205', '17091205', '17091205', '17091205']
+
+
+        def test_classifier(transaction: PPTransactionDetails):
+            region = zeke_classifier(transaction)
+            match = order_nr_re.match(transaction.Factuurnummer)
+            if match:
+                # For some reason, there is no info on several transactions
+                if match.groups()[0] not in ignore:
+                    self.assertNotEqual(region, SalesType.Unknown)
+            return region
 
         # Now process the paypal transactions
         fname = os.path.join('pp_testdata.csv')
@@ -175,7 +200,6 @@ class TestPayPalExport(TestCase):
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
         with open('pp_testdata.xml', 'w') as f:
             f.write(xml)
-
 
 
 

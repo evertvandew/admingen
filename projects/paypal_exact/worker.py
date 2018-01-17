@@ -17,6 +17,7 @@ from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN, ROUND_UP
 import traceback
 from enum import IntEnum
 from typing import List
+import re
 
 import paypalrestsdk
 from paypalrestsdk.payments import Payment
@@ -25,7 +26,8 @@ from admingen.keyring import KeyRing
 from admingen.email import sendmail
 from admingen import config
 from admingen.clients.rest import OAuth2
-from admingen.clients.paypal import downloadTransactions, pp_reader, EU_COUNTRY_CODES, PPTransactionDetails
+from admingen.clients.paypal import downloadTransactions, pp_reader, PP_EU_COUNTRY_CODES, PPTransactionDetails
+from admingen.clients import zeke
 from admingen import logging
 from admingen.db_api import the_db, sessionScope, DbTable, select, Required
 from admingen.international import SalesType
@@ -224,6 +226,17 @@ def generateExactTransactionsFile(transactions: List[ExactTransaction]):
     return FileTemplate.format(transactions = '\n'.join(transactions))
 
 
+# In PayPal, the order_nr has a strange string prepended ('papa xxxx')
+# Define an RE to strip it.
+order_nr_re = re.compile(r'\D+(\d+)')
+
+def zeke_classifier(transaction: PPTransactionDetails):
+    """ Let the Zeke client classify a PayPal transaction """
+    match = order_nr_re.match(transaction.Factuurnummer)
+    if match:
+        order_nr = match.groups()[0]
+        return zeke.classifySale(order_nr)
+    return SalesType.Unknown
 
 
 class PaypalExactTask:
@@ -260,7 +273,7 @@ class PaypalExactTask:
         # The classifier could not handle this transaction, classify it directly
         if transaction.Landcode == 'NL':
             return SalesType.Local
-        elif transaction.Landcode in EU_COUNTRY_CODES:
+        elif transaction.Landcode in PP_EU_COUNTRY_CODES:
             # EU is complex due to the ICP rules.
             return SalesType.Unknown
         elif transaction.Landcode:

@@ -17,7 +17,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from admingen.config import getConfig, downloaddir
 from admingen.dataclasses import dataclass, fields, asdict
-from admingen.international import EU_COUNTRY_CODES
+from admingen.international import PP_EU_COUNTRY_CODES
 
 
 def login(browser, username, password):
@@ -196,27 +196,28 @@ class PPTransactionDetails:
 def pp_reader(fname):
     """ Generator that yields paypal transactions """
     # check if fname is a string or a file-like object
-    if isinstance(fname, str):
-        reader = DictReader(myopen(fname), delimiter=',', quotechar='"')
-    else:
-        reader = DictReader(fname, delimiter=',', quotechar='"')
 
-    translator = str.maketrans({' ':None, '-':None, '/':None, })
-    allfields = [f.name for f in fields(PPTransactionDetails)]
-    keys = [(k.translate(translator), k) for k in reader.fieldnames]
-    keys = [(k1, k2) for k1, k2 in keys if k1 in allfields]
+    file = myopen(fname) if isinstance(fname, str) else fname
 
-    # The only thing wrong with reader is that the numbers are strings, not numbers,
-    # and the date is a string, not a datetime.
-    for line in reader:
-        for key in ['Bruto', 'Fee', 'Net', 'Sales Tax', 'Saldo']:
-            s = line[key]
-            # For conversion to Decimal, first get rid of periods, then swap comma's with periods
-            s = s.replace('.', '')
-            s = s.replace(',', '.')
-            line[key] = Decimal(s, ) if s else Decimal('0.00')
-        line['Datum'] = datetime.datetime.strptime(line['Datum'], '%d-%m-%Y')
-        # Strip keys from illegal element characters and unused elements
-        line = {k1:line[k2] for k1, k2 in keys}
+    with file as f:
+        reader = DictReader(f, delimiter=',', quotechar='"')
 
-        yield PPTransactionDetails(**line)
+        translator = str.maketrans({' ':None, '-':None, '/':None, })
+        allfields = [f.name for f in fields(PPTransactionDetails)]
+        keys = [(k.translate(translator), k) for k in reader.fieldnames]
+        keys = [(k1, k2) for k1, k2 in keys if k1 in allfields]
+
+        # The only thing wrong with reader is that the numbers are strings, not numbers,
+        # and the date is a string, not a datetime.
+        for line in reader:
+            for key in ['Bruto', 'Fee', 'Net', 'Sales Tax', 'Saldo']:
+                s = line[key]
+                # For conversion to Decimal, first get rid of periods, then swap comma's with periods
+                s = s.replace('.', '')
+                s = s.replace(',', '.')
+                line[key] = Decimal(s, ) if s else Decimal('0.00')
+            line['Datum'] = datetime.datetime.strptime(line['Datum'], '%d-%m-%Y')
+            # Strip keys from illegal element characters and unused elements
+            line = {k1:line[k2] for k1, k2 in keys}
+
+            yield PPTransactionDetails(**line)
