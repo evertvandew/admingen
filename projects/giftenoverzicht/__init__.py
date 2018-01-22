@@ -15,6 +15,7 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.utils import formatdate
 
+from pony import orm
 import cherrypy
 from cherrypy.lib.static import serve_file
 import calendar
@@ -41,6 +42,16 @@ ACCOUNTS_FILE = '{}/{}.accounts.json'
 
 vardir = os.environ.get('OPSDIR', os.getcwd())
 model.openDb('sqlite://%s/overzichtgen.db' % vardir)
+
+# Ensure there is a 'test' user with password 'testingtesting'
+# When deploying the giftenoverzicht app, remember to delete this user!
+with sessionScope():
+    if orm.count(u for u in model.User) == 0:
+        test_user = model.User(name='test', fullname='test user',
+                               password=password2str('testingtesting'),
+                               role='Admin',
+                               email='pietje.puk@sesamstraat.nl')
+
 
 
 def constructMail(md_msg, fname, **headers):
@@ -71,18 +82,16 @@ def constructMail(md_msg, fname, **headers):
     return outer
 
 
-def periode_validator(kwargs):
-    return Verify(kwargs,
-                  GreaterEqual('until', 'from'),
+def periode_validator():
+    return Verify(GreaterEqual('until', 'from'),
                   IsInteger('from', 1, 12),
                   IsInteger('until', 1, 12),
                   IsInteger('year', 2000, 2100),
                   )
 
 
-def verstuur_validator(kwargs):
-    return Verify(kwargs,
-                  IsEmailaddress('mailfrom'),
+def verstuur_validator():
+    return Verify(IsEmailaddress('mailfrom'),
                   IsServer('smtphost'),
                   IsSingleWord('user')
                   )
@@ -213,7 +222,7 @@ def adminPage(*args, **kwargs):
 
 
 def handle_login(**kwargs):
-    def check():
+    def check(**kwargs):
         """ Check the credentials of a proposed user.
         """
         if not (kwargs[UNAME_FIELD_NAME] and kwargs[PWD_FIELD_NAME]):
@@ -441,7 +450,6 @@ class Overzichten:
 
         # Present a form to generate a new overview
         now = datetime.datetime.now()
-        validator = periode_validator(kwargs)
         defaults = {'year': now.year,
                     'from': 1,
                     'until': now.month,
@@ -450,7 +458,7 @@ class Overzichten:
                           Integer('year', 'Jaar'),
                           Integer('from', 'Vanaf'),
                           Integer('until', 'Tot en met'),
-                          validator=validator,
+                          validator=periode_validator(),
                           defaults=defaults,
                           success=self.period_known
                           )
@@ -459,7 +467,7 @@ class Overzichten:
     def period_known(self, **kwargs):
         ''' Function called when the results of a submitted form check out '''
         # DONT TRUST THE ARGUMENTS!
-        results, errors = periode_validator(kwargs)()
+        results, errors = periode_validator()(kwargs)
         if errors:
             # This is fishy: args should be checked by the form handler
             # so don't give more information then we need to

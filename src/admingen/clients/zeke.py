@@ -16,12 +16,18 @@ from admingen.util import quitter, findNewFile, checkExists, DownloadError
 from admingen.config import downloaddir
 from admingen.db_api import DbTable, sessionScope, Required, Set, select, Optional
 from admingen.international import SalesType, ISO_EU_COUNTRY_CODES
+from admingen.dataclasses import dataclass
 
 
-@Message
+@dataclass
 class ZekeDetails:
     url: str = ''
     username: str = ''
+
+@dataclass
+class ZekeSecrets:
+    password: str = ''
+
 
 
 def downloadTransactions(start: datetime, end: datetime, details: ZekeDetails,

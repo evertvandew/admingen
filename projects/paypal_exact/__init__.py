@@ -1,4 +1,11 @@
-""" Run a server that writes paypal transactions to exact """
+""" Run a server that writes paypal transactions to exact.
+
+There are two processes running: the frontend, where the user can view system status and
+edit settings. The backend actually performs the work. The frontend will query the backend
+through a very small API. The frontend does NOT access the database or other stored data,
+for security purposes.
+
+"""
 
 import secrets
 from collections import namedtuple
@@ -18,7 +25,42 @@ from admingen import config
 from admingen.htmltools import *
 from admingen.keyring import DecodeError
 
-from paypal_exact.worker import Worker
+from paypal_exact.worker import Worker, PaypalExactTask
+
+
+def WorkerConfigEditor(details, secrets):
+    details_columns = [generateFields(d)[:] for d in details]
+    details_secrets = [generateFields(d)[:] for d in secrets]
+
+    class Crud:
+        @cherrypy.expose
+        def index(self):
+            """ Give an overview of the tasks that are available, and link to editing and deleting """
+            pass
+
+        @cherrypy.expose
+        def edit(self, id, **kwargs):
+            """ View the details of a single task, and allow editing """
+            settings = [TaskHandler.worker.getSettings(id, d.__name__) for d in details]
+
+            def success(**kwargs):
+
+                raise cherrypy.HTTPRedirect('view?id=%s' % kwargs['id'])
+
+            forms = [Div(SimpleForm(*cols, defaults=s, success=success, cancel='index')
+                                    for cols, s in zip(details_columns, settings),
+                         # Add a button to set the secrets
+                         Button()
+                         )]
+
+            return Page(Title('Configuratie van een taak'),
+                        SimpleForm())
+
+        @cherrypy.expose
+        def delete(self, id):
+            """ Delete a specific task """
+            pass
+
 
 
 class TaskHandler:
@@ -35,6 +77,8 @@ class TaskHandler:
             elements = [Div('Exact online moet ontsloten worden'),
                         Button('Ontsluit Exact Online', self.login.__name__)]
         return Page(Title('Status Overzicht'), *elements)
+
+    worker_details = WorkerConfigEditor(PaypalExactTask.config, PaypalExactTask.secrets)
 
     @cherrypy.expose
     def unlock(self, password=None):

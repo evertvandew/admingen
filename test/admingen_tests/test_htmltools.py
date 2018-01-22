@@ -2,7 +2,7 @@
 from unittest import TestCase
 
 import cherrypy
-from admingen.htmltools import AnnotationsForm
+from admingen.htmltools import annotationsForm
 
 class HtmlTests(TestCase):
 
@@ -22,7 +22,7 @@ class HtmlTests(TestCase):
                 return 'OK'
 
         # Create the form
-        form = AnnotationsForm(TestClass, validator, success)
+        form = annotationsForm(TestClass, validator, success)
 
         # test the 'GET'
         html = form()

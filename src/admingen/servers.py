@@ -10,7 +10,7 @@ import socket
 import cherrypy
 from .keyring import KeyRing, DecodeError
 from .htmltools import SimpleForm, Title, form_input
-from .dataclasses import dataclass
+from .dataclasses import dataclass, asdict
 
 
 # TODO: implement checking the parameters in a unix server message
@@ -129,6 +129,13 @@ def unixproxy(cls, path):
 
 
 Message = dataclass
+
+def serialize(obj):
+    return json.dumps(asdict(obj))
+
+def deserialize(cls, msg):
+    data = json.loads(msg)
+    return cls(**data)
 
 def wraphandlers(cls, decorator):
     """ Decorate all exposed request handlers in a class """

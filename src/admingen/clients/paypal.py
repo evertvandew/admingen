@@ -17,7 +17,6 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from admingen.config import getConfig, downloaddir
 from admingen.dataclasses import dataclass, fields, asdict
-from admingen.international import PP_EU_COUNTRY_CODES
 
 
 def login(browser, username, password):

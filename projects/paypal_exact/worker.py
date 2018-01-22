@@ -1,11 +1,8 @@
 """
 
-
-
 Documentation PayPal API:
 https://developer.paypal.com/docs/classic/api/apiCredentials/#credential-types
 PayPal SDK (nieuw) : https://github.com/paypal/PayPal-Python-SDK
-
 
 """
 import time
@@ -16,20 +13,21 @@ import os
 from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN, ROUND_UP
 import traceback
 from enum import IntEnum
-from typing import List
+from typing import List, Tuple, Dict
 import re
 
 import paypalrestsdk
 from paypalrestsdk.payments import Payment
-from admingen.servers import mkUnixServer, Message, expose
+from admingen.servers import mkUnixServer, Message, expose, serialize, deserialize, update
 from admingen.keyring import KeyRing
 from admingen.email import sendmail
 from admingen import config
+from admingen.logging import log_exceptions
 from admingen.clients.rest import OAuth2
 from admingen.clients.paypal import downloadTransactions, pp_reader, PP_EU_COUNTRY_CODES, PPTransactionDetails
 from admingen.clients import zeke
 from admingen import logging
-from admingen.db_api import the_db, sessionScope, DbTable, select, Required
+from admingen.db_api import the_db, sessionScope, DbTable, select, delete, Required
 from admingen.international import SalesType
 from admingen.dataclasses import dataclass, fields, asdict
 
@@ -43,17 +41,11 @@ class paypallogin:
 
 
 @Message
-class exactlogin:
+class ExactSecrets:
     administration: int
     client_id: str
     client_secret: str
     client_token: str
-
-
-@Message
-class taskdetails:
-    administration: int
-    paypalbook: int
 
 @config.configtype
 class mailconfig:
@@ -241,8 +233,10 @@ def zeke_classifier(transaction: PPTransactionDetails):
 
 class PaypalExactTask:
     """ Produce exact transactions based on the PayPal transactions """
+    config: Tuple[WorkerConfig, ZekeDetails]
+    secrets: [ExactSecrets, PaypalSecrets, zeke.ZekeSecrets]
 
-    def __init__(self, pp_login, config: WorkerConfig, exact_token, classifier=None):
+    def __init__(self, config, secrets):
         self.pp_login, self.config, self.exact_token = pp_login, config, exact_token
         self.sale_accounts = {SalesType.Local: self.config.sale_account_nl,
                               SalesType.EU_private: self.config.sale_account_eu_vat,
@@ -497,17 +491,28 @@ class PaypalExactTask:
             #traceback.print_exc()
             raise
 
+    @log_exceptions
     def run(self):
-        # The actual worker
-        fname = downloadTransactions(*self.pp_login)
+        """ The actual worker. Loads the transactions for yesterday and processes them """
+        # First retrieve all necessary passwords from the keychain
+        self.pp_login.password
+        pp_details = downloadTransactions(*self.pp_login)
+        zeke_details = zeke.loadTransactions()
         xml_lines = [generateExactTransaction(details) for details in self.detailsGenerator(fname)]
 
         # Upload the XML to Exact
 
 
+@DbTable
+class TaskDetails:
+    task_id : int
+    component: str
+    settings: str
+
+
 class Worker:
     keyring = None
-    tasks = {}
+    tasks: Dict[int, TaskDetails] = {}
     exact_token = None
     oauth = None
 
@@ -521,18 +526,21 @@ class Worker:
 
     @expose
     def unlock(self, password):
+        """ Supply the keychain password to the application.
+            This allows the tasks to be instantiated.
+        """
         self.keyring = KeyRing(self.keyringname, password)
 
-        # Now we can access the client secret for OAuth login
-        client_id = '49b30776-9a29-4a53-b69d-a578712e997a'
-        client_secret = self.keyring[client_id]
-        if client_secret:
-            self.oauth = OAuth2('https://start.exactonline.nl/api/oauth2/token',
-                                client_id,
-                                client_secret,
-                                'http://paypal_reader.overzichten.nl:13959/oauth_code')
-        else:
-            logging.error('The client secret has not been set!')
+        with sessionScope():
+            task_config = {}
+            for d in select(t for t in TaskDetails):
+                task_config.setdefault(d.task_id)[d.component] = d.settings
+
+            for id, details in task_config.items():
+                config = [deserialize(t, details[t.__name__]) for t in PaypalExactTask.config]
+                keys = [(t, 'tasks_%i_%s'%(id, t.__name__)) for t in PaypalExactTask.secrets]
+                secrets = [deserialize(t, self.keyring[k]) for t, k in keys]
+                self.tasks[details.id] = PaypalExactTask(config, secrets)
 
     @expose
     def status(self):
@@ -541,10 +549,33 @@ class Worker:
                     exact_online='authenticated' if self.exact_token else 'locked')
 
     @expose
-    def addtask(self, details: taskdetails):
-        details = taskdetails(**details)
-        self.tasks[details.name] = details
-        self.keyring[details.name] = details
+    def addtask(self) -> int:
+        task_id = max(self.tasks.keys()) + 1
+        # Prepare the settings records for this task
+        with sessionScope():
+            _ = [TaskDetails(task_id=task_id, component=t.__name__, settings=serialize(t())) for t in PaypalExactTask.config]
+        return task_id
+
+    @expose
+    def gettasksettings(self, id: int, component: str):
+        if id in self.tasks and component in self.tasks[id].config:
+            return self.tasks[id].config[component]
+
+    @expose
+    def updatetask(self, id, settings):
+        if id in self.tasks and component in self.tasks[id].config:
+            update(self.tasks[id].config[component], settings)
+            with sessionScope():
+                d = select(t for t in TaskDetails if t.task_id==id and t.component==component).first()
+                d.settings = serialize(settings)
+
+    @expose
+    def deltask(self, id):
+        if id in self.tasks:
+            self.tasks[id].close()
+            del self.tasks[id]
+            with sessionScope():
+                delete(t for t in TaskDetails if t.task_id == id)
 
     @expose
     def setauthorizationcode(self, code):

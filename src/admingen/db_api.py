@@ -1,7 +1,10 @@
+
+
 from collections import namedtuple
+from typing import Tuple
 from pony import orm
 from inspect import getmembers, Signature, Parameter
-from pony.orm import Required, Set, select, Optional
+from pony.orm import Required, Set, select, Optional, delete
 
 
 sessionScope = orm.db_session

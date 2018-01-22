@@ -6,12 +6,13 @@ import base64
 import logging
 import json
 import re
+from typing import Union
 import bcrypt
 from .db_api import sessionScope, commit, getHmiDetails, TableDetails, ColumnDetails
 from pony.orm.core import EntityMeta
 
-UNAME_FIELD_NAME = '__login_name__'
-PWD_FIELD_NAME = '__login_password__'
+UNAME_FIELD_NAME = 'username'
+PWD_FIELD_NAME = 'password'
 
 # TODO: port to the Quart framework. https://gitlab.com/pgjones/quart
 # TODO: make forms so that the contents are not re-evaluated each time?
@@ -33,7 +34,7 @@ def NotEmpty(name):
     def check(params):
         p = params[name]
         if not p:
-            return '%s must be entered' % name
+            return '{} must be entered'.format(name)
 
     return check
 
@@ -42,7 +43,7 @@ def IsSingleWord(name):
     def check(params):
         w = params[name]
         if len(w.split()) > 1:
-            return '%s must be a single word' % w
+            return '{} must be a single word'.format(w)
 
     return check
 
@@ -53,9 +54,9 @@ def IsInteger(name, minval=None, maxval=None):
             value = int(params[name])
             params[name] = value
             if minval is not None and value < minval:
-                return name, 'Value must be greater than %i' % minval
+                return name, 'Value must be greater than {}'.format(minval)
             if maxval is not None and value > maxval:
-                return name, 'Value must be smaller than %i' % maxval
+                return name, 'Value must be smaller than {}'.format(maxval)
         except ValueError:
             return name, 'value must be an integer'
 
@@ -65,7 +66,7 @@ def IsInteger(name, minval=None, maxval=None):
 def GreaterEqual(a, b):
     def check(params):
         if params[a] < params[b]:
-            return '%s must be greator or equal to %s' % (a, b)
+            return '{} must be greator or equal to {}'.format(a, b)
 
     return check
 
@@ -90,15 +91,15 @@ def IsEmailaddress(a):
             return 'An email address must contain "@"'
         host = email.split('@')[1]
         if not checkIfServer(host):
-            return 'Not a legal host identification: %s' % host
+            return 'Not a legal host identification: {}'.format(host)
         if len(email.split()) > 1:
             return 'An email address must not contain spaces'
 
     return check
 
 
-def Verify(params, *rules):
-    def check():
+def Verify(*rules):
+    def check(params):
         errors = {}
         results = dict(params)
         for r in rules:
@@ -111,20 +112,23 @@ def Verify(params, *rules):
 
 
 def Link(target, label):
-    return '<A HREF=%s>%s</A>' % (target, label)
+    return '<A HREF={}>{}</A>'.format(target, label)
 
 
 def joinElements(*args):
     return '\n'.join([a() if callable(a) else a for a in args])
 
 
-def Container(tag, *children, **kwargs):
+def parseArguments(**kwargs):
     if 'klasse' in kwargs:
         kwargs['class'] = kwargs['klasse']
         del kwargs['klasse']
+    return ' '.join('{}="{}"'.format(k, v) for k, v in kwargs.items())
+
+def Container(tag, *children, **kwargs):
+    options = parseArguments(**kwargs)
     contents = joinElements(*children)
-    options = ' '.join('%s="%s"' % o for o in kwargs.items())
-    return '<%s %s>%s</%s>' % (tag, options, contents, tag)
+    return '<{0} {1}>{2}</{0}>'.format(tag, options, contents)
 
 
 def Div(*children, **kwargs):
@@ -135,7 +139,7 @@ def Page(*args, refresh=None):
     body = joinElements(*args)
     headers = []
     if refresh:
-        headers.append('<META HTTP-EQUIV="refresh" CONTENT="%s">' % refresh)
+        headers.append('<META HTTP-EQUIV="refresh" CONTENT="{}">'.format(refresh))
     return '''<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -143,7 +147,7 @@ def Page(*args, refresh=None):
             <meta charset="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
                 <title>Overzichtgenerator</title>
-            %(header)s
+            {header}
             <link rel="stylesheet" type="text/css" href="/static/css/bootstrap.min.css" />
             <link rel="stylesheet" type="text/css" href="/static/css/font-awesome.min.css" />
             <link rel="stylesheet" type="text/css" href="/static/css/custom-theme/jquery-ui-1.10.0.custom.css" />
@@ -151,29 +155,28 @@ def Page(*args, refresh=None):
 
         </head>
         <body style="margin-top:0px">
-        %(body)s
+        {body}
         </body>
         </html>
-        ''' % {'body': body,
-               'header': '\n'.join(headers)}
+        '''.format(body=body,
+               header='\n'.join(headers))
 
-
-def Title(text):
-    return '<H1 style="margin-top:0px">%s</H1>' % text
+def Title(text, tag='H1'):
+    return '<{1} style="margin-top:0px">{0}</{1}>'.format(text, tag)
 
 
 def ButtonBar(*args):
     buttons = ' '.join([b if isinstance(b, str) else b() for b in args])
-    return '<div>%s</div>' % buttons
+    return '<div>{}</div>'.format(buttons)
 
 
 def Button(caption, target='"#"', btn_type='primary', **kwargs):
-    args = ' '.join('%s="%s"' % o for o in kwargs.items())
+    args = ' '.join('{}="{}"'.format(k, v) for k, v in kwargs.items())
 
     def get():
-        btn_type_ = 'btn-%s' % btn_type if isinstance(btn_type, str) else ' '.join(
-            ['btn-%s' % t for t in btn_type])
-        return '<A HREF=%s class="btn %s" %s>%s</A>' % (target, btn_type_, args, caption)
+        btn_type_ = 'btn-{}'.format(btn_type) if isinstance(btn_type, str) else ' '.join(
+            ['btn-{}'.format(t) for t in btn_type])
+        return '<A HREF={} class="btn {}" {}>{}</A>'.format(target, btn_type_, args, caption)
 
     return get
 
@@ -186,9 +189,9 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
     if cherrypy.request.method == 'POST':
         # Call the global validator
         if validator:
-            values, errors = validator()
+            values, errors = validator(**cherrypy.request.params)
         else:
-            values, errors = defaults, {}
+            values, errors = cherrypy.request.params, {}
 
         # Then call the validators linked to the individual inputs
         for a in args:
@@ -211,7 +214,7 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
     if not success:
         btn = ''
     else:
-        btns = ['<button class="btn btn-primary" type="submit" value="Submit">%s</button>' % submit]
+        btns = ['<button class="btn btn-primary" type="submit" value="Submit">{}</button>'.format(submit)]
         if cancel:
             btns.insert(0, Button('Cancel', target=cancel))
         btn = ButtonBar(*btns)
@@ -221,10 +224,10 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
       <div class="container">
         <div class="row">
           <div class="col col-md-12">
-            <form action="%(action)s" method="post" enctype="%(enctype)s" class="form-horizontal">
-                %(rows)s
+            <form action="{action}" method="post" enctype="{enctype}" class="form-horizontal">
+                {rows}
                 <div class="col col-md-9 col-md-offset-3">
-                    %(btn)s
+                    {btn}
                 </div>
             </form>
           </div>
@@ -233,12 +236,12 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
     '''
     row_base = '''
         <div class="form-group">
-            <label class="col col-md-3 control-label">%(label)s</label>
-            <div class="col col-md-9">%(input)s</div>
+            <label for="{label}" class="col col-md-3 control-label">{label}</label>
+            <div class="col col-md-9">{input}</div>
         </div>
     '''
     row_base_no_label = '''
-        <div class="col col-md-9 col-md-offset-3">%(input)s</div>
+        <div class="col col-md-9 col-md-offset-3">{input}</div>
     '''
     rows = []
     for a in args:
@@ -251,16 +254,16 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
         else:
             row = row_base_no_label
         print(input)
-        row = row % input
+        row = row.format(**input)
         rows.append(row)
-    return base % {'rows': '\n'.join(rows), 'action': path,
-                   'enctype': enctype, 'btn': btn}
+    return base.format(rows='\n'.join(rows), action=path,
+                   enctype=enctype, btn=btn)
 
 
 def Hidden(name):
     def gen(defaults, errors, readonly):
-        html = '<input type="hidden" name="%(name)s" value="%(value)s" />'
-        return {'input': html % {'name': name, 'value': defaults.get(name, None)}}
+        html = '<input type="hidden" name="{name}" value="{value}" />'
+        return {'input': html.format(name=name, value=defaults.get(name, None))}
 
     return gen
 
@@ -268,11 +271,11 @@ def Hidden(name):
 def FileUpload(name, text=None):
     text = text or name
     return {'label': text,
-            'input': '<input type="file" name="%s" />' % name}
+            'input': '<input type="file" name="{}" />'.format(name)}
 
 
 def form_input(name, text, input_type, tmpl=None):
-    base = tmpl or '<input type="%(input_type)s" class="form-control" name="%(name)s" %(options)s value="%(default)s"/>'
+    base = tmpl or '<input type="{input_type}" class="form-control" name="{name}" {options} value="{default}"/>'
     text = text or name
 
     def gen(defaults, errors, readonly):
@@ -283,9 +286,10 @@ def form_input(name, text, input_type, tmpl=None):
         if readonly:
             options.append('readonly')
         if error:
-            base += '<div class="errmsg">%(error)s</div>'
-        result = base % {'input_type': input_type, 'name': name, 'error': error, 'default': default,
-                         'options': ' '.join(options)}
+            base += '<div class="errmsg">{error}</div>'
+        print(input_type)
+        result = base.format(**{'input_type': input_type, 'name': name, 'error': error, 'default': default,
+                         'options': ' '.join(options)})
         return {'label': text, 'input': result}
 
     return gen
@@ -301,11 +305,11 @@ def String(name, text=None):
 
 def Text(name, text=None):
     return form_input(name, text, '',
-                      '<textarea name="%(name)s" %(options)s >%(default)s</textarea>')
+                      '<textarea name="{name}" {options} >{default}</textarea>')
 
 
 def Tickbox(name, text=None):
-    base = '<input type="checkbox" name="%s" value="True" %s>'
+    base = '<input type="checkbox" name="{}" value="True" {}>'
     text = text or name
 
     def onSuccess(values):
@@ -319,7 +323,7 @@ def Tickbox(name, text=None):
             options.append('disabled')
         if default:
             options.append('checked')
-        result = base % (name, ' '.join(options))
+        result = base.format(name, ' '.join(options))
         return {'label': text, 'input': result}
 
     gen.success = onSuccess
@@ -329,7 +333,7 @@ def Tickbox(name, text=None):
 Server = Email = String
 
 def EnterPassword(name, text=None):
-    return form_input(name, text, '')
+    return form_input(PWD_FIELD_NAME, text, name)
 
 
 def SetPassword(name, text=None):
@@ -371,7 +375,7 @@ def Selection(name, options, text=None):
         if readonly:
             value = defaults.get(name, '')
             return {'label': text,
-                    'input': '<input class="form-control" readonly value="%s"/>' % value}
+                    'input': '<input class="form-control" readonly value="{}"/>'.format(value)}
 
         for i, o in enumerate(optionlist):
             if type(o) in [list, tuple]:
@@ -382,19 +386,19 @@ def Selection(name, options, text=None):
             if defaults.get(name, '') and value[1] == defaults[name]:
                 index = i
 
-        option_tags = ['<option value="%s">%s</option>' % o for o in final_options]
+        option_tags = ['<option value="{}">{}</option>'.format(o for o in final_options)]
         if index:
-            option_tags[i] = '<option selected="selected" value="%s">%s</option>' % final_options[i]
-        args = 'name="%s"' % name
+            option_tags[i] = '<option selected="selected" value="{}">{}</option>'.format(final_options[i])
+        args = 'name="{}"'.format(name)
         if readonly:
             args += ' readonly'
-        return {'label': text, 'input': '<select %s>' % args + '\n'.join(option_tags) + '</select>'}
+        return {'label': text, 'input': '<select {}>'.format(args) + '\n'.join(option_tags) + '</select>'}
 
     return gen
 
 
 def DownloadLink(name, path):
-    return '<A HREF="%s" target="_blank">%s</A>' % (path, name)
+    return '<A HREF="{}" target="_blank">{}</A>'.format(path, name)
 
 
 def PaginatedTable(line, data, header=None, row_select_url=None):
@@ -403,18 +407,18 @@ def PaginatedTable(line, data, header=None, row_select_url=None):
     def get():
         head = ''
         if header:
-            head = '<thead><tr>%s</tr></thead>' % '\n'.join('<th>%s</th>' % h for h in header)
+            head = '<thead><tr>{}</tr></thead>'.format('\n'.join('<th>{}</th>'.format(h) for h in header))
         parts = []
         for d in data:
             l = line(d)
-            p = '\n'.join(['<td>%s</td>' % c for c in l])
+            p = '\n'.join(['<td>{}</td>'.format(c) for c in l])
             oc = ''
             if row_select_url:
                 su = row_select_url(d)
-                oc = '''onclick="javascript:location.href='%s'"''' % su
-            parts.append('<tr %s>%s</tr>' % (oc, p))
+                oc = '''onclick="javascript:location.href='{}'"'''.format(su)
+            parts.append('<tr {}>{}</tr>'.format(oc, p))
         b = '\n'.join(parts)
-        return '<table class="table table-hover table-bordered">%s%s</table>' % (head, b)
+        return '<table class="table table-hover table-bordered">{}{}</table>'.format(head, b)
 
     return get
 
@@ -465,10 +469,11 @@ def ImgPathField(label, name):
         values[name] = path
 
     def gen(defaults, errors, readonly):
-        clean_path = defaults[name]
-        img = '<img src="/static/%s">' % clean_path
+        clean_path = defaults.get(name, '')
+        if clean_path:
+            img = '<img src="/static/{}">'.format(clean_path)
         if not readonly:
-            img += '<input type="file" name="%s" />' % name
+            img += '<input type="file" name="{}" />'.format(name)
         return {'label': label, 'input': img}
 
     gen.success = success
@@ -479,7 +484,7 @@ field_factory = {int: Integer,
                  str: String,
                  bool: Tickbox}
 
-def AnnotationsForm(cls, validator=None, success=None, readonly=False):
+def annotationsForm(cls, validator=None, success=None, readonly=False):
     """ Generate a form from the annotations in a data (message) class """
     fields = [field_factory[t](n, n) for n, t in cls.__annotations__.items()]
     defaults = {n:getattr(cls, n) for n in cls.__annotations__ if hasattr(cls, n)}
@@ -543,7 +548,7 @@ def generateFields(table: TableDetails, hidden=None):
                             result = [(o._vals_[cols[0]], o._vals_[cols[1]]) for o in result]
                             if not result and details.is_required:
                                 raise cherrypy.HTTPError(424,
-                                                         "Please define an %s first" % details.type.__name__)
+                                                         "Please define an {} first".format(details.type.__name__))
                             return result
 
                     return options_getter
@@ -562,14 +567,13 @@ def generateFields(table: TableDetails, hidden=None):
                 yield String(name, name)
 
 
-def generateCrud(table: TableDetails, Page=Page, hidden=None, acm=dummyacm, index_show=None):
-    if isinstance(table, EntityMeta):
-        # We have a database table definition: extract the necessary info
-        table = getHmiDetails(table)
+def generateCrud(table: Union[TableDetails, EntityMeta], Page=Page, hidden=None, acm=dummyacm, index_show=None):
+    """ Generate a CRUD server on a database table. """
+    table_hmi_details = getHmiDetails(table) if isinstance(table, EntityMeta) else table
 
-    tablename = table.name
-    columns = list(generateFields(table, hidden))
-    column_names = table.columns.keys()
+    tablename = table_hmi_details.name
+    columns = list(generateFields(table_hmi_details, hidden))
+    column_names = table_hmi_details.columns.keys()
     index_show = index_show or column_names
 
     class Crud:
@@ -581,10 +585,10 @@ def generateCrud(table: TableDetails, Page=Page, hidden=None, acm=dummyacm, inde
                 return d
 
             def row_select_url(data):
-                return 'view?id=%s' % data.id
+                return 'view?id={}'.format(data.id)
 
             with sessionScope:
-                return Page(Title('%s overzicht' % tablename),
+                return Page(Title('{} overzicht'.format(tablename)),
                             PaginatedTable(row_data, table.select(), row_select_url=row_select_url),
                             Button('Toevoegen <i class="fa fa-plus"></i>', target='add'))
 
@@ -593,15 +597,15 @@ def generateCrud(table: TableDetails, Page=Page, hidden=None, acm=dummyacm, inde
         def view(self, id, **kwargs):
             with sessionScope:
                 details = {k: getattr(table[id], k) for k in column_names}
-            return Page(Title('%s details' % tablename),
+            return Page(Title('{} details'.format(tablename)),
                         SimpleForm(*columns,
                                    defaults=details,
                                    readonly=True),
                         ButtonBar(
                             Button('Verwijderen <i class="fa fa-times"></i>', btn_type=['danger'],
-                                   target='delete?id=%s' % id),
+                                   target='delete?id={}'.format(id)),
                             Button('Aanpassen <i class="fa fa-pencil"></i>',
-                                   target='edit?id=%s' % id),
+                                   target='edit?id={}'.format(id)),
                             Button('Sluiten', target='index')
                             ))
 
@@ -612,22 +616,18 @@ def generateCrud(table: TableDetails, Page=Page, hidden=None, acm=dummyacm, inde
             with sessionScope:
                 details = table[id]
 
-                def check():
-                    return kwargs, {}
-
                 def success(**kwargs):
                     for k, v in kwargs.items():
                         if getattr(details, k) != v:
                             setattr(details, k, v)
                     commit()
-                    raise cherrypy.HTTPRedirect('view?id=%s' % kwargs['id'])
+                    raise cherrypy.HTTPRedirect('view?id={}'.format(kwargs['id']))
 
-                return Page(Title('%s aanpassen' % tablename),
+                return Page(Title('{} aanpassen'.format(tablename)),
                             SimpleForm(*columns,
                                        defaults={k: getattr(table[id], k) for k in column_names},
-                                       validator=check,
                                        success=success,
-                                       cancel='view?id=%s' % id))
+                                       cancel='view?id={}'.format(id)))
 
         @cherrypy.expose
         @acm
@@ -641,10 +641,9 @@ def generateCrud(table: TableDetails, Page=Page, hidden=None, acm=dummyacm, inde
                     table(**details)
                 return 'Success!'
 
-            return Page(Title('%s toevoegen' % tablename),
+            return Page(Title('{} toevoegen'.format(tablename)),
                         SimpleForm(*columns,
                                    defaults={},
-                                   validator=lambda: (kwargs, {}),
                                    success=success))
 
         @cherrypy.expose
@@ -657,18 +656,19 @@ def generateCrud(table: TableDetails, Page=Page, hidden=None, acm=dummyacm, inde
                     commit()
                     raise cherrypy.HTTPRedirect('index')
 
-                return Page(Title('Weet u zeker dat u %s wilt verwijderen?' % tablename),
+                return Page(Title('Weet u zeker dat u {} wilt verwijderen?'.format(tablename)),
                             SimpleForm(*columns,
                                        defaults={k: getattr(table[id], k) for k in column_names},
                                        readonly=True,
                                        submit='Verwijderen <i class="fa fa-times"></i>',
                                        success=delete,
-                                       cancel='view?id=%s' % id))
+                                       cancel='view?id={}'.format(id)))
 
     return Crud()
 
 
 def simpleCrudServer(tables, page):
+    """ Implement a simple CRUD interface for a Server class """
     class Server: pass
 
     for name, table in tables.items():
