@@ -3,12 +3,9 @@ PROJECT ADMINGEN TODO
 BUGS:
 De template engine van het mailtje struikelt over het percentage teken. Gebruik iets dat robuster is!
 
-Giftenoverzicht:
-* Generation of JSON files gives exceptions: ERROR:root:Exception while loading data from exact
-Traceback (most recent call last):
-  File "./projects/giftenoverzicht/__init__.py", line 299, in run
-    users = json.load(open(USERS_FILE % self.org_id))
-FileNotFoundError: [Errno 2] No such file or directory: '12.users.json'
+Framework:
+* Automatische validatie van de velden
+* Vanuit een relatie doorklikken naar hetgeen aan gerelateerd wordt, om er 1 aan te maken.
 
 PayPal:
 * Implement maintenance & operations GUI

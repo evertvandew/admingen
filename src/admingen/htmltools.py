@@ -236,7 +236,7 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
     '''
     row_base = '''
         <div class="form-group">
-            <label for="{label}" class="col col-md-3 control-label">{label}</label>
+            <label class="col col-md-3 control-label">{label}</label>
             <div class="col col-md-9">{input}</div>
         </div>
     '''
@@ -386,7 +386,7 @@ def Selection(name, options, text=None):
             if defaults.get(name, '') and value[1] == defaults[name]:
                 index = i
 
-        option_tags = ['<option value="{}">{}</option>'.format(o for o in final_options)]
+        option_tags = ['<option value="{}">{}</option>'.format(o) for o in final_options]
         if index:
             option_tags[i] = '<option selected="selected" value="{}">{}</option>'.format(final_options[i])
         args = 'name="{}"'.format(name)
@@ -470,6 +470,7 @@ def ImgPathField(label, name):
 
     def gen(defaults, errors, readonly):
         clean_path = defaults.get(name, '')
+        img = ''
         if clean_path:
             img = '<img src="/static/{}">'.format(clean_path)
         if not readonly:
@@ -529,6 +530,21 @@ def ACM(permissions, login_func):
     return decorate
 
 
+def makeGetter(details):
+    """ Generate a function that retrieves possible values for a field """
+    def options_getter():
+        with sessionScope:
+            cols = details.related_columns
+            result = [o for o in details.type.select()]
+            result = [(o._vals_[cols[0]], o._vals_[cols[1]]) for o in result]
+            if not result and details.required:
+                raise cherrypy.HTTPError(424,
+                                         "Please define an {} first".format(details.type.__name__))
+            return result
+
+    return options_getter
+
+
 def generateFields(table: TableDetails, hidden=None):
     hidden = hidden or []
     for name, details in table.columns.items():
@@ -540,20 +556,7 @@ def generateFields(table: TableDetails, hidden=None):
             elif details.options:
                 yield Selection(name, details.options(), name)
             elif details.related_columns is not None:
-                def makeGetter():
-                    def options_getter():
-                        with sessionScope:
-                            cols = details.related_columns
-                            result = [o for o in details.type.select()]
-                            result = [(o._vals_[cols[0]], o._vals_[cols[1]]) for o in result]
-                            if not result and details.is_required:
-                                raise cherrypy.HTTPError(424,
-                                                         "Please define an {} first".format(details.type.__name__))
-                            return result
-
-                    return options_getter
-
-                yield Selection(name, makeGetter(), name)
+                yield Selection(name, makeGetter(details), name)
             elif details.type.__name__ == 'LongStr':
                 yield Text(details.name, details.name)
             elif details.type.__name__ == 'Password':

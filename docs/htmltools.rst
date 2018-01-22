@@ -130,3 +130,13 @@ form = annotationsForm(AddressData
 
 
 generateCrud
+
+
+
+
+Mechanisms / Contracts
+-------------------------
+
+Contract for select fields
+
+Contract for fields in a form
