@@ -13,7 +13,7 @@ import os
 from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN, ROUND_UP
 import traceback
 from enum import IntEnum
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any
 import re
 
 import paypalrestsdk
@@ -24,11 +24,11 @@ from admingen.email import sendmail
 from admingen import config
 from admingen.logging import log_exceptions
 from admingen.clients.rest import OAuth2
-from admingen.clients.paypal import downloadTransactions, pp_reader, PP_EU_COUNTRY_CODES, PPTransactionDetails
+from admingen.clients.paypal import downloadTransactions, pp_reader, PPTransactionDetails, PaypalSecrets
 from admingen.clients import zeke
 from admingen import logging
-from admingen.db_api import the_db, sessionScope, DbTable, select, delete, Required
-from admingen.international import SalesType
+from admingen.db_api import the_db, sessionScope, DbTable, select, delete, Required, Set, commit
+from admingen.international import SalesType, PP_EU_COUNTRY_CODES
 from admingen.dataclasses import dataclass, fields, asdict
 
 
@@ -233,7 +233,7 @@ def zeke_classifier(transaction: PPTransactionDetails):
 
 class PaypalExactTask:
     """ Produce exact transactions based on the PayPal transactions """
-    config: Tuple[WorkerConfig, ZekeDetails]
+    config: [WorkerConfig, zeke.ZekeDetails]
     secrets: [ExactSecrets, PaypalSecrets, zeke.ZekeSecrets]
 
     def __init__(self, config, secrets):
@@ -504,20 +504,25 @@ class PaypalExactTask:
 
 
 @DbTable
+class Task:
+    name: str
+    details: Set('TaskDetails')
+
+
+@DbTable
 class TaskDetails:
-    task_id : int
+    task : Task
     component: str
     settings: str
 
 
 class Worker:
     keyring = None
-    tasks: Dict[int, TaskDetails] = {}
     exact_token = None
     oauth = None
 
-    @property
-    def sockname(self):
+    @staticmethod
+    def sockname():
         return os.path.join(config.opsdir, appconfig.readersock)
 
     @property
@@ -547,35 +552,6 @@ class Worker:
         return dict(keyring='unlocked' if self.keyring else 'locked',
                     tasks=[t.name for t in self.tasks],
                     exact_online='authenticated' if self.exact_token else 'locked')
-
-    @expose
-    def addtask(self) -> int:
-        task_id = max(self.tasks.keys()) + 1
-        # Prepare the settings records for this task
-        with sessionScope():
-            _ = [TaskDetails(task_id=task_id, component=t.__name__, settings=serialize(t())) for t in PaypalExactTask.config]
-        return task_id
-
-    @expose
-    def gettasksettings(self, id: int, component: str):
-        if id in self.tasks and component in self.tasks[id].config:
-            return self.tasks[id].config[component]
-
-    @expose
-    def updatetask(self, id, settings):
-        if id in self.tasks and component in self.tasks[id].config:
-            update(self.tasks[id].config[component], settings)
-            with sessionScope():
-                d = select(t for t in TaskDetails if t.task_id==id and t.component==component).first()
-                d.settings = serialize(settings)
-
-    @expose
-    def deltask(self, id):
-        if id in self.tasks:
-            self.tasks[id].close()
-            del self.tasks[id]
-            with sessionScope():
-                delete(t for t in TaskDetails if t.task_id == id)
 
     @expose
     def setauthorizationcode(self, code):
@@ -609,7 +585,7 @@ class Worker:
         if config.testmode():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        server = mkUnixServer(Worker(), Worker.sockname)
+        server = mkUnixServer(Worker(), Worker.sockname())
         loop = asyncio.get_event_loop()
         loop.create_task(server)
         loop.run_forever()

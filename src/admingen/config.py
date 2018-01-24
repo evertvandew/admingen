@@ -68,7 +68,7 @@ def testmode():
     """ Test whether we are running deployed or not.
         When deployed, several environment variables will be set.
     """
-    return 'PROJECTNAME' in os.environ
+    return 'PROJECTNAME' not in os.environ
 
 
 def getConfig(path, default=None):

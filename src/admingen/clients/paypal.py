@@ -19,16 +19,23 @@ from admingen.config import getConfig, downloaddir
 from admingen.dataclasses import dataclass, fields, asdict
 
 
-def login(browser, username, password):
+
+@dataclass
+class PaypalSecrets:
+    username: str
+    password: str
+
+
+def login(browser, details: PaypalSecrets):
     """ Login to the PayPal reports page """
     browser.get('https://business.paypal.com/merchantdata/reportHome')
 
     # fill in the login details
     elem = browser.find_element_by_name("login_email")
-    elem.send_keys(username)
+    elem.send_keys(details.username)
 
     elem = browser.find_element_by_name("login_password")
-    elem.send_keys(password)
+    elem.send_keys(details.password)
 
     # Submit the details
     elem = browser.find_element_by_name("btnLogin")

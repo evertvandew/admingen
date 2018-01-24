@@ -4,7 +4,7 @@ from collections import namedtuple
 from typing import Tuple
 from pony import orm
 from inspect import getmembers, Signature, Parameter
-from pony.orm import Required, Set, select, Optional, delete
+from pony.orm import Required, Set, select, Optional, delete, desc, commit
 
 
 sessionScope = orm.db_session
@@ -19,7 +19,7 @@ ColumnDetails = namedtuple('ColumnDetails', ['name', 'primarykey', 'type', 'null
 TableDetails = namedtuple('TableDetails', ['name', 'compoundkey', 'columns'])
 
 def getHmiDetails(table) -> TableDetails:
-    colum_names = [a.column for a in table._attrs_ if a.column]
+    colum_names = [a.name for a in table._attrs_ if not a.is_collection]
 
     columndetails = {}
     for name in colum_names:
@@ -34,7 +34,7 @@ def getHmiDetails(table) -> TableDetails:
                           options=getattr(a.py_type, 'options', None),
                           required=a.is_required)
         columndetails[name] = d
-    return TableDetails(name=table._table_, compoundkey=False, columns=columndetails)
+    return TableDetails(name=table.__name__, compoundkey=False, columns=columndetails)
 
 the_db = orm.Database()
 
@@ -61,3 +61,7 @@ def DbTable(cls):
 
     # Create the database class and return it.
     return type(cls.__name__, (the_db.Entity,), elements)
+
+def fields(cls):
+    """ Mimics the API for dataclasses, but working on ponyorm database tables. """
+    return cls._columns_

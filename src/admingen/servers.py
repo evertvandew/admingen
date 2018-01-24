@@ -131,11 +131,18 @@ def unixproxy(cls, path):
 Message = dataclass
 
 def serialize(obj):
+    """ Serialize a dataclass, as a JSON dictionary """
     return json.dumps(asdict(obj))
 
 def deserialize(cls, msg):
+    """ Deserialize a message into a dataclass """
     data = json.loads(msg)
     return cls(**data)
+
+def update(obj, new_data: Mapping):
+    """ Update the elements in a data class """
+    for k, v in new_data.items():
+        setattr(obj, k, v)
 
 def wraphandlers(cls, decorator):
     """ Decorate all exposed request handlers in a class """

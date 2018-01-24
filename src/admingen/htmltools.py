@@ -6,7 +6,7 @@ import base64
 import logging
 import json
 import re
-from typing import Union
+from typing import Union, Callable, Any, Iterable
 import bcrypt
 from .db_api import sessionScope, commit, getHmiDetails, TableDetails, ColumnDetails
 from pony.orm.core import EntityMeta
@@ -111,19 +111,18 @@ def Verify(*rules):
     return check
 
 
-def Link(target, label):
-    return '<A HREF={}>{}</A>'.format(target, label)
-
-
 def joinElements(*args):
     return '\n'.join([a() if callable(a) else a for a in args])
-
 
 def parseArguments(**kwargs):
     if 'klasse' in kwargs:
         kwargs['class'] = kwargs['klasse']
         del kwargs['klasse']
     return ' '.join('{}="{}"'.format(k, v) for k, v in kwargs.items())
+
+def Link(target, label, **kwargs):
+    args = parseArguments(**kwargs)
+    return '<A {} HREF={}>{}</A>'.format(args, target, label)
 
 def Container(tag, *children, **kwargs):
     options = parseArguments(**kwargs)
@@ -152,6 +151,9 @@ def Page(*args, refresh=None):
             <link rel="stylesheet" type="text/css" href="/static/css/font-awesome.min.css" />
             <link rel="stylesheet" type="text/css" href="/static/css/custom-theme/jquery-ui-1.10.0.custom.css" />
             <link rel="stylesheet" type="text/css" href="/static/css/style.css" />
+            <script src="/static/js/jquery/jquery-1.11.2.min.js"></script>
+            <script src="/static/js/bootstrap/bootstrap.js"></script>
+
 
         </head>
         <body style="margin-top:0px">
@@ -178,6 +180,24 @@ def Button(caption, target='"#"', btn_type='primary', **kwargs):
             ['btn-{}'.format(t) for t in btn_type])
         return '<A HREF={} class="btn {}" {}>{}</A>'.format(target, btn_type_, args, caption)
 
+    return get
+
+
+
+def Collapsibles(bodies, headers=None):
+    def get():
+        nonlocal headers
+        if not headers:
+            headers = ['>>>' for _ in bodies]
+        hs = [Div(Link('#collapse%i'%i, header, **{'data-toggle' :'collapse'}),
+                 klasse='panel-heading')
+             for i, header in enumerate(headers)]
+        bs = [Div(Div(a, klasse='panel-body'),
+                 klasse='panel-colapse collapse',
+                 id='collapse%i'%i) for i, a in enumerate(bodies)]
+        return Div(*[Div(h, b, klasse="panel panel-default")
+                    for h, b in zip(hs, bs)],
+                   klasse='panel-group')
     return get
 
 
@@ -401,8 +421,17 @@ def DownloadLink(name, path):
     return '<A HREF="{}" target="_blank">{}</A>'.format(path, name)
 
 
-def PaginatedTable(line, data, header=None, row_select_url=None):
-    ''' data: a generator that returns datasets, or some other iterable'''
+def PaginatedTable(line: Callable[[Any], Iterable[str]],
+                   data: Iterable[Any],
+                   header: Iterable[str]=None,
+                   row_select_url: Callable[[Any], str]=None):
+    ''' Shows a table. `line` is a function called with each record to return the columns for a row. It is
+        called for each iteration from data.
+        `data` is an iterable that is passed to the line generator.
+        `header` is a list of strings that are placed as header above the table.
+        `row_select_url` is a function that is called with the data for each row and returns an url
+        to be triggered when the row is clicked.
+    '''
 
     def get():
         head = ''
@@ -485,12 +514,17 @@ field_factory = {int: Integer,
                  str: String,
                  bool: Tickbox}
 
-def annotationsForm(cls, validator=None, success=None, readonly=False):
+def annotationsForm(cls, validator=None, success=None, readonly=False, extra_fields=None,
+                    getter=None, prefix=''):
     """ Generate a form from the annotations in a data (message) class """
-    fields = [field_factory[t](n, n) for n, t in cls.__annotations__.items()]
+    fields = [field_factory[t](prefix+n, n) for n, t in cls.__annotations__.items()]
+    if extra_fields:
+        fields += extra_fields
     defaults = {n:getattr(cls, n) for n in cls.__annotations__ if hasattr(cls, n)}
 
     def gen():
+        if getter:
+            defaults.update(getter())
         return SimpleForm(*fields,
                           validator=validator,
                           defaults=defaults,
@@ -498,7 +532,6 @@ def annotationsForm(cls, validator=None, success=None, readonly=False):
                           readonly=readonly)
 
     return gen
-
 
 def dummyacm(func):
     return func
@@ -614,13 +647,15 @@ def generateCrud(table: Union[TableDetails, EntityMeta], Page=Page, hidden=None,
 
         @cherrypy.expose
         @acm
-        def edit(self, **kwargs):
-            id = kwargs['id']
+        def edit(self, id, **kwargs):
             with sessionScope:
                 details = table[id]
 
                 def success(**kwargs):
-                    for k, v in kwargs.items():
+                    for k in column_names:
+                        if k not in kwargs:
+                            continue
+                        v = kwargs[k]
                         if getattr(details, k) != v:
                             setattr(details, k, v)
                     commit()
@@ -628,7 +663,7 @@ def generateCrud(table: Union[TableDetails, EntityMeta], Page=Page, hidden=None,
 
                 return Page(Title('{} aanpassen'.format(tablename)),
                             SimpleForm(*columns,
-                                       defaults={k: getattr(table[id], k) for k in column_names},
+                                       defaults={k: getattr(details, k) for k in column_names},
                                        success=success,
                                        cancel='view?id={}'.format(id)))
 
@@ -652,7 +687,9 @@ def generateCrud(table: Union[TableDetails, EntityMeta], Page=Page, hidden=None,
         @cherrypy.expose
         @acm
         def delete(self, **kwargs):
-            id = kwargs['id']
+            id = kwargs.get('id', None)
+            if id is None:
+                raise cherrypy.HTTPError(400, 'Missing argument "id"')
             with sessionScope:
                 def delete(**_):
                     table[id].delete()

@@ -110,6 +110,13 @@ def handle_login(**kwargs):
 
 
 
+Tables
+-------------
+
+  PaginatedTable(line, data, header=None, row_select_url=None)
+
+
+
 Form Generators
 ------------------
 
@@ -140,3 +147,6 @@ Mechanisms / Contracts
 Contract for select fields
 
 Contract for fields in a form
+
+Mechanism for paginated tables
+................................
