@@ -14,7 +14,7 @@ import logging
 import logging.handlers
 
 theconfig = {}
-configdir = '.'
+configdir = os.environ.get('CONFDIR', '.')
 
 
 config_parsers = {'.ini': lambda s: ConfigObj(StringIO(s)), '.json': json.loads,
@@ -50,7 +50,7 @@ def parse(fname):
 def load():
     global theconfig
     for fname in configfiles():
-        logging.info('Loading config file %s'%fname)
+        logging.info('Loading tmp file %s'%fname)
         path = os.path.splitext(fname)[0]
         path = os.path.relpath(path, configdir)
         parts = path.split(os.pathsep)
@@ -87,12 +87,17 @@ def fname():
     return n.config
 
 def configtype(cls):
-    """ Decorator that turns a projects specification into a getter for
+    """ Decorator that turns a config specification (dataclass) into a getter for
         accessing the configuration. The configuration is returned as
         an object of type cls.
         The configuration is a singleton. Instantiating it returns the
         one and only configuration object.
+        The config specification is a regular object, but also has the dictionary protocol
     """
+    def asdict(o):
+        if isinstance(o, dict):
+            return o
+        return o.__dict__
     def default_constructor(self, **kwargs):
         self.__dict__.update(kwargs)
     def convert_types(d):
@@ -113,7 +118,7 @@ def configtype(cls):
         config.__dict__.update(new_config.__dict__)
 
     def factory():
-        """ The function called when a user tries to instantiate the config
+        """ The function called when a user tries to instantiate the tmp
             class. It returns the configuration singleton.
         """
         return config
@@ -124,43 +129,58 @@ def configtype(cls):
         cls.__init__ = default_constructor
 
     # The path is derived from the class name, but in lowercase
-    # and with all occurences of 'config' removed.
-    path = cls.__name__.lower().replace('config', '')
-    # There may already be values in the config: use them!
+    # and with all occurences of 'tmp' removed.
+    path = cls.__name__.lower().replace('tmp', '')
+    # There may already be values in the tmp: use them!
     init = theconfig.get(path, {})
-    config = cls(**convert_types(init))
-    # Overwrite any existing config, so it gets the correct type.
+    config = cls(**convert_types(asdict(init)))
+    # Overwrite any existing tmp, so it gets the correct type.
     theconfig[path] = config
 
-    config.update = update
+    cls.update = update
     return factory
 
+projectname = logdir = opsdir = rundir = downloaddir = ''
 
-projectname = os.environ.get('PROJECTNAME', os.path.basename(sys.argv[0]))
-logdir = os.environ.get('LOGDIR', '') or os.getcwd()
-opsdir = os.environ.get('OPSDIR', '') or os.getcwd()
-rundir = os.environ.get('RUNDIR', '') or os.getcwd()
+def load_context():
+    global projectname, logdir, opsdir, rundir, downloaddir
 
-downloaddir = os.path.join(rundir, 'downloads')
+    # Define a number of variables for accessing the file system.
+    # These directories can be set by environment variables, and default to the cwd.
+    # LOGDIR: the directory where log files are to be stored, e.g. /var/log/<project>.
+    # OPSDIR: the directory where operational files are to be stored, such as databases and UNIX sockets
+    #         e.g. /var/lib/<project>
+    # RUNDIR: the context where a program lives, e.g. a HOME directory or /run/<project>.
+    # CONFDIR: the directory where config files live, e.g. /etc/project
+    projectname = os.environ.get('PROJECTNAME', os.path.basename(sys.argv[0]))
+    logdir = os.environ.get('LOGDIR', '') or os.getcwd()
+    opsdir = os.environ.get('OPSDIR', '') or os.getcwd()
+    rundir = os.environ.get('RUNDIR', '') or os.getcwd()
+
+    downloaddir = os.path.join(rundir, 'downloads')
+
+    # TODO: Ensure reload of configuration files
 
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
 
-# create console handler and set level to debug
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-
-# add ch to logger
-logger.addHandler(ch)
-
-if not testmode():
-    # create file handler and set level to warning
-    logfile = os.path.join(logdir, projectname+'.log')
-    ch = logging.handlers.RotatingFileHandler(logfile, maxBytes=10e6, backupCount=5)
-    ch.setLevel(logging.WARNING)
-    formatter = logging.Formatter('%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
 
     # add ch to logger
     logger.addHandler(ch)
+
+    if not testmode():
+        # create file handler and set level to warning
+        logfile = os.path.join(logdir, projectname+'.log')
+        ch = logging.handlers.RotatingFileHandler(logfile, maxBytes=10e6, backupCount=5)
+        ch.setLevel(logging.WARNING)
+        formatter = logging.Formatter('%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+        ch.setFormatter(formatter)
+
+        # add ch to logger
+        logger.addHandler(ch)
+
+load_context()

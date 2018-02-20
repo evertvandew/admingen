@@ -1,0 +1,8 @@
+ 
+@startuml
+
+
+package "Logistiek Proces" as log
+
+
+@enduml

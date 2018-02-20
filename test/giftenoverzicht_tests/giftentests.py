@@ -26,7 +26,7 @@ class TestServer(TestCase):
         cls.oauthsim.terminate()
 
     def setUp(self):
-        config.set_configdir(os.path.dirname(__file__) + '/config')
+        config.set_configdir(os.path.dirname(__file__) + '/tmp')
         mydir = os.path.dirname(__file__)
         self.runner = Thread(target=run)
         self.runner.setDaemon(True)

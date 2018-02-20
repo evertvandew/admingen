@@ -1,0 +1,14 @@
+table a.asc:after,
+table a.desc:after {
+  font-family: 'FontAwesome';
+  margin-left: 5px;
+}
+table a.asc:after {
+  content: "\f0d8";
+}
+table a.desc:after {
+  content: "\f0d7";
+}
+.js-table-row-clickable {
+  cursor: pointer;
+}

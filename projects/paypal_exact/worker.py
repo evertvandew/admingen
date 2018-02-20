@@ -10,11 +10,13 @@ import asyncio
 import datetime
 from collections import namedtuple
 import os
+import sys
 from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN, ROUND_UP
 import traceback
 from enum import IntEnum
 from typing import List, Tuple, Dict, Any
 import re
+import threading
 
 import paypalrestsdk
 from paypalrestsdk.payments import Payment
@@ -48,14 +50,16 @@ class ExactSecrets:
     client_token: str
 
 @config.configtype
-class mailconfig:
+class paypal_export_config:
     adminmail='evert.vandewaal@xs4all.nl'
     appname='Paypal Exporter'
     keyring='paypalreaderring.enc'
     readersock='paypalreader.sock'
+    database='sqlite://$OPSDIR/transaction_cache.db'
 
 
-appconfig = mailconfig()
+
+appconfig = paypal_export_config()
 
 bootmail = '''I have restarted, and need my keyring unlocked!
 
@@ -506,6 +510,7 @@ class PaypalExactTask:
 @DbTable
 class Task:
     name: str
+    schedule: str
     details: Set('TaskDetails')
 
 
@@ -525,32 +530,55 @@ class Worker:
     def sockname():
         return os.path.join(config.opsdir, appconfig.readersock)
 
-    @property
-    def keyringname(self):
+    @staticmethod
+    def keyringname():
         return os.path.join(config.opsdir, appconfig.keyring)
+
+    @staticmethod
+    def secret_key(task_id, secret_cls):
+        return 'task{}_{}'.format(task_id, secret_cls.__name__)
+
+    def __init__(self, cls=PaypalExactTask):
+        self.cls = cls
+        self.keyring = None
+        self.tasks = {}
+        self.errors = {}
+        self.runs = {}
 
     @expose
     def unlock(self, password):
         """ Supply the keychain password to the application.
             This allows the tasks to be instantiated.
         """
-        self.keyring = KeyRing(self.keyringname, password)
+        self.keyring = KeyRing(self.keyringname(), password)
+        self.reload()
 
+    @expose
+    def reload(self):
         with sessionScope():
+            task_names = {t.id: t.name for t in list(Task.select())}
             task_config = {}
             for d in select(t for t in TaskDetails):
-                task_config.setdefault(d.task_id)[d.component] = d.settings
+                task_config.setdefault(d.task.id, {})[d.component] = d.settings
 
             for id, details in task_config.items():
-                config = [deserialize(t, details[t.__name__]) for t in PaypalExactTask.config]
-                keys = [(t, 'tasks_%i_%s'%(id, t.__name__)) for t in PaypalExactTask.secrets]
-                secrets = [deserialize(t, self.keyring[k]) for t, k in keys]
-                self.tasks[details.id] = PaypalExactTask(config, secrets)
+                config = [deserialize(t, details[t.__name__])
+                          for t in self.cls.__annotations__['config']]
+                keys = [(t, self.secret_key(id, t))
+                        for t in self.cls.__annotations__['secrets']]
+                secrets = [t(**self.keyring[k]) for t, k in keys]
+                # Test if all settings are set...
+                if not all([*config, *secrets]):
+                    self.errors[task_names[id]] = 'Some configuration is missing'
+                    logging.error('Task %s missing some configuration'%task_names[id])
+                else:
+                    self.tasks[task_names[id]] = self.cls(config, secrets)
 
     @expose
     def status(self):
         return dict(keyring='unlocked' if self.keyring else 'locked',
-                    tasks=[t.name for t in self.tasks],
+                    tasks=[t for t in self.tasks],
+                    errors=self.errors,
                     exact_online='authenticated' if self.exact_token else 'locked')
 
     @expose
@@ -574,20 +602,37 @@ class Worker:
         loop = asyncio.get_event_loop()
         loop.call_later(int(token['expires_in']) - 550, self.refreshtoken)
 
+    async def scheduler(self):
+        while True:
+            # Wait one second
+            await asyncio.wait(1)
+
+            # Test if we need to activate a task
+            for name, t in self.tasks.items():
+                logging.debug('Starting task %s'%name)
+                t.run()
+
+    @expose
+    def exit(self):
+        logging.warning('Terminating worker process')
+        sys.exit(0)
+
     @staticmethod
     @logging.log_exceptions
-    def run():
+    def run(cls=PaypalExactTask):
         # In test mode, we need to create our own event loop
         the_db.bind(provider='sqlite', filename='transaction_cache.db', create_db=True)
         the_db.generate_mapping(create_tables=True)
 
         print('Starting worker')
-        if config.testmode():
+        if threading.current_thread() != threading.main_thread():
+            # Only the main thread has an event loop. If necessary, start a new one.
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        server = mkUnixServer(Worker(), Worker.sockname())
+        server = mkUnixServer(Worker(cls), Worker.sockname())
         loop = asyncio.get_event_loop()
         loop.create_task(server)
+        loop.create_task(server.scheduler)
         loop.run_forever()
 
 

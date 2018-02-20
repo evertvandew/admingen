@@ -1,0 +1,93 @@
+
+
+@startsalt
+
+{
+{
+    [Uren]
+    [Klanten]
+    [Opdrachten]
+    [Facturen]
+} | {-
+        {
+            = Klanten    | [X]
+            [] Toon oude klanten
+            {#
+                <b>Naam | <b>Contact   | <b>Omzet   | <b>Lopende opdrachten
+                Dynniq  | P. v/d Sluijs | €1.234,00  | 2                  | [ X ]
+                Axians  | G. v Dinther  | €23.456,00 | 5                  | [ X ]
+            }
+            [Nieuwe Klant]
+        }
+        {
+            == Klant: Dynniq  | [X]
+            {
+                Naam:    | "Dynniq   "
+                Contact: | "P. v/d Sluijs  "
+                Email:   | "pieter.vandersluijs@dynniq.com  "
+                Adres:   | "Basicweg 16, 3821 BR Amersfoort  "
+            }
+            [Aanpassen]
+        }
+        {
+            == Opdrachten:    | [X]
+            [] Toon gesloten opdrachten
+            {#
+                <b>Code | <b>Naam | <b>Ext. ref | <b>Start | <b>Einde | <b>Uurtarief | <b>Omzet verwacht | <b>Omzet gerealiseerd
+                1    | Neckerspoel | P.01023513.01.03 | 04-10-2017 | - | €90 | €10.000 | € 0,00 | [ Sluit Opdracht ]
+            }
+            [Nieuwe Opdracht]
+        }
+        {
+            == Opdracht: Neckerspoel    | [X]
+            {
+                <b>Naam:            | "Neckerspoel   "
+                Externe Referentie: | "P.01023513.01.03   "
+                Omschrijving:       | "Kleine aanpassingen en bugfixes voor het dynamische busstation Neckerspoel"
+                Start               | "04-10-2017  "
+                Verwacht einde      | "01-01-2018  "
+                Uurtarief           | "€90  "
+                Status              | ^Gestart  ^
+            }
+            { [Aanpassen] | [Nieuwe Offerte] | [Opdracht Sluiten] }
+        }
+    }
+}
+
+@endsalt
+
+
+@startsalt
+
+{
+{
+    [Uren]
+    [Klanten]
+    [Opdrachten]
+    [Facturen]
+} | {-
+        {
+            = Uren    | [X]
+            [] Toon afgesloten weken
+            {#
+                <b>week | <b>start   | <b>einde  | <b>uren | <b>omzet
+                2017-38  | 17-9-2017 | 23-9-2017 | 40      | €2.400,00 | [ X ]
+                2017-39  | 23-9-2017 | 30-9-2017 | 0       | €0,00     | [ X ]
+            }
+            [Nieuwe Week]
+        }
+        {
+            == Week: 2017-39  | [X]
+            Start: 23-9-2017   Einde: 30-9-2017
+            {#
+                <b>Opdracht        | <b>ma | <b>di | <b>wo | <b>do | <b>vr
+                Dynniq:Neckerspoel | "0  " | "0  " | "0  " | "0  " | "8  " | [X]
+                Axians:MAAS        | "0  " | "3  " | "0  " | "0  " | "0  " | [X]
+                ^Nieuwe regel^
+            }
+            [Opslaan]
+        }
+    }
+}
+
+@endsalt

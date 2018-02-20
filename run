@@ -38,9 +38,17 @@ patterns = [os.environ['HOME']+'/var/{type}',
             os.getcwd()+'/{type}',
             os.getcwd()]
 
+
+envdirs = []
+if 'OPSDIR' not in os.environ:
+    envdirs.append(('OPSDIR', 'lib'))
+if 'LOGDIR' not in os.environ:
+    envdirs.append(('LOGDIR', 'log'))
+
+
 for p in patterns:
     success = True
-    for e, t in [('OPSDIR', 'lib'), ('LOGDIR', 'log')]:
+    for e, t in envdirs:
         path = p.format(type=t)
 
         if not os.path.exists(path):
@@ -62,14 +70,17 @@ for p in patterns:
         break
 
 print('Using ops and log directories', os.environ['OPSDIR'], os.environ['LOGDIR'])
-os.environ['RUNDIR'] = os.environ['OPSDIR']
+if 'RUNDIR' not in os.environ:
+    os.environ['RUNDIR'] = os.environ['OPSDIR']
 
 # Look for the configuration
-for confdir in [os.environ['HOME']+'/etc/%s'%args.project, '/etc/%s'%args.project, None]:
-    if not confdir:
-        raise RuntimeError( 'Could not find a configuration for project %s'% args.project )
-    if os.path.exists(confdir):
-        break
+confdir = os.environ.get('CONFDIR', None)
+if not confdir:
+    for confdir in [os.environ['HOME']+'/etc/%s'%args.project, '/etc/%s'%args.project, None]:
+        if not confdir:
+            raise RuntimeError( 'Could not find a configuration for project %s'% args.project )
+        if os.path.exists(confdir):
+            break
 
 # Load the configuration
 from admingen import config

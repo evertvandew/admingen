@@ -4,10 +4,12 @@ import os
 from getpass import getpass
 import os.path
 import secrets
-import json
 import base64
 import shutil
 from Crypto.Cipher import AES
+import json
+
+from admingen.util import loads, dumps
 
 
 class DecodeError(RuntimeError): pass
@@ -26,7 +28,7 @@ def writeFile(fname, password, data):
     salt = secrets.token_bytes(32)
     key = mkKey(password, salt)
     cypher = AES.new(key, AES.MODE_CFB, IV='\x00'*16)
-    darktext = cypher.encrypt(json.dumps(data))
+    darktext = cypher.encrypt(dumps(data))
     with open(fname, 'wb') as f:
         f.write(base64.b64encode(salt))
         f.write(b'\n')
@@ -42,7 +44,7 @@ def readFile(fname, password):
     key = mkKey(password, salt)
     cypher = AES.new(key, AES.MODE_CFB, IV='\x00'*16)
     try:
-        return json.loads(cypher.decrypt(data[1]))
+        return loads(cypher.decrypt(data[1]))
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise DecodeError('Could not decrypt keyring: probably wrong password.')
 

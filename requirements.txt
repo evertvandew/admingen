@@ -11,3 +11,4 @@ selenium
 markdown
 rst2pdf
 Babel
+caldav

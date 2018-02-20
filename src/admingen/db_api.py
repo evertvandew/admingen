@@ -39,10 +39,15 @@ def getHmiDetails(table) -> TableDetails:
 the_db = orm.Database()
 
 
+table_cache = {}
+
+
 def DbTable(cls):
     """ Decorator that returns an ORM table definition from a class.
         As in the Message, annotations are used to define the table elements
     """
+    if cls in table_cache:
+        return table_cache[cls]
     # Currently, we use the PonyORM system.
 
     # Determine the various columns
@@ -60,7 +65,9 @@ def DbTable(cls):
                 elements[n] = orm.Optional(a)
 
     # Create the database class and return it.
-    return type(cls.__name__, (the_db.Entity,), elements)
+    orm_cls = type(cls.__name__, (the_db.Entity,), elements)
+    table_cache[cls] = orm_cls
+    return orm_cls
 
 def fields(cls):
     """ Mimics the API for dataclasses, but working on ponyorm database tables. """

@@ -7,19 +7,27 @@ Framework:
 * Automatische validatie van de velden
 * Vanuit een relatie doorklikken naar hetgeen aan gerelateerd wordt, om er 1 aan te maken.
 
+
+Calendar integration:
+* Implement CalDAV plugin
+
+
 PayPal:
 * Implement maintenance & operations GUI
 * Deploy to server
 * Implement automatic testing
+
 
 Server:
 * Implement multi-site frontend
 * Implement DNS on server for multiple sites
 * Implement check_mk
 
+
 Report Generator
 * Decide on technology
 * Implement frontend
+
 
 Website:
 * Create customer website

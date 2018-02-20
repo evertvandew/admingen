@@ -1,6 +1,6 @@
 """ Test the logging settings that are set by the config handler """
 
-# Let the config think we are running in production mode.
+# Let the tmp think we are running in production mode.
 import os
 import os.path
 import logging
@@ -10,7 +10,7 @@ os.environ['PROGRAMNAME'] = 'admingen'
 
 from unittest import TestCase
 
-# The logging is configured in the config module.
+# The logging is configured in the tmp module.
 import admingen.config
 
 

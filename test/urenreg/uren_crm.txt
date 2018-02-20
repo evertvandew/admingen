@@ -1,0 +1,167 @@
+#!/usr/bin/env dslrunner
+
+
+
+fsm Opdracht
+[*] --> Aanvraag
+Aanvraag --> Offerte : send
+Offerte --> Aanvraag : reject
+Offerte --> Lopend : accept
+Lopend --> [*] : finish
+.
+
+fsm Factuur
+[*] --> Test
+Test --> Opgehouden : not FactuurReady
+Test --> Review : FactuurReady
+Opgehouden --> Review : FactuurReady
+Review --> Verstuurd : send
+Verstuurd --> Mislukt : senderror
+Mislukt --> Verstuurd : send
+Verstuurd, TeLaat, VeelTeLaat --> Voldaan : payed
+Verstuurd --> TeLaat : now - factuur.verstuurd > 30d
+TeLaat --> VeelTeLaat : now - factuur.verstuurd > 30d
+VeelTeLaat --> [*] : FactuurAfgeschreven
+Voldaan --> [*]  : FactuurOpruimen
+.
+
+fsm Weekstaat
+[*] --> Open
+Open --> Open : add Urenstaat
+Open --> Gesloten : close
+Gesloten --> Goedgekeurd : approve
+Gesloten --> Open : reject
+Goedgekeurd --> Gefactureerd : send
+Gefactureerd --> [*]
+.
+
+actions
+Opdracht.Aanvraag: edit(Opdracht)
+Opdracht.Offerte.entry: sendOfferte(Opdracht)
+Opdracht.Lopend: edit(Opdracht, [end, werkers, uren, facturen])
+
+.
+
+
+table Persoon
+naam: str
+email: email
+telefoon: telefoonnr
+werkgevers: Klant
+.
+
+table Werker
+naam: str
+standaardtarief: money
+sofinr: str
+inzet : Set(WerkerTarief)
+.
+
+table WerkerTarief
+werker: Werker
+opdracht: Opdracht
+tarief: money
+uren: Set(Urenregel)
+facturen: Set(Factuur)
+.
+
+table Adres
+straat_nummer: str
+postcode: str
+plaats: str
+land: str
+gevestigde: Klant
+.
+
+table Klant
+naam: str
+adres: Adres
+contactpersoon: Persoon
+projecten: Set(Opdracht)
+.
+
+table Opdracht
+naam: str
+omschrijving: str
+start: date
+end: date
+ref: str
+opdrachtgever: Klant
+state: StateVariable(Opdracht)
+werkers: Set(WerkerTarief)
+uren: Set(Urenregel)
+facturen: Set(Factuur)
+pdf: blob
+.
+
+table Urenregel
+week: Weekstaat
+opdracht: Opdracht
+werker: WerkerTarief
+facturen: Set(WeekFactuur)
+ma: float, default=0.0
+di: float, default=0.0
+wo: float, default=0.0
+do: float, default=0.0
+vr: float, default=0.0
+za: float, default=0.0
+zo: float, default=0.0
+.
+
+table Weekstaat
+weeknr: int
+jaar: int
+start: datetime
+eind: datetime
+state: StateVariable(Weekstaat)
+uren: Set(Urenregel)
+facturen: Set(WeekFactuur)
+.
+
+table Factuur
+opdracht: Opdracht
+werker: WerkerTarief
+periode: datetime
+uren: float
+netto: money
+btw: money
+bruto: money
+nummer: str
+datum: datetime
+state: StateVariable(Factuur)
+weken: Set(WeekFactuur)
+pdf: blob
+.
+
+table WeekFactuur
+week: Weekstaat
+factuur: Factuur
+uren: Urenregel
+.
+
+view FactuurDetails
+factuur: Factuur
+nr_days: calendar.monthrange(factuur.periode.year(), factuur.periode.month())[1]
+start: factuur.periode
+end: start + timedelta(nr_days, 0)
+_weeks: [w for w in Weekstaat if (w.start+timedelta(4)) >= start and w.start < end)]
+_week_filter: {w.id:[(start <= d < end) for d in [w.start+timedelta(i) for i in range(7)]] for w in weeks}
+_lines: [(w.weeknr, l) for w in weeks for l in w.uren if l.werker==factuur.werker and l.opdracht==factuur.opdracht]
+_lines2: [(w, [getattr[l, d] for d in ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']]) for w, l in lines]
+_lines_filtered: [(w, [a*b for a,b in zip(l, week_filter[w])]) for w, l in lines2]
+weeks: [{'nr': w, 'days': d, 'all': sum(d)} for w, d in _lines_filtered]
+total_uren: sum(u for w,l in _lines_filtered for u in l)
+.
+
+rules Opdracht
+Offerte: Constant(opdrachtgever.contactpersoon.email, pdf)
+.
+
+rules Factuur
+Verstuurd, TeLaat, VeelTeLaat, Voldaan: Constant(*)
+Verstuurd, TeLaat, VeelTeLaat: Constant(opdracht.opdrachtgever.email)
+.
+
+rules Weekstaat
+Gesloten, Goedgekeurd, Gefactureerd : Constant(*)
+.

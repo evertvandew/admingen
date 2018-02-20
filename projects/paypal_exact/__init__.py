@@ -17,6 +17,7 @@ import os.path
 import subprocess
 import threading
 from contextlib import contextmanager
+from urllib.parse import urlparse
 
 from admingen import keyring
 from admingen.logging import log_exceptions
@@ -26,7 +27,7 @@ from admingen.htmltools import *
 from admingen.keyring import DecodeError
 from admingen.db_api import fields, the_db
 
-from paypal_exact.worker import Worker, PaypalExactTask, Task, TaskDetails
+from paypal_exact.worker import Worker, PaypalExactTask, Task, TaskDetails, WorkerConfig, appconfig
 
 
 def taskdetails_editor(base):
@@ -150,7 +151,8 @@ class TaskHandler:
 def production_worker():
     """ Runs the worker in a separate process """
     # We need to start the database directly
-    the_db.bind(provider='sqlite', filename='transaction_cache.db', create_db=True)
+    details = urlparse(appconfig.database)
+    the_db.bind(provider=details.scheme, filename=details.netloc, create_db=True)
     the_db.generate_mapping(create_tables=True)
 
     # Run the worker and create a proxy to it
@@ -174,11 +176,10 @@ def production_worker():
             p.terminate()
         p.wait()
 
-
 @contextmanager
 def test_worker():
     # We need to start the database directly
-    the_db.bind(provider='sqlite', filename='transaction_cache.db', create_db=True)
+    the_db.bind(provider='sqlite', filename=':memory:', create_db=True)
     the_db.generate_mapping(create_tables=True)
 
     # Just make the worker proxy the actual worker

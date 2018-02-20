@@ -1,16 +1,20 @@
+
 import urllib
 import time
 import asyncio
 import json
 import os, os.path
+import logging
 from inspect import getmembers, Signature, Parameter
 from urllib.parse import urlparse
 from collections import Mapping
 import socket
 import cherrypy
 from .keyring import KeyRing, DecodeError
-from .htmltools import SimpleForm, Title, form_input
+import admingen.htmltools as html
 from .dataclasses import dataclass, asdict
+from .appengine import ApplicationModel
+from .db_api import the_db, sessionScope, DbTable, select, delete, Required, Set, commit, orm
 
 
 # TODO: implement checking the parameters in a unix server message
@@ -45,8 +49,10 @@ def expose(func):
 
 def mkUnixServer(context, path, loop=None):
     async def handler(reader, writer):
+        logging.debug('Server got a connection')
         while True:
             data = await reader.readline()
+            logging.debug('Server read data: %s'%data)
             try:
                 msg = decodeUnixMsg(data)
                 if not isinstance(msg, list) or len(msg) != 3:
@@ -65,8 +71,10 @@ def mkUnixServer(context, path, loop=None):
             except Exception as e:
                 reply = [500, [e.__class__.__name__, str(e)]]
 
+            logging.debug('Writing reply: %s'%reply)
             writer.write(encodeUnixMsg(reply) + b'\n')
 
+    logging.info('Starting server on %s'%os.path.abspath(path))
     return asyncio.start_unix_server(handler, path)
 
 
@@ -75,17 +83,20 @@ def unixproxy(cls, path):
     exports = [name for name, f in getmembers(cls) if getattr(f, 'exposed', False)]
 
     # Wait until the server is in the air
+    logging.info('Proxy listening on %s'%os.path.abspath(path))
     while not os.path.exists(path):
         time.sleep(0.1)
+    logging.info('Socket file exists')
 
     class Proxy:
         def __init__(self):
             sock = socket.socket(socket.AF_UNIX)
-            connected = False
-            while not connected:
+            self.connected = False
+            while not self.connected:
                 try:
                     sock.connect(path)
-                    connected = True
+                    self.connected = True
+                    logging.debug('Proxy connected')
                 except ConnectionRefusedError:
                     time.sleep(0.1)
 
@@ -93,9 +104,12 @@ def unixproxy(cls, path):
             self.buf = b''
 
         def __del__(self):
+            logging.debug('Closing proxy socket')
+            self.connected = False
             self.sock.close()
 
         def _read_line(self):
+            assert self.connected
             while True:
                 if b'\n' in self.buf:
                     i = self.buf.index(b'\n')
@@ -103,14 +117,17 @@ def unixproxy(cls, path):
                     self.buf = self.buf[i+1:] if len(self.buf) > i else b''
                     return msg
                 d = self.sock.recv(1024)
+                logging.debug('Proxy received data: %s'%d)
                 self.buf += d
 
         def _add_service(self, name):
             def service(*args, **kwargs):
+                assert self.connected
                 # pack the arguments
                 data = [name, args, kwargs]
                 msg = encodeUnixMsg(data)
                 # Send the message and return the results
+                logging.debug('Proxy sending message: %s'%msg)
                 self.sock.send(msg+b'\n')
                 reply = self._read_line()
                 reply = decodeUnixMsg(reply)
@@ -136,6 +153,8 @@ def serialize(obj):
 
 def deserialize(cls, msg):
     """ Deserialize a message into a dataclass """
+    if not msg:
+        return None
     data = json.loads(msg)
     return cls(**data)
 
@@ -185,8 +204,8 @@ def keychain_unlocker(fname):
                 except DecodeError:
                     time.sleep(3)
                     raise cherrypy.HTTPError(401, 'No Access')
-            return cls.Page(Title('Unlock Keyring'),
-                            SimpleForm(form_input('password', 'password', 'password'),
+            return cls.Page(html.Title('Unlock Keyring'),
+                            html.SimpleForm(html.form_input('password', 'password', 'password'),
                                        success=submit))
 
         wraphandlers(cls, check_keyring)
@@ -196,39 +215,51 @@ def keychain_unlocker(fname):
     return decorator
 
 
+def run_model(model: ApplicationModel):
+    """ Get the configuration, and instantiate the backend server for the model.
 
+        A simple cherrypy server with pure HTML client is created.
+    """
+    state_variables = model.fsmmodel.state_variables
+    def createFsmHandler(name):
+        # Create handlers for each FSM
+        varpath = state_variables[name]
+        table_name, column_name = varpath.split('.')
+        table = getattr(the_db, table_name)
 
-def oauth_accesstoken(cls, login_url, redirect_uri, token_url=None):
-    """ Decorator to add tools to handle OAuth2 authentication """
+        baseclass = html.generateCrudCls(table, hidden=[column_name])
 
-    def binquote(value):
-        """
-        We use quote() instead of urlencode() because the Exact Online API
-        does not like it when we encode slashes -- in the redirect_uri -- as
-        well (which the latter does).
-        """
-        return urllib.parse.quote(value.encode('utf-8'))
+        class FsmHandler(baseclass):
+            @expose
+            def index(self):
+                # Present an overview of the amount of elements in a particular state
+                with sessionScope():
+                    # Count the number of objects for each state
+                    # TODO: Replace hardcoded name (state) with column_name
+                    counts = select((o.state, orm.count(o)) for o in table)[:]
+                    # Allow the user to create entities in the right states
+                    return html.Page(html.Title(name),
+                                     html.Lines(*['%s: %s'%c for c in counts]),
+                                     html.Button('Begin een nieuwe %s'%name, 'add'))
+            @expose
+            def index_state(self, state):
+                return baseclass.index(self, query='%s=%s'%(column_name, state))
 
-    def getAccessToken(client_id, client_secret, code):
-        params = {'code': code,
-                  'client_id': binquote(client_id),
-                  'grant_type': 'authorization_code',
-                  'client_secret': binquote(client_secret),
-                  'redirect_uri': binquote(redirect_uri)}
-        response = request(token_url, method='POST', params=params)
-        return response
+        return FsmHandler()
 
-    def request(*args, **kwargs):
-        # Check if the token parameter is set
-        if 'token' in kwargs:
-            return func(*args, **kwargs)
-        # Check if the OAUTH code was provided
-        if 'code' in kwargs:
-            print ('URL:', cherrypy.url())
-            token = getAccessToken(kwargs['code'])
-            kwargs['token'] = token['access_token']
-            return func(*args, **kwargs)
-        # Otherwise let the user login and get the OAUTH token.
-        raise cherrypy.HTTPRedirect("https://start.exactonline.nl/api/oauth2/auth?client_id=45e63a87-5943-4163-ab90-ccb23a738ad4&redirect_uri=https://vandewaal.xs4all.nl:13958&response_type=code&force_login=0")
-    cls.oauth_code = request
-    return cls
+    # Create the server class
+    class ApplicationServer:
+        @expose
+        def index(self):
+            # Return a selector for which FSM we want to work with
+            return html.Page(html.Title('Urenregistratie'),
+                             *[html.Button(fsm, fsm) for fsm in state_variables])
+
+    for name in state_variables:
+        setattr(ApplicationServer, name, createFsmHandler(name))
+
+    with sessionScope():
+        counts = select((o.state, orm.count(o)) for o in the_db.Opdracht)
+        print ('Counts:', counts)
+
+    html.runServer(ApplicationServer)

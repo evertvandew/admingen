@@ -5,6 +5,8 @@
 
 import tatsu
 
+# TODO: Missing in the syntax is the possibility to have COMMENTS.
+
 fsm_syntax = r'''
 projects = modules:[modules] '\n'%{[ fsms:fsm | tables:table | rules:rules | actions:actions ]} ;
 

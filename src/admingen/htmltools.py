@@ -6,6 +6,7 @@ import base64
 import logging
 import json
 import re
+import os.path
 from typing import Union, Callable, Any, Iterable
 import bcrypt
 from .db_api import sessionScope, commit, getHmiDetails, TableDetails, ColumnDetails
@@ -182,6 +183,16 @@ def Button(caption, target='"#"', btn_type='primary', **kwargs):
 
     return get
 
+
+def Lines(*args):
+    """ Render the arguments as seperate lines
+    """
+    return '\n<BR>'.join(args)
+
+def Pars(*args):
+    """ Render the arguments as seperate paragraphs
+    """
+    return ''.join('<P>%s</P>\n'%a for a in args)
 
 
 def Collapsibles(bodies, headers=None):
@@ -530,8 +541,12 @@ def annotationsForm(cls, validator=None, success=None, readonly=False, extra_fie
                           defaults=defaults,
                           success=success,
                           readonly=readonly)
-
     return gen
+
+
+def configEditor(*elements, validator=None, success=None, readonly=False, extra_fields=None,
+                  getter:Callable, prefix=''):
+    pass
 
 def dummyacm(func):
     return func
@@ -603,7 +618,7 @@ def generateFields(table: TableDetails, hidden=None):
                 yield String(name, name)
 
 
-def generateCrud(table: Union[TableDetails, EntityMeta], Page=Page, hidden=None, acm=dummyacm, index_show=None):
+def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=None, acm=dummyacm, index_show=None):
     """ Generate a CRUD server on a database table. """
     table_hmi_details = getHmiDetails(table) if isinstance(table, EntityMeta) else table
 
@@ -704,7 +719,11 @@ def generateCrud(table: Union[TableDetails, EntityMeta], Page=Page, hidden=None,
                                        success=delete,
                                        cancel='view?id={}'.format(id)))
 
-    return Crud()
+    return Crud
+
+
+def generateCrud(*args, **kwargs):
+    return generateCrudCls(*args, **kwargs)()
 
 
 def simpleCrudServer(tables, page):
@@ -717,11 +736,19 @@ def simpleCrudServer(tables, page):
     return Server
 
 
-def runServer(server, config):
-    cherrypy.config.update(config)
+def runServer(server, config={}):
+    initial_config = {  "/": {
+            "tools.staticdir.debug": True,
+            "tools.staticdir.root": os.path.join(os.path.dirname(__file__),'../../'),
+            "tools.trailing_slash.on": True,
+            "tools.staticdir.on": True,
+            "tools.staticdir.dir": "./html"
+          }}
+    if config:
+        initial_config.update(config)
 
     # cherrypy.log.access_log.propagate = False
     logging.getLogger('cherrypy_error').setLevel(logging.ERROR)
 
-    cherrypy.quickstart(server(), '/')
+    cherrypy.quickstart(server(), '/', initial_config)
 
