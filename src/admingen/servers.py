@@ -238,12 +238,16 @@ def run_model(model: ApplicationModel):
                     # TODO: Replace hardcoded name (state) with column_name
                     counts = select((o.state, orm.count(o)) for o in table)[:]
                     # Allow the user to create entities in the right states
+                    tbl = html.PaginatedTable(None,
+                                              counts,
+                                              ['Toestand', 'Aantal'],
+                                              lambda data: 'index_state?state=%s'%data[0])
                     return html.Page(html.Title(name),
-                                     html.Lines(*['%s: %s'%c for c in counts]),
+                                     tbl,
                                      html.Button('Begin een nieuwe %s'%name, 'add'))
             @expose
             def index_state(self, state):
-                return baseclass.index(self, query='%s=%s'%(column_name, state))
+                return baseclass.index(self, query='%s="%s"'%(column_name, state), add=False)
 
         return FsmHandler()
 

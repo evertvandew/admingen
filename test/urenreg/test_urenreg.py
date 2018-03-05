@@ -20,12 +20,14 @@ class UrenregTest(unittest.TestCase):
         with open('uren_crm.txt') as f:
             model = readconfig(f)
         # Create some test data
-        # We need a real database, in-memory databases don't work with cherrypy's
+        # We need a real database, in-memory databases don't work with cherrypy
         the_db.bind(provider='sqlite', filename=database, create_db=True)
         the_db.generate_mapping(create_tables=True)
         orm.sql_debug(True)
 
         with sessionScope():
-            o = the_db.Opdracht(naam='test', start=datetime.now(), state=model.fsmmodel.initial['Opdracht'])
+            o1 = the_db.Opdracht(naam='test_aanvraag', start=datetime.now(), state=model.fsmmodel.initial['Opdracht'])
+            o1 = the_db.Opdracht(naam='test_lopend', start=datetime.now(),
+                                 state='Lopend')
         # Instantiate it
         servers.run_model(model)

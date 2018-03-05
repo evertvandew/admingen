@@ -450,7 +450,7 @@ def PaginatedTable(line: Callable[[Any], Iterable[str]],
             head = '<thead><tr>{}</tr></thead>'.format('\n'.join('<th>{}</th>'.format(h) for h in header))
         parts = []
         for d in data:
-            l = line(d)
+            l = line(d) if line else d
             p = '\n'.join(['<td>{}</td>'.format(c) for c in l])
             oc = ''
             if row_select_url:
@@ -630,7 +630,7 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
     class Crud:
         @cherrypy.expose
         @acm
-        def index(self, **kwargs):
+        def index(self, *, add=True, **kwargs):
             def row_data(data):
                 d = [getattr(data, k) for k in column_names if k in index_show]
                 return d
@@ -639,9 +639,19 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
                 return 'view?id={}'.format(data.id)
 
             with sessionScope:
-                return Page(Title('{} overzicht'.format(tablename)),
-                            PaginatedTable(row_data, table.select(), row_select_url=row_select_url),
-                            Button('Toevoegen <i class="fa fa-plus"></i>', target='add'))
+                if 'query' in kwargs:
+                    query = kwargs['query']
+                    # TODO: Check this is safe! Is it possible to change data from within the select?
+                    if ';' in query:
+                        raise cherrypy.HTTPError(400, 'Illegal query %s'%query)
+                    data = table._database_.select('select * from %s where %s'%(tablename, query))
+                else:
+                    data = table.select()
+                parts = [Title('{} overzicht'.format(tablename)),
+                            PaginatedTable(row_data, data, row_select_url=row_select_url)]
+                if add:
+                    parts.append(Button('Toevoegen <i class="fa fa-plus"></i>', target='add'))
+                return Page(*parts)
 
         @cherrypy.expose
         @acm

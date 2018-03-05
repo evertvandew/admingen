@@ -7,6 +7,11 @@ import tatsu
 
 # TODO: Missing in the syntax is the possibility to have COMMENTS.
 
+
+
+#------------------------------------------------------------------------------
+# Syntax for the data & state machine DSL
+
 fsm_syntax = r'''
 projects = modules:[modules] '\n'%{[ fsms:fsm | tables:table | rules:rules | actions:actions ]} ;
 
@@ -37,6 +42,43 @@ restofline = /[^\n]*/ ;
 
 
 fsm_model = tatsu.compile(fsm_syntax)
+
+
+#------------------------------------------------------------------------------
+# Syntax for the preprocessor
+
+# Removes comments and allows C-style macro's.
+
+# TODO: Better to use a standard solution, e.g. m4 or GPP or PP.
+
+
+
+
+
+#------------------------------------------------------------------------------
+# Syntax for the graphing DSL
+
+graph_syntax = '''
+graph = {[ links:link | nodes:node | stereotypes:stereodef ]} ;
+
+link = from:def ("->" | "--") to:def { ":" connection:def } ;
+
+def = {tag:id | ("«" stereotype:id "»") | ('"' text:text '"') | ("'" text:text "'")}
+
+'''
+
+example_graph = '''
+a "Dit is blok A" -> b "Blok B" : c "De verbinding" «inherits»
+
+
+'''
+
+
+# TODO: Create a graph editor in javascript, e.g. using "Transcrypt" or "Batavia"
+
+# http://www.transcrypt.org/
+# https://pybee.org/project/projects/bridges/batavia/
+
 
 if __name__ =='__main__':
     model = tatsu.compile(fsm_syntax)
