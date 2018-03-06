@@ -39,18 +39,17 @@ env = Environment(autoescape=True)
 env.filters['moneyformat'] = moneyformat
 
 
-def render(template, **kwargs):
+def render(template, fname, export_type='pdf', **kwargs):
     # Evaluate the template
     t = env.from_string(template)
     s = t.render(kwargs)
     # Store the resulting text in a temporary file
     #with NamedTemporaryFile() as f:
-    fname = '%s.fodt'%kwargs['factuur'].nummer
     with open(fname, 'w') as f:
         f.write(s)
 
         # Use libreoffice to make a PDF version of the text, and store it permanently
-        call([soffice, '--convert-to', 'pdf', fname, '--headless'])
+        call([soffice, '--convert-to', export_type, fname, '--headless'])
 
 
 def run(db_url, model_url, query, template_url, output_url):

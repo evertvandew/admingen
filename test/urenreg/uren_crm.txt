@@ -78,6 +78,7 @@ naam: str
 adres: Adres
 contactpersoon: Persoon
 projecten: Set(Opdracht)
+weekstaat_template: blob
 .
 
 table Opdracht
@@ -92,6 +93,7 @@ werkers: Set(WerkerTarief)
 uren: Set(Urenregel)
 facturen: Set(Factuur)
 pdf: blob
+weekstaat_template: blob
 .
 
 table Urenregel

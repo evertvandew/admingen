@@ -121,7 +121,7 @@ class Test(TestCase):
             for weeknr, ws in weekstates.items():
                 year, week = int(weeknr[:4]), int(weeknr[4:])
                 ws.start = isoweekno2day(year, week)
-                ws.end = ws.start + datetime.timedelta(7, 0)
+                ws.eind = ws.start + datetime.timedelta(7, 0)
 
             # Commit the details so far: we need record id's below.
             orm.commit()
@@ -144,6 +144,7 @@ class Test(TestCase):
         with sessionScope():
             facturen = orm.select(f for f in Factuur)[:]
             for factuur in facturen:
+                # Process the urenstaten to calculate the facturen
                 nr_days = calendar.monthrange(factuur.periode.year, factuur.periode.month)[1]
                 start = factuur.periode
                 end = start + datetime.timedelta(nr_days, 0)
@@ -170,6 +171,7 @@ class Test(TestCase):
                     templ = f.read()
 
                 render(templ,
+                       '%s.fodt' % factuur.nummer,
                        weeks=weeks,
                        total_uren=total_uren,
                        factuur=factuur,
@@ -179,3 +181,17 @@ class Test(TestCase):
     def testFactuur(self):
         # Try to get the factuur details 'view' from the database.
         pass
+
+    def testUrenstaat(self):
+        # Get an urenregel
+        Urenregel = self.model.dbmodel['Urenregel']
+        with sessionScope():
+            regel = orm.select(u for u in Urenregel if u.week.weeknr==8).first()
+            with open('../templates/dynniq-weekstaat.fods') as f:
+                templ = f.read()
+
+            render(templ,
+                   'test.fods',
+                   'xls',
+                   staat=regel
+                   )
