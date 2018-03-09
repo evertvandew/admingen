@@ -1310,7 +1310,7 @@
      </table:table-cell>
      <table:covered-table-cell/>
      <table:table-cell table:style-name="ce9" office:value-type="string" calcext:value-type="string">
-      <text:p>2018-8</text:p>
+      <text:p>{{staat.week.jaar}}-{{staat.week.weeknr}}</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="Default" table:number-columns-repeated="4"/>
     </table:table-row>
@@ -1323,7 +1323,7 @@
      </table:table-cell>
      <table:table-cell table:style-name="Default" table:number-columns-repeated="2"/>
      <table:table-cell table:style-name="Default" office:value-type="string" calcext:value-type="string">
-      <text:p>19-2-2018 tm. 25-2-2018</text:p>
+      <text:p>{{staat.week.start.strftime('%d-%m-%Y')}} tm. {{staat.week.eind.strftime('%d-%m-%Y')}}</text:p>
      </table:table-cell>
      <table:table-cell/>
      <table:table-cell table:style-name="Default" table:number-columns-repeated="5"/>
@@ -1369,16 +1369,29 @@
       <text:p>SW ontwikkeling</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="2"/>
-     <table:table-cell table:number-columns-repeated="2"/>
-     <table:table-cell table:style-name="ce12" office:value-type="float" office:value="8" calcext:value-type="float">
-      <text:p>8</text:p>
+     <table:table-cell office:value-type="float" office:value="{{staat.ma}}" calcext:value-type="float">
+      <text:p>{{staat.ma}}</text:p>
      </table:table-cell>
-     <table:table-cell office:value-type="float" office:value="5" calcext:value-type="float">
-      <text:p>5</text:p>
+     <table:table-cell office:value-type="float" office:value="{{staat.di}}" calcext:value-type="float">
+      <text:p>{{staat.di}}</text:p>
      </table:table-cell>
-     <table:table-cell table:number-columns-repeated="3"/>
-     <table:table-cell table:formula="of:=SUM([.D9:.J9])" office:value-type="float" office:value="13" calcext:value-type="float">
-      <text:p>13</text:p>
+     <table:table-cell office:value-type="float" office:value="{{staat.wo}}" calcext:value-type="float">
+      <text:p>{{staat.wo}}</text:p>
+     </table:table-cell>
+     <table:table-cell office:value-type="float" office:value="{{staat.do}}" calcext:value-type="float">
+      <text:p>{{staat.do}}</text:p>
+     </table:table-cell>
+     <table:table-cell office:value-type="float" office:value="{{staat.vr}}" calcext:value-type="float">
+      <text:p>{{staat.vr}}</text:p>
+     </table:table-cell>
+     <table:table-cell office:value-type="float" office:value="{{staat.za}}" calcext:value-type="float">
+      <text:p>{{staat.za}}</text:p>
+     </table:table-cell>
+     <table:table-cell office:value-type="float" office:value="{{staat.zo}}" calcext:value-type="float">
+      <text:p>{{staat.zo}}</text:p>
+     </table:table-cell>
+     <table:table-cell table:formula="of:=SUM([.D9:.J9])" office:value-type="float" office:value="{{total}}" calcext:value-type="float">
+      <text:p>{{total}}</text:p>
      </table:table-cell>
     </table:table-row>
     <table:table-row table:style-name="ro2">
@@ -1517,8 +1530,8 @@
      <table:table-cell table:style-name="ce18" office:value-type="string" calcext:value-type="string">
       <text:p>Totaal:</text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce19" table:formula="of:=SUM([.K9:.K22])" office:value-type="float" office:value="13" calcext:value-type="float">
-      <text:p>13</text:p>
+     <table:table-cell table:style-name="ce19" table:formula="of:=SUM([.K9:.K22])" office:value-type="float" office:value="{{total}}" calcext:value-type="float">
+      <text:p>{{total}}</text:p>
      </table:table-cell>
     </table:table-row>
     <table:table-row table:style-name="ro2" table:number-rows-repeated="3">

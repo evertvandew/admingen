@@ -2573,14 +2573,14 @@ Option VBASupport 1
       <text:p>Kostenplaats:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="3" table:style-name="ce262"/>
-     <table:table-cell table:style-name="ce89" table:content-validation-name="val3" office:value-type="float" office:value="2018" calcext:value-type="float">
+     <table:table-cell table:style-name="ce89" table:content-validation-name="val3" office:value-type="float" office:value="{{staat.week.jaar}}" calcext:value-type="float">
       <text:p>{{staat.week.jaar}}</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce285" office:value-type="string" calcext:value-type="string" table:number-columns-spanned="2" table:number-rows-spanned="1">
       <text:p>Weeknummer:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:style-name="ce285"/>
-     <table:table-cell table:style-name="ce102" table:content-validation-name="val4" office:value-type="float" office:value="5" calcext:value-type="float">
+     <table:table-cell table:style-name="ce102" table:content-validation-name="val4" office:value-type="float" office:value="{{staat.week.weeknr}}" calcext:value-type="float">
       <text:p>{{staat.week.weeknr}}</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce115">
@@ -2953,14 +2953,14 @@ Option VBASupport 1
      <table:table-cell table:style-name="ce90" office:value-type="string" calcext:value-type="string">
       <text:p>Datum van </text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce92" table:formula="of:=STARTDATE([.S1];[.V1])" office:value-type="date" office:date-value="1905-07-10" calcext:value-type="date">
-      <text:p>{{staat.week.start.strftime('%d-%m-%Y')}}</text:p>
+     <table:table-cell table:style-name="ce92" office:value-type="date" office:date-value="{{staat.week.start.strftime('%Y-%m-%d')}}" calcext:value-type="date">
+      <text:p>{{staat.week.start.strftime('%Y-%m-%d')}}</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce96" office:value-type="string" calcext:value-type="string">
       <text:p>Datum tot</text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce103" table:formula="of:=ENDDATE([.S1];[.V1])" office:value-type="date" office:date-value="1905-07-10" calcext:value-type="date">
-      <text:p>{{staat.week.eind.strftime('%d-%m-%Y')}}</text:p>
+     <table:table-cell table:style-name="ce103" office:value-type="date" office:date-value="{{staat.week.eind.strftime('%Y-%m-%d')}}" calcext:value-type="date">
+      <text:p>{{staat.week.eind.strftime('%Y-%m-%d')}}</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce116" table:number-columns-repeated="4"/>
      <table:table-cell table:number-columns-repeated="998"/>
@@ -3549,32 +3549,32 @@ Option VBASupport 1
      <table:table-cell table:style-name="ce67" office:value-type="float" office:value="90" calcext:value-type="float">
       <text:p>€ 90.00 </text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce75" office:value-type="string" calcext:value-type="string">
+     <table:table-cell table:style-name="ce75" office:value-type="float" office:value="{{staat.ma}}" calcext:value-type="float">
       <text:p>{{staat.ma}}</text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce80" office:value-type="string" calcext:value-type="string">
+     <table:table-cell table:style-name="ce75" office:value-type="float" office:value="{{staat.di}}" calcext:value-type="float">
       <text:p>{{staat.di}}</text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce80" office:value-type="string" calcext:value-type="string">
+     <table:table-cell table:style-name="ce75" office:value-type="float" office:value="{{staat.wo}}" calcext:value-type="float">
       <text:p>{{staat.wo}}</text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce80" office:value-type="string" calcext:value-type="string">
+     <table:table-cell table:style-name="ce75" office:value-type="float" office:value="{{staat.do}}" calcext:value-type="float">
       <text:p>{{staat.do}}</text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce80" office:value-type="string" calcext:value-type="string">
+     <table:table-cell table:style-name="ce75" office:value-type="float" office:value="{{staat.vr}}" calcext:value-type="float">
       <text:p>{{staat.vr}}</text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce80" office:value-type="string" calcext:value-type="string">
+     <table:table-cell table:style-name="ce75" office:value-type="float" office:value="{{staat.za}}" calcext:value-type="float">
       <text:p>{{staat.za}}</text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce99" office:value-type="string" calcext:value-type="string">
+     <table:table-cell table:style-name="ce75" office:value-type="float" office:value="{{staat.zo}}" calcext:value-type="float">
       <text:p>{{staat.zo}}</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce112" office:value-type="string" calcext:value-type="string">
       <text:p>00:00-00:00</text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce118" table:formula="of:=SUM([.O19:.U19])-SUM([.X19:.AA19])" office:value-type="float" office:value="0" calcext:value-type="float">
-      <text:p>0</text:p>
+     <table:table-cell table:style-name="ce118" table:formula="of:=SUM([.O19:.U19])-SUM([.X19:.AA19])" office:value-type="float" office:value="{{total}}" calcext:value-type="float">
+      <text:p>{{total}}</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce124"/>
      <table:table-cell table:style-name="ce128"/>
@@ -4394,8 +4394,8 @@ Option VBASupport 1
      <table:table-cell table:style-name="ce114" table:formula="of:=SUM([.U19:.U44])" office:value-type="float" office:value="0" calcext:value-type="float">
       <text:p>0</text:p>
      </table:table-cell>
-     <table:table-cell table:style-name="ce121" table:formula="of:=SUM([.W19:.W44])" office:value-type="float" office:value="0" calcext:value-type="float">
-      <text:p>0</text:p>
+     <table:table-cell table:style-name="ce121" table:formula="of:=SUM([.W19:.W44])" office:value-type="float" office:value="{{total}}" calcext:value-type="float">
+      <text:p>{{total}}</text:p>
      </table:table-cell>
      <table:table-cell/>
      <table:table-cell table:style-name="ce130" table:number-columns-repeated="3"/>

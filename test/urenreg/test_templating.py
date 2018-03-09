@@ -121,7 +121,7 @@ class Test(TestCase):
             for weeknr, ws in weekstates.items():
                 year, week = int(weeknr[:4]), int(weeknr[4:])
                 ws.start = isoweekno2day(year, week)
-                ws.eind = ws.start + datetime.timedelta(7, 0)
+                ws.eind = ws.start + datetime.timedelta(6, 0)
 
             # Commit the details so far: we need record id's below.
             orm.commit()
@@ -193,5 +193,16 @@ class Test(TestCase):
             render(templ,
                    'test.fods',
                    'xls',
-                   staat=regel
+                   staat=regel,
+                   total=sum([regel.ma, regel.di, regel.wo, regel.do, regel.vr, regel.za, regel.zo])
+                   )
+
+            with open('../templates/dis-weekstaat.fods') as f:
+                templ = f.read()
+
+            render(templ,
+                   'test1.fods',
+                   'xls',
+                   staat=regel,
+                   total=sum([regel.ma, regel.di, regel.wo, regel.do, regel.vr, regel.za, regel.zo])
                    )
