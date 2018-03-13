@@ -9,7 +9,6 @@ import os.path
 import os
 import urllib
 from decimal import Decimal
-from enum import IntEnum
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -23,10 +22,11 @@ import calendar
 from admingen.clients.exact_rest import (authenticateExact, getUsers, getTransactions, getDivisions,
                                          getAccounts, config)
 from admingen.htmltools import *
-from admingen.config import getConfig
+from admingen import config
 from .giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
                     odataDate2Datetime, generate_pdfs, pdfName, PDF_DIR)
 from . import model
+from .model import SystemStates
 
 
 # FIXME: make the download files un-guessable (use crypto hash with salt as file name)
@@ -93,9 +93,6 @@ def verstuur_validator():
                   )
 
 
-SystemStates = IntEnum('SystemStates', 'Start LoadingData GeneratingPDF PDFCreated')
-
-
 def overzicht(data):
     def overzichtregel(data):
         user_id = data[0]
@@ -135,7 +132,7 @@ def verstuur_overzicht(**extra):
     start = extra['period_start'].strftime('%d-%m-%Y')
     end = extra['period_end'].strftime('%d-%m-%Y')
     year = extra['period_start'].strftime('%Y')
-    usersfname = USERS_FILE.format(vardir, org_id)
+    usersfname = USERS_FILE.format(config.opsdir, org_id)
 
     def sendSingleMail(to_adres, name, fname):
         if config.TESTMODE:
@@ -271,9 +268,9 @@ class Worker(threading.Thread):
         self.period_end = org.period_end
         self.access_token = cherrypy.session['token']
         self.org_id = org_id
-        self.ufname = USERS_FILE.format(vardir, org_id)
-        self.tfname = TRANSACTIONS_FILE.format(vardir, org_id)
-        self.afname = ACCOUNTS_FILE.format(vardir, org_id)
+        self.ufname = USERS_FILE.format(config.opsdir, org_id)
+        self.tfname = TRANSACTIONS_FILE.format(config.opsdir, org_id)
+        self.afname = ACCOUNTS_FILE.format(config.opsdir, org_id)
         self.start()
 
     @staticmethod
@@ -422,10 +419,10 @@ class Overzichten:
         # Use the state suggested by the database
         state = self.getState() or 1
         # Check if the state of the file system corresponds
-        if not os.path.exists(PDF_DIR.format(vardir, org_id)):
+        if not os.path.exists(PDF_DIR.format(config.opsdir, org_id)):
             state = min(state, SystemStates.GeneratingPDF)
-        if not os.path.exists(USERS_FILE.format(vardir, org_id)) or not os.path.exists(
-                        TRANSACTIONS_FILE.format(vardir, org_id)):
+        if not os.path.exists(USERS_FILE.format(config.opsdir, org_id)) or not os.path.exists(
+                        TRANSACTIONS_FILE.format(config.opsdir, org_id)):
             state = min(state, SystemStates.LoadingData)
         if org.period_start is None or org.period_end is None:
             state = min(state, SystemStates.Start)
@@ -438,7 +435,7 @@ class Overzichten:
     def periode(self, **kwargs):
         # Clear the directory containing the PDF files
         org_id = cherrypy.session['org_id']
-        pdfdir = PDF_DIR.format(vardir, org_id)
+        pdfdir = PDF_DIR.format(config.opsdir, org_id)
         if os.path.exists(pdfdir):
             shutil.rmtree(pdfdir)
         os.mkdir(pdfdir)
@@ -504,8 +501,8 @@ class Overzichten:
                 pdf_internal = pdfName(org_id, naam, rid)
                 yield rid, naam, email, totaal, pdf, pdf_internal
 
-        t = json.loads(open(TRANSACTIONS_FILE.format(vardir, org_id)).read(), parse_float=Decimal)
-        u = json.loads(open(USERS_FILE.format(vardir, org_id)).read())
+        t = json.loads(open(TRANSACTIONS_FILE.format(config.opsdir, org_id)).read(), parse_float=Decimal)
+        u = json.loads(open(USERS_FILE.format(config.opsdir, org_id)).read())
         data = generate_overviews(org, u, t)
 
         return overzicht(data_gen(data))
@@ -513,7 +510,7 @@ class Overzichten:
     @cherrypy.expose
     @check_token
     def all(self, fname):
-        p = os.path.join(PDF_DIR.format(vardir, cherrypy.session['org_id']), fname)
+        p = os.path.join(PDF_DIR.format(config.opsdir, cherrypy.session['org_id']), fname)
         print('REQUESTED', fname, os.path.exists(p))
         return serve_file(os.path.abspath(p), "application/x-pdf", fname)
 
@@ -562,8 +559,7 @@ class Overzichten:
 
 
 def run(static_dir=None):
-    vardir = os.environ.get('OPSDIR', os.getcwd())
-    model.openDb('sqlite://%s/overzichtgen.db' % vardir)
+    model.openDb('sqlite://%s/overzichtgen.db' % config.opsdir)
 
     # Ensure there is a 'test' user with password 'testingtesting'
     # When deploying the giftenoverzicht app, remember to delete this user!
@@ -576,7 +572,7 @@ def run(static_dir=None):
 
     # cherrypy.log.access_log.propagate = False
     logging.getLogger('cherrypy_error').setLevel(logging.ERROR)
-    conf = getConfig('server')
+    conf = config.getConfig('server')
 
     cherrypy.quickstart(Overzichten(), '/', conf)
 

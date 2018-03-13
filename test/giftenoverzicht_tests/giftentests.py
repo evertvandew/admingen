@@ -78,6 +78,8 @@ class TestServer(TestCase):
         confdir = os.path.dirname(__file__) + '/config'
         config.set_configdir(confdir)
 
+        config.load_context()
+
         if os.path.exists('overzichtgen.db'):
             os.remove('overzichtgen.db')
 
@@ -146,6 +148,10 @@ class TestServer(TestCase):
             for n, v in details.items():
                 elem = browser.find_element_by_name(n)
                 elem.send_keys(v)
+            browser.find_element_by_tag_name("button").click()
+
+            # Now use that organisation for testing the data processing
+            browser.get('http://localhost:13958')
             browser.find_element_by_tag_name("button").click()
 
             while True:

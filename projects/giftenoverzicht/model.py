@@ -5,12 +5,16 @@ import bcrypt
 from urllib.parse import urlparse
 import re
 from collections import namedtuple
+from enum import IntEnum
 
 import sqlite3
 from pony import orm
 
 
 VERSION = 3
+
+
+SystemStates = IntEnum('SystemStates', 'Start LoadingData GeneratingPDF PDFCreated')
 
 
 def password2str(value):
@@ -68,7 +72,7 @@ class Organisation(db.Entity):
     admin_id = orm.Required(int)
     logo = orm.Optional(ImagePath)
     smtp_details=orm.Optional(SmtpDetails)
-    status = orm.Required(int, default=0)
+    status = orm.Required(int, default=SystemStates.Start.value)
     period_start = orm.Optional(datetime.datetime)
     period_end   = orm.Optional(datetime.datetime)
     people = orm.Set(lambda:User)       # The lambda is evaluated when User is in scope.
