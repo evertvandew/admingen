@@ -50,7 +50,7 @@ def parse(fname):
 def load():
     global theconfig
     for fname in configfiles():
-        logging.info('Loading tmp file %s'%fname)
+        logging.info('Loading config file %s'%fname)
         path = os.path.splitext(fname)[0]
         path = os.path.relpath(path, configdir)
         parts = path.split(os.pathsep)
@@ -112,6 +112,7 @@ def configtype(cls):
                 result[k] = type(original)(v)
         return result
 
+    @staticmethod
     def update(kwargs):
         """ Update the value of the configuration. """
         new_config = cls(**convert_types(kwargs))
@@ -129,9 +130,9 @@ def configtype(cls):
         cls.__init__ = default_constructor
 
     # The path is derived from the class name, but in lowercase
-    # and with all occurences of 'tmp' removed.
-    path = cls.__name__.lower().replace('tmp', '')
-    # There may already be values in the tmp: use them!
+    # and with all occurences of 'config' removed.
+    path = cls.__name__.lower().replace('config', '')
+    # There may already be values in the config: use them!
     init = theconfig.get(path, {})
     config = cls(**convert_types(asdict(init)))
     # Overwrite any existing tmp, so it gets the correct type.

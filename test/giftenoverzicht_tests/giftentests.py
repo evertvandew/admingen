@@ -1,16 +1,29 @@
 from unittest import TestCase, main
 import os.path
 import os
-from giftenoverzicht import run
-from admingen.clients.exact_rest import ExactClientConfig
-from admingen import config
-from simulators.exact import RestSimulator
 from threading import Thread
 from requests import get
 from socket import socket
 import time
 
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
+from admingen.clients.exact_rest import ExactClientConfig
+from admingen import config
+from admingen.util import quitter
+from simulators.exact import RestSimulator
+
+confdir = os.path.dirname(__file__)+'/config'
+
+from admingen import config
+config.set_configdir(confdir)
+
+import giftenoverzicht
+
+downloaddir = '/tmp'
 
 class TestServer(TestCase):
     @classmethod
@@ -20,6 +33,8 @@ class TestServer(TestCase):
         os.environ['ROOTDIR'] = root
         os.environ['PROJDIR'] = root + '/projects/giftenoverzicht'
         os.environ['SRCDIR'] = root + '/src'
+        confdir = os.path.dirname(__file__) + '/config'
+        config.set_configdir(confdir)
 
     @classmethod
     def tearDownClass(cls):
@@ -28,7 +43,7 @@ class TestServer(TestCase):
     def setUp(self):
         config.set_configdir(os.path.dirname(__file__) + '/tmp')
         mydir = os.path.dirname(__file__)
-        self.runner = Thread(target=run)
+        self.runner = Thread(target=giftenoverzicht.run)
         self.runner.setDaemon(True)
         self.runner.start()
 
@@ -45,8 +60,23 @@ class TestServer(TestCase):
                     time.sleep(0.01)
 
 
+    def testWithBrowser(self):
+        chromeOptions = webdriver.ChromeOptions()
+        prefs = {"download.default_directory": downloaddir}
+        chromeOptions.add_experimental_option("prefs", prefs)
+        browser = webdriver.Chrome(chrome_options=chromeOptions)
+
+        # browser = webdriver.Chrome()
+        with quitter(browser):
+            browser.get('http://localhost:13958')
+            while True:
+                time.sleep(1)
+
+
     def testNoBrowser(self):
         r = get('http://localhost:13958/')
+        while True:
+            time.sleep(1)
         self.assertEqual(r.status_code, 200)
         pass
 
