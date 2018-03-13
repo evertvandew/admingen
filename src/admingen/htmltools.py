@@ -417,7 +417,7 @@ def Selection(name, options, text=None):
             if defaults.get(name, '') and value[1] == defaults[name]:
                 index = i
 
-        option_tags = ['<option value="{}">{}</option>'.format(o) for o in final_options]
+        option_tags = ['<option value="{}">{}</option>'.format(*o) for o in final_options]
         if index:
             option_tags[i] = '<option selected="selected" value="{}">{}</option>'.format(final_options[i])
         args = 'name="{}"'.format(name)
@@ -582,9 +582,9 @@ def makeGetter(details):
     """ Generate a function that retrieves possible values for a field """
     def options_getter():
         with sessionScope:
-            cols = details.related_columns
+            cols = details.related_columns.entity._columns_
             result = [o for o in details.type.select()]
-            result = [(o._vals_[cols[0]], o._vals_[cols[1]]) for o in result]
+            result = [(getattr(o, cols[0]), getattr(o, cols[1])) for o in result]
             if not result and details.required:
                 raise cherrypy.HTTPError(424,
                                          "Please define an {} first".format(details.type.__name__))
@@ -626,6 +626,40 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
     columns = list(generateFields(table_hmi_details, hidden))
     column_names = table_hmi_details.columns.keys()
     index_show = index_show or column_names
+    defaults = {n:c.default for n, c in table_hmi_details.columns.items()}
+
+    def validate(**kwargs):
+        """ Validate the values submitted for storage in the database """
+        result = {}
+        errors = {}
+        for n, c in table_hmi_details.columns.items():
+            # Check if a specific column has a value
+            v = kwargs.get(n, '')
+            if v:
+                # Convert the value to the correct type
+                try:
+                    if c.type == bool:
+                        # Accept strings like Yes, true, ja, 1 as True
+                        converted = v.lower()[0] in 'tyj1'
+                    elif c.type.__name__ == 'ImagePath':
+                        # No conversion for this bit of Cherrypy magic.
+                        converted = v
+                    elif c.related_columns:
+                        converted = c.related_columns.py_type(v)
+                    else:
+                        converted = c.type(v)
+                except:
+                    result[n] = v
+                    errors[n] = 'Not a valid value for a %s' % c.type.__name__
+                    continue
+                result[n] = converted
+                if c.options:
+                    if converted not in c.options:
+                        errors[n] = 'Not a valid option: %s'%converted
+            else:
+                if c.required and not c.primarykey:
+                    errors[n] = 'Please supply a value for %s'%n
+        return result, errors
 
     class Crud:
         @cherrypy.expose
@@ -688,6 +722,7 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
 
                 return Page(Title('{} aanpassen'.format(tablename)),
                             SimpleForm(*columns,
+                                       validator=validate,
                                        defaults={k: getattr(details, k) for k in column_names},
                                        success=success,
                                        cancel='view?id={}'.format(id)))
@@ -706,7 +741,8 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
 
             return Page(Title('{} toevoegen'.format(tablename)),
                         SimpleForm(*columns,
-                                   defaults={},
+                                   validator=validate,
+                                   defaults=defaults,
                                    success=success))
 
         @cherrypy.expose

@@ -33,9 +33,11 @@ from . import model
 # FIXME: store financial details in encrypted files.
 # FIXME: store smtp login details in keychain, unlocked with in-process password
 # FIXME: add a delay to downloading an overview to defeat brute-force attacks
+# FIXME: require a login to download overzichten
 
 # FIXME: smtp host selectie in organisaties laat geen dropdown menu zien.
 
+# TODO: allow the year to be entered as $jaar oid.
 # TODO: Selections alleen de waarde laten zien wanneer readonly
 # TODO: Uploaden van logo's
 # TODO: Maak loggen configureerbaar via de settings.json
@@ -46,19 +48,6 @@ logging.getLogger().setLevel(logging.DEBUG)
 USERS_FILE = '{}/{}.users.json'
 TRANSACTIONS_FILE = '{}/{}.transactions.json'
 ACCOUNTS_FILE = '{}/{}.accounts.json'
-
-vardir = os.environ.get('OPSDIR', os.getcwd())
-model.openDb('sqlite://%s/overzichtgen.db' % vardir)
-
-# Ensure there is a 'test' user with password 'testingtesting'
-# When deploying the giftenoverzicht app, remember to delete this user!
-with sessionScope():
-    if orm.count(u for u in model.User) == 0:
-        test_user = model.User(name='test', fullname='test user',
-                               password=password2str('testingtesting'),
-                               role='Admin',
-                               email='pietje.puk@sesamstraat.nl')
-
 
 
 def constructMail(md_msg, fname, **headers):
@@ -573,6 +562,18 @@ class Overzichten:
 
 
 def run(static_dir=None):
+    vardir = os.environ.get('OPSDIR', os.getcwd())
+    model.openDb('sqlite://%s/overzichtgen.db' % vardir)
+
+    # Ensure there is a 'test' user with password 'testingtesting'
+    # When deploying the giftenoverzicht app, remember to delete this user!
+    with sessionScope():
+        if orm.count(u for u in model.User) == 0:
+            test_user = model.User(name='test', fullname='test user',
+                                   password=password2str('testingtesting'),
+                                   role='Admin',
+                                   email='pietje.puk@sesamstraat.nl')
+
     # cherrypy.log.access_log.propagate = False
     logging.getLogger('cherrypy_error').setLevel(logging.ERROR)
     conf = getConfig('server')
