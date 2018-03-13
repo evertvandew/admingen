@@ -26,6 +26,8 @@ class telefoonnr(str): pass
 
 class money(Decimal): pass
 
+class text(str): pass
+
 
 class TrackingEnv(dict):
     """ This environment tries to get an object from the globals,

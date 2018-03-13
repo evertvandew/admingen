@@ -20,12 +20,19 @@ import cherrypy
 from cherrypy.lib.static import serve_file
 import calendar
 
-from admingen.clients.exact_rest import authenticateExact, getUsers, getTransactions, getDivisions, getAccounts, config
+from admingen.clients.exact_rest import (authenticateExact, getUsers, getTransactions, getDivisions,
+                                         getAccounts, config)
 from admingen.htmltools import *
 from admingen.config import getConfig
 from .giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
                     odataDate2Datetime, generate_pdfs, pdfName, PDF_DIR)
 from . import model
+
+
+# FIXME: make the download files un-guessable (use crypto hash with salt as file name)
+# FIXME: store financial details in encrypted files.
+# FIXME: store smtp login details in keychain, unlocked with in-process password
+# FIXME: add a delay to downloading an overview to defeat brute-force attacks
 
 # FIXME: smtp host selectie in organisaties laat geen dropdown menu zien.
 

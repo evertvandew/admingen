@@ -6,6 +6,7 @@ import os, os.path
 from decimal import Decimal
 
 from admingen.appengine import readconfig
+from admingen.fsmengine import createFsmModel
 from admingen.db_api import the_db, orm, sessionScope
 from admingen.util import isoweekno2day
 from admingen.reporting import render
@@ -23,6 +24,7 @@ class Test(TestCase):
         with open('uren_crm.txt') as f:
             model = readconfig(f)
         cls.model = model
+        cls.fsmmodel = createFsmModel(model)
         # Instantiate the database
         the_db.bind(provider='sqlite', filename=':memory:', create_db=True)
         the_db.generate_mapping(create_tables=True)
@@ -179,8 +181,9 @@ class Test(TestCase):
                        )
 
     def testFactuur(self):
-        # Try to get the factuur details 'view' from the database.
-        pass
+        # Try to create a factuur using the Review and Goedgekeurd functions.
+        #
+        self.fsmmodel.
 
     def testUrenstaat(self):
         # Get an urenregel
