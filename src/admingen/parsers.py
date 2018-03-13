@@ -13,7 +13,7 @@ import tatsu
 # Syntax for the data & state machine DSL
 
 fsm_syntax = r'''
-projects = modules:[modules] '\n'%{[ fsms:fsm | tables:table | rules:rules | actions:actions ]} ;
+projects = modules:[modules] '\n'%{[ fsms:fsm | tables:table | rules:rules | actions:Action ]} ;
 
 modules = "import" path:module NEWLINE ;
 module  = "."%{ name } ; 
@@ -21,9 +21,9 @@ name = name:/\w+/ ;
 word = /\w+/ ;
 
 fsm = "fsm" name:word "\n" {[transitions:transition] NEWLINE} blockend ;
-transition = !(".\n") ','%{from:state} /\s*-?->\s*/ to:state [":" details:restofline] ;
+transition = !blockend ','%{from:state} /\s*-?->\s*/ to:state [":" details:restofline] ;
 state = word | "[*]" ;
-blockend = "." ;
+blockend = ".\n" ;
 
 table = "table" name:word NEWLINE {[columns:column] NEWLINE} blockend ;
 column = !(".\n") name:word ":" details:restofline ;
@@ -32,8 +32,8 @@ rules = "rules" fsm:word NEWLINE {[rules:rule] NEWLINE} blockend ;
 rule = !(".\n") /\s*,\s*/%{ states:name } ":" details:restofline ;
 
 
-actions = "actions" NEWLINE {[actions:action] NEWLINE} blockend;
-action = !(".\n") "\s*,\s*"%{ "."%{path:word} } ":" details:restofline ;
+Action = "action" { "."%{path:word} } /:\S*\n/  {[lines:Action_line] /\n/ } blockend;
+Action_line = !blockend  /[^\n]*/ ;
 
 NEWLINE = (SPACES | (['\\r'] /[\n\r\f]/) [SPACES]) ;
 SPACES = /[ \t]+/ ;

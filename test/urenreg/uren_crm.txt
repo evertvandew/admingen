@@ -35,11 +35,47 @@ Goedgekeurd --> Gefactureerd : send
 Gefactureerd --> [*]
 .
 
-actions
-Opdracht.Aanvraag: edit(Opdracht)
-Opdracht.Offerte.entry: sendOfferte(Opdracht)
-Opdracht.Lopend: edit(Opdracht, [end, werkers, uren, facturen])
 
+action Weekstaat.Goedgekeurd.entry:
+    for regel in self.uren:
+        template = regel.opdracht.weekstaat_template or regel.opdracht.opdrachtgever.weekstaat_template
+        regel.staat = render(template,
+                             'xls',
+                             staat=regel,
+                             total=sum([regel.ma, regel.di, regel.wo, regel.do, regel.vr, regel.za, regel.zo]))
+        mail = render(user.organisatie.weekstaatmail,
+                      to=[regel.opdracht.opdrachtgever.contactpersoon.email, regel.werker.werker.email],
+                      from=user.organisatie.email,
+                      subject='Urenstaat %s week %s'%(regel.werker.werker.naam, regel.week.weeknr),
+                      attachment=regel.staat)
+        send_email(mail)
+.
+
+action Factuur.Review.entry:
+    # Calculate the principal details for the factuur, from the hour sheets in the database
+    details = FactuurDetails(factuur=self)
+    self.set(uren=details.total_uren,
+             netto=total_uren*factuur.werker.tarief,
+             btw=Decimal('0.21')*total_uren*factuur.werker.tarief,
+             bruto=Decimal('1.21') * total_uren * factuur.werker.tarief,
+             datum=datetime.datetime.now())
+
+    # Generate the factuur and store it in the database
+    self.pdf = render(user.organisation.factuur_template,
+                      weeks=details.weeks,
+                      total_uren=details.total_uren,
+                      factuur=self,
+                      werker=self.werker.werker)
+.
+
+action Factuur.Verstuurd.entry:
+    # Send the factuur to both the opdrachtgever and the own organisation
+    mail = render(user.organisation.factuurmail,
+                  to=[regel.opdracht.opdrachtgever.contactpersoon.email, regel.werker.werker.email],
+                  from=user.organisatie.email,
+                  subject='Factuur periode %s'%(self.periode.strftime('%b %Y'),
+                  attachment=self.pdf)
+    send_email(mail)
 .
 
 
@@ -50,12 +86,22 @@ telefoon: telefoonnr
 werkgevers: Klant
 .
 
+table Organisation
+    weekstaatmail: text
+    factuurmail: text
+    offertemail: text
+    factuur_template: blob
+    email: email
+.
+
 table Werker
 naam: str
+email: email
 standaardtarief: money
 sofinr: str
 inzet : Set(WerkerTarief)
 .
+
 
 table WerkerTarief
 werker: Werker
@@ -108,6 +154,7 @@ do: float, default=0.0
 vr: float, default=0.0
 za: float, default=0.0
 zo: float, default=0.0
+staat: blob
 .
 
 table Weekstaat
