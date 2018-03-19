@@ -1,0 +1,157 @@
+    {
+        "AccountCode": "              1661",
+        "AccountName": "P. Puk",
+        "AmountDC": 1665,
+        "Date": "/Date(1497225600000)/",
+        "Description": "Tienden tm mei",
+        "EntryNumber": 17200090,
+        "GLAccountCode": "1100",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'c13a7ce3-c730-427b-a647-0466b90fe5cd')"
+        }
+    },
+    {
+        "AccountCode": "              1661",
+        "AccountName": "P. Puk",
+        "AmountDC": -1665,
+        "Date": "/Date(1497225600000)/",
+        "Description": "Tienden tm m",
+        "EntryNumber": 17200090,
+        "GLAccountCode": "8100",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'f2c0ff20-536e-49f8-b588-3bdb395b4a31')"
+        }
+    },
+    {
+        "AccountCode": "              1553",
+        "AccountName": "P. Puk",
+        "AmountDC": -30.89,
+        "Date": "/Date(1508457600000)/",
+        "Description": "Tienden sept",
+        "EntryNumber": 17200161,
+        "GLAccountCode": "8100",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'0ba94755-1931-4dc3-85f6-075f58b7b119')"
+        }
+    },
+    {
+        "AccountCode": "              1661",
+        "AccountName": "P. Puk",
+        "AmountDC": 1710,
+        "Date": "/Date(1510185600000)/",
+        "Description": "tienden tm sept",
+        "EntryNumber": 17200173,
+        "GLAccountCode": "1100",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'69558a75-187d-4bc5-b8ca-4bb8761d993a')"
+        }
+    },
+    {
+        "AccountCode": "              1553",
+        "AccountName": "P. Puk",
+        "AmountDC": 30.89,
+        "Date": "/Date(1491177600000)/",
+        "Description": "Tienden maart",
+        "EntryNumber": 17200053,
+        "GLAccountCode": "1100",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'1b28f50c-a4a2-4c66-9ff5-199f27634332')"
+        }
+    },
+    {
+        "AccountCode": "              1661",
+        "AccountName": "P. Puk",
+        "AmountDC": -1710,
+        "Date": "/Date(1510185600000)/",
+        "Description": "tienden tm sept",
+        "EntryNumber": 17200173,
+        "GLAccountCode": "8100",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'11021a65-71fa-4350-a5a1-a5cc67536f33')"
+        }
+    },
+    {
+        "AccountCode": "              1553",
+        "AccountName": "P. Puk",
+        "AmountDC": -92.66,
+        "Date": "/Date(1504656000000)/",
+        "Description": "Tienden juni",
+        "EntryNumber": 17200137,
+        "GLAccountCode": "8100",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'c099d7a7-ee8a-4ca0-afa5-2db9705eaf1e')"
+        }
+    },
+    {
+        "AccountCode": null,
+        "AccountName": null,
+        "AmountDC": -125,
+        "Date": "/Date(1493078400000)/",
+        "Description": "F. Flink vrijwilligersvergoeding",
+        "EntryNumber": 17200063,
+        "GLAccountCode": "1100",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'ffa234ea-b791-4672-a6c0-32f6ddee1e65')"
+        }
+    },
+    {
+        "AccountCode": null,
+        "AccountName": null,
+        "AmountDC": 970,
+        "Date": "/Date(1509494400000)/",
+        "Description": "SEPA Incasso Batch Referentie: 171031NL73ABNA041300 01300001",
+        "EntryNumber": 17200168,
+        "GLAccountCode": "2810",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'018b5232-6bd3-4a77-abac-342d46ba2e0f')"
+        }
+    },
+    {
+        "AccountCode": "               150",
+        "AccountName": "Declaraties",
+        "AmountDC": -78.79,
+        "Date": "/Date(1496016000000)/",
+        "Description": "Vrijwilligersvergoeding wk 18 t/m 22",
+        "EntryNumber": 17600037,
+        "GLAccountCode": "1600",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'00f52256-2a18-4659-a4ba-ea6adbb912b1')"
+        }
+    },
+    {
+        "AccountCode": null,
+        "AccountName": null,
+        "AmountDC": 22,
+        "Date": "/Date(1511740800000)/",
+        "Description": "F. Flink Pensioen Maandelijkse pensioenbijdrage",
+        "EntryNumber": 17200183,
+        "GLAccountCode": "4060",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'c81a04b5-a87a-4051-8268-ea8eb38bb940')"
+        }
+    },
+    {
+        "AccountCode": "              1661",
+        "AccountName": "Puk, P.",
+        "AmountDC": 1665,
+        "Date": "/Date(1497225600000)/",
+        "Description": "Tienden tm m",
+        "EntryNumber": 17200090,
+        "GLAccountCode": "1100",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Financial.TransactionLine",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financialtransaction/TransactionLines(guid'c13a7ce3-c730-427b-a647-0466b90fe5cd')"
+        }
+    }
+]

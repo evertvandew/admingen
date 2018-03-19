@@ -215,7 +215,7 @@ def adminPage(*args, **kwargs):
 
 
 def handle_login(**kwargs):
-    def check(**kwargs):
+    def check(kwargs):
         """ Check the credentials of a proposed user.
         """
         if not (kwargs[UNAME_FIELD_NAME] and kwargs[PWD_FIELD_NAME]):
@@ -299,7 +299,7 @@ class Worker(threading.Thread):
             if self.getState(self.org_id) == SystemStates.LoadingData:
                 try:
                     # Load the users
-                    if config.TESTMODE:
+                    if config.testmode():
                         time.sleep(5)
                         users = json.load(open(self.ufname))
                         transactions = json.load(open(self.tfname))

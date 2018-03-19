@@ -220,7 +220,9 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
     if cherrypy.request.method == 'POST':
         # Call the global validator
         if validator:
-            values, errors = validator(**cherrypy.request.params)
+            # Do NOT pass as keyword parameter: the validators will
+            # change the values in request.params.
+            values, errors = validator(cherrypy.request.params)
         else:
             values, errors = cherrypy.request.params, {}
 
@@ -628,7 +630,7 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
     index_show = index_show or column_names
     defaults = {n:c.default for n, c in table_hmi_details.columns.items()}
 
-    def validate(**kwargs):
+    def validate(kwargs):
         """ Validate the values submitted for storage in the database """
         result = {}
         errors = {}

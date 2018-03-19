@@ -44,27 +44,7 @@ test_template = '''.. header::
 
 testmail = '''### Beste gever,
 
-In de bijlage ontvang je een overzicht van de bij ons geregistreerde giften over 2017. Als het goed is heb je ook periodiek overzichten ontvangen en kunnen bijhouden of je giften goed geregistreerd zijn. Mochten er toch nog dingen niet goed geregistreerd zijn, dan horen wij dat graag zo snel mogelijk.
-
-### Fiscale aftrekbaarheid
-
-Je ontvangt nu een overzicht dat je kunt gebruiken bij je jaaraangifte inkomstenbelasting. Je giften zijn tot 10 procent van je bruto belastbaar inkomen aftrekbaar. Indien je meer fiscale ruimte wenst om te geven kun je contact met ons opnemen over hoe je periodieke schenkingen kunt doen en daarmee meer fiscaal voordeel kunt behalen.
-
-### Financiële gezondheid
-
-Bovenal is het voor ons belangrijk dat je volledig vrijwillig en in lijn met je plannen en voornemen geeft. Ons doel is om zowel voor jou als voor Life Connexion financiële gezondheid te bereiken, nu, in de toekomst en zelfs voor de volgende generatie!
-
-### Meer inzicht
-
-Op de website van Life Connexion kun je meer informatie vinden over de inkomsten en uitgaven van Life Connexion. 
-
-Met vriendelijke groet, 
-
-Het administratieteam van Life Connexion
-
-PS I Met dit email adres kan niet gecorrespondeerd worden. Vragen kun je stellen aan mailto:marloes@lifeconnexion.nl
-
-PS II Het kan zijn dat je gift bij je bank afgeschreven is aan het einde van 2017, maar pas bij ons is ontvangen in 2018. In dat geval kun je kiezen of je de gift aanmerkt in 2017 of 2018. Wij kunnen geen overzicht verstrekken met die giften in 2017, maar je kunt je eigen afschrift gebruiken om het naar de Belastingdienst te onderbouwen.'''
+'''
 
 
 class TestServer(TestCase):
@@ -147,11 +127,21 @@ class TestServer(TestCase):
                        'admin_id': '102'}
             for n, v in details.items():
                 elem = browser.find_element_by_name(n)
+                elem.clear()
                 elem.send_keys(v)
             browser.find_element_by_tag_name("button").click()
 
             # Now use that organisation for testing the data processing
             browser.get('http://localhost:13958')
+            browser.find_element_by_tag_name("button").click()
+
+            details = {'year': '2017',
+                       'from': '1',
+                       'until': '12'}
+            for n, v in details.items():
+                elem = browser.find_element_by_name(n)
+                elem.clear()
+                elem.send_keys(v)
             browser.find_element_by_tag_name("button").click()
 
             while True:

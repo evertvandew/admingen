@@ -607,10 +607,13 @@ class Worker:
             # Wait one second
             await asyncio.wait(1)
 
-            # Test if we need to activate a task
-            for name, t in self.tasks.items():
-                logging.debug('Starting task %s'%name)
-                t.run()
+            try:
+                # Test if we need to activate a task
+                for name, t in self.tasks.items():
+                    logging.debug('Starting task %s'%name)
+                    t.run()
+            except:
+                logging.exception('Exception in task scheduler')
 
     @expose
     def exit(self):
