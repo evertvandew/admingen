@@ -45,7 +45,6 @@ class EmptyClass:
     pass
 
 
-
 def isoweekno2day(year:int, week:int, dow:int=0):
     """ Return the datetime for a specific iso week """
     # Use the (non-iso) strptime, then correct for the right week.

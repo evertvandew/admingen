@@ -29,7 +29,7 @@ from admingen.clients.rest import OAuth2
 from admingen.clients.paypal import downloadTransactions, pp_reader, PPTransactionDetails, PaypalSecrets
 from admingen.clients import zeke
 from admingen import logging
-from admingen.db_api import the_db, sessionScope, DbTable, select, delete, Required, Set, commit
+from admingen.db_api import the_db, sessionScope, DbTable, select, Required, Set, openDb, orm
 from admingen.international import SalesType, PP_EU_COUNTRY_CODES
 from admingen.dataclasses import dataclass, fields, asdict
 
@@ -53,8 +53,8 @@ class ExactSecrets:
 class paypal_export_config:
     adminmail='evert.vandewaal@xs4all.nl'
     appname='Paypal Exporter'
-    keyring='paypalreaderring.enc'
-    readersock='paypalreader.sock'
+    keyring='$OPSDIR/paypalreaderring.enc'
+    readersock='$OPSDIR/paypalreader.sock'
     database='sqlite://$OPSDIR/transaction_cache.db'
 
 
@@ -114,6 +114,12 @@ class TransactionLog:
     vat_percent : Decimal
     pp_username : Required(str, index=True)
     account: int
+
+# Keep track of when transactions were last retrieved from PayPal
+@DbTable
+class PaypalExchangeLog:
+    task_id: int
+    timestamp: datetime.datetime
 
 
 # TODO: Periodically clean up the cache
@@ -237,11 +243,17 @@ def zeke_classifier(transaction: PPTransactionDetails):
 
 class PaypalExactTask:
     """ Produce exact transactions based on the PayPal transactions """
-    config: [WorkerConfig, zeke.ZekeDetails]
-    secrets: [ExactSecrets, PaypalSecrets, zeke.ZekeSecrets]
+    config: [WorkerConfig]
+    optional_config: [zeke.ZekeDetails]
+    secrets: [ExactSecrets, PaypalSecrets]
+    optional_secrets: [zeke.ZekeSecrets]
 
-    def __init__(self, config, secrets):
-        self.pp_login, self.config, self.exact_token = pp_login, config, exact_token
+    def __init__(self, task_id, config, secrets):
+        self.task_id = task_id
+        self.exact_token, self.pp_login = secrets[:2]
+        # TODO: Handle the optional secrets
+        self.config = config[0]
+        # TODO: Handle the optional configuration
         self.sale_accounts = {SalesType.Local: self.config.sale_account_nl,
                               SalesType.EU_private: self.config.sale_account_eu_vat,
                               SalesType.EU_ICP: self.config.sale_account_eu_no_vat,
@@ -257,8 +269,14 @@ class PaypalExactTask:
                                 SalesType.EU_ICP: Decimal('0.00'),
                                 SalesType.Other: Decimal('0.00'),
                                 SalesType.Unknown: Decimal('0.21')}
-        self.classifier = classifier
-        self.pp_username = pp_login[0]
+        if len(config) == 1:
+            self.classifier = None
+        self.pp_username = self.pp_login[0]
+
+        with sessionScope():
+            q = select(t.timestamp for t in PaypalExchangeLog if t.task_id==task_id)
+            self.last_run = q.order_by(orm.desc(PaypalExchangeLog.timestamp)).first()
+
 
     def classifyTransaction(self, transaction: PPTransactionDetails):
         """ Classify a transaction to determine account and VAT percentage """
@@ -496,15 +514,32 @@ class PaypalExactTask:
             raise
 
     @log_exceptions
+    def should_run(self):
+        """ Return True if the task must run. """
+        n = datetime.datetime.now()
+        # Normally, retrieve the data of the last day three hours after the start of the new day
+        # Also get the data for yesterday immediatly if no exchanges were had (for testing)
+        r = self.last_run
+        r = r or ((n.date() - self.last_run.date()).days > 0 and n.hour > 3)
+        return r
+
+
+    @log_exceptions
     def run(self):
         """ The actual worker. Loads the transactions for yesterday and processes them """
         # First retrieve all necessary passwords from the keychain
+        print ('RUNNING')
+        return
         self.pp_login.password
         pp_details = downloadTransactions(*self.pp_login)
-        zeke_details = zeke.loadTransactions()
+        #zeke_details = zeke.loadTransactions()
         xml_lines = [generateExactTransaction(details) for details in self.detailsGenerator(fname)]
 
         # Upload the XML to Exact
+
+        # Log the exchange
+        with sessionScope():
+            _ = PaypalExchangeLog(task_id=self.task_id, timestamp=datetime.datetime.now())
 
 
 @DbTable
@@ -528,11 +563,16 @@ class Worker:
 
     @staticmethod
     def sockname():
-        return os.path.join(config.opsdir, appconfig.readersock)
+        p = appconfig.readersock
+        if not os.path.isabs(p):
+            return os.path.join(config.opsdir, p)
 
     @staticmethod
     def keyringname():
-        return os.path.join(config.opsdir, appconfig.keyring)
+        p = appconfig.keyring
+        if os.path.isabs(p):
+            return p
+        return os.path.join(config.opsdir, p)
 
     @staticmethod
     def secret_key(task_id, secret_cls):
@@ -561,18 +601,31 @@ class Worker:
             for d in select(t for t in TaskDetails):
                 task_config.setdefault(d.task.id, {})[d.component] = d.settings
 
-            for id, details in task_config.items():
+            for task_id, details in task_config.items():
                 config = [deserialize(t, details[t.__name__])
                           for t in self.cls.__annotations__['config']]
-                keys = [(t, self.secret_key(id, t))
+                keys = [(t, self.secret_key(task_id, t))
                         for t in self.cls.__annotations__['secrets']]
+                if 'optional_config' in self.cls.__annotations__:
+                    optional_config = [deserialize(t, details[t.__name__])
+                              for t in self.cls.__annotations__['optional_config'] if t.__name__ in details]
+                    optional_keys = [(t, self.secret_key(task_id, t))
+                               for t in self.cls.__annotations__['optional_secrets']]
+                missing = [k for k in keys if k[1] not in self.keyring]
+                if missing:
+                    msg = 'The keyring is missing the following details: %s'%[t[1] for t in missing]
+                    logging.error(msg)
+                    raise RuntimeError(msg)
+
                 secrets = [t(**self.keyring[k]) for t, k in keys]
+                secrets += [t(**self.keyring[k]) for t, k in optional_keys if k in self.keyring]
+
                 # Test if all settings are set...
-                if not all([*config, *secrets]):
-                    self.errors[task_names[id]] = 'Some configuration is missing'
-                    logging.error('Task %s missing some configuration'%task_names[id])
+                if not all([*(config), *secrets]):
+                    self.errors[task_names[task_id]] = 'Some configuration is missing'
+                    logging.error('Task %s missing some configuration'%task_names[task_id])
                 else:
-                    self.tasks[task_names[id]] = self.cls(config, secrets)
+                    self.tasks[task_names[task_id]] = self.cls(task_id, [config+optional_config], secrets)
 
     @expose
     def status(self):
@@ -605,12 +658,17 @@ class Worker:
     async def scheduler(self):
         while True:
             # Wait one second
-            await asyncio.wait(1)
+            await asyncio.sleep(1)
+            print ('tick')
 
             # Test if we need to activate a task
             for name, t in self.tasks.items():
-                logging.debug('Starting task %s'%name)
-                t.run()
+                try:
+                    if t.should_run():
+                        logging.debug('Starting task %s'%name)
+                        t.run()
+                except:
+                    logging.exception('Exception in scheduler')
 
     @expose
     def exit(self):
@@ -621,18 +679,19 @@ class Worker:
     @logging.log_exceptions
     def run(cls=PaypalExactTask):
         # In test mode, we need to create our own event loop
-        the_db.bind(provider='sqlite', filename='transaction_cache.db', create_db=True)
-        the_db.generate_mapping(create_tables=True)
+        openDb(appconfig.database, create=False)
 
         print('Starting worker')
         if threading.current_thread() != threading.main_thread():
             # Only the main thread has an event loop. If necessary, start a new one.
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        server = mkUnixServer(Worker(cls), Worker.sockname())
+        worker = Worker(cls)
+        # Start serving requests & doing work
+        server = mkUnixServer(worker, worker.sockname())
         loop = asyncio.get_event_loop()
         loop.create_task(server)
-        loop.create_task(server.scheduler)
+        loop.create_task(worker.scheduler())
         loop.run_forever()
 
 

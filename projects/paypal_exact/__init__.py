@@ -25,7 +25,7 @@ from admingen.servers import unixproxy, ServerError
 from admingen import config
 from admingen.htmltools import *
 from admingen.keyring import DecodeError
-from admingen.db_api import fields, the_db
+from admingen.db_api import fields, the_db, openDb
 
 from paypal_exact.worker import Worker, PaypalExactTask, Task, TaskDetails, WorkerConfig, appconfig
 
@@ -151,9 +151,8 @@ class TaskHandler:
 def production_worker():
     """ Runs the worker in a separate process """
     # We need to start the database directly
-    details = urlparse(appconfig.database)
-    the_db.bind(provider=details.scheme, filename=details.netloc, create_db=True)
-    the_db.generate_mapping(create_tables=True)
+    logging.debug('Opening application database %s'%appconfig.database)
+    openDb(appconfig.database)
 
     # Run the worker and create a proxy to it
     home = os.path.dirname(__file__)
@@ -175,6 +174,7 @@ def production_worker():
             # Terminat the process
             p.terminate()
         p.wait()
+
 
 @contextmanager
 def test_worker():

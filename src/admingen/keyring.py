@@ -8,6 +8,7 @@ import base64
 import shutil
 from Crypto.Cipher import AES
 import json
+import logging
 
 from admingen.util import loads, dumps
 
@@ -38,13 +39,15 @@ def writeFile(fname, password, data):
 def readFile(fname, password):
     """ Read the encrypted file.
     """
+    logging.debug('Reading keyring %s'%fname)
     with open(fname, 'rb') as f:
         data = f.read().split(b'\n', 1)
     salt = base64.b64decode(data[0])
     key = mkKey(password, salt)
     cypher = AES.new(key, AES.MODE_CFB, IV='\x00'*16)
     try:
-        return loads(cypher.decrypt(data[1]))
+        txt = cypher.decrypt(data[1])
+        return loads(txt)
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise DecodeError('Could not decrypt keyring: probably wrong password.')
 
@@ -79,10 +82,13 @@ class KeyRing:
         self.data[key] = value
         if self.fname:
             # Make a backup to protect against file corruption due to crashes
+            logging.debug('Writing to keyring %s'%self.fname)
             writeFile(self.fname+'.new', self.passwd, self.data)
             shutil.move(self.fname, self.fname+'.bak')
             shutil.move(self.fname+'.new', self.fname)
 
+    def __iter__(self):
+        return iter(self.keys())
 
     def items(self):
         return self.data.items()

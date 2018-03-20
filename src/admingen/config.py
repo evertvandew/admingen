@@ -35,15 +35,25 @@ def set_configdir(p):
     load()
 
 
+def substituteContext(txt):
+    """ Substitute strings in the form $ENVVAR with the contents of this variable in the config """
+    d = os.environ.copy()
+    d.update({'CONFDIR': configdir,
+              'RUNDIR': rundir,
+              'OPSDIR': opsdir,
+              'LOGDIR': logdir})
+
+    j = Template(txt)
+    s = j.safe_substitute(d)
+    return s
+
+
 def parse(fname):
     parser = config_parsers[os.path.splitext(fname)[1]]
     with open(fname) as f:
         # Substitute global variables
         txt = f.read()
-        t = Template(txt)
-        d = os.environ.copy()
-        d['CONFDIR'] = configdir
-        s = t.safe_substitute(d)
+        s = substituteContext(txt)
         return parser(s)
 
 
@@ -99,6 +109,18 @@ def configtype(cls):
             return o
         return o.__dict__
     def default_constructor(self, **kwargs):
+        # Include the default values and current values
+        d = cls.__dict__.copy()
+        # Delete any variables starting with __
+        for k in [k for k in d.keys() if k.startswith('__')]:
+            del d[k]
+        # Overwrite with the values given by the called
+        d.update(kwargs)
+        # Substitute values for environment variables
+        txt = json.dumps(d)
+        txt = substituteContext(txt)
+        kwargs = json.loads(txt)
+        # Apply the updated values
         self.__dict__.update(kwargs)
     def convert_types(d):
         """ Ensure the provided configuration set is of the right type """

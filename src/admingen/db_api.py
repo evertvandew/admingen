@@ -1,7 +1,8 @@
 
-
+import logging
 from collections import namedtuple
 from typing import Tuple
+from urllib.parse import urlparse
 from pony import orm
 from inspect import getmembers, Signature, Parameter
 from pony.orm import Required, Set, select, Optional, delete, desc, commit
@@ -72,3 +73,41 @@ def DbTable(cls):
 def fields(cls):
     """ Mimics the API for dataclasses, but working on ponyorm database tables. """
     return cls._columns_
+
+
+class DbaseVersion(the_db.Entity):   #pylint:disable=W0232
+    ''' Stores the version number of the database. '''
+    version = orm.Required(int)
+
+
+
+def url2path(url):
+    """ For SQLite database, return the path to the database file """
+    parts = urlparse(url)
+    if parts.scheme == 'sqlite':
+        path = parts.netloc or parts.path
+        return path
+    return None
+
+def openDb(url, version=1, update=None, create=True):
+    ''' Create a new database from the URL
+    '''
+    if the_db.provider is not None:
+        logging.error('Trying to initialise the database twice!')
+        return
+    print ('Using database', url)
+    parts = urlparse(url)
+    if parts.scheme == 'sqlite':
+        path = parts.netloc or parts.path
+        if create and update:
+            update(path)
+        the_db.bind(parts.scheme, path, create_db=create)
+        the_db.generate_mapping(create_tables=create)
+        with orm.db_session:
+            if orm.count(d for d in DbaseVersion) == 0:
+                v = DbaseVersion(version = version)
+
+    else:
+        raise RuntimeError('Database %s not supported'%parts.scheme)
+
+

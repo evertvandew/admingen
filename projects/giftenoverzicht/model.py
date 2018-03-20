@@ -9,6 +9,8 @@ from collections import namedtuple
 import sqlite3
 from pony import orm
 
+from admingen.db_api import openDb, the_db, DbaseVersion
+
 
 VERSION = 3
 
@@ -40,12 +42,7 @@ class ImagePath(str):
 
 ###############################################################################
 ## The elements stored in the database
-db = orm.Database()
-
-class DbaseVersion(db.Entity):   #pylint:disable=W0232
-    ''' Stores the version number of the database. '''
-    version = orm.Required(int)
-
+db = the_db
 
 class SmtpDetails(db.Entity):
     name = orm.Required(str)
@@ -118,26 +115,6 @@ def updateDb(path):
         conn.close()
 
 
-###############################################################################
-## Functions for managing the database
-def openDb(url):
-    ''' Create a new database from the URL
-    '''
-    print ('Using database', url)
-    parts = urlparse(url)
-    if parts.scheme == 'sqlite':
-        path = parts.netloc or parts.path
-        updateDb(path)
-        db.bind(parts.scheme, path, create_db=True)
-        db.generate_mapping(create_tables=True)
-        with orm.db_session:
-            if orm.count(d for d in DbaseVersion) == 0:
-                v = DbaseVersion(version = VERSION)
-
-    else:
-        raise RuntimeError('Database %s not supported'%parts.scheme)
-
-
 sessionScope = orm.db_session
 
 
@@ -147,7 +124,7 @@ sessionScope = orm.db_session
 def test():
     if os.path.exists('test.db'):
         os.remove('test.db')
-    openDb('sqlite://test.db')
+    openDb('sqlite://test.db', VERSION, updateDb)
     with sessionScope():
         version = DbaseVersion.get()
         assert version.version == VERSION
