@@ -35,6 +35,12 @@ def login(browser, details: PaypalSecrets):
     elem.send_keys(details.username)
 
     elem = browser.find_element_by_name("login_password")
+    if not elem.is_displayed():
+        elem = browser.find_element_by_name("btnNext")
+        elem.click()
+        elem = browser.find_element_by_name("login_password")
+        while not elem.is_displayed():
+            time.sleep(0.1)
     elem.send_keys(details.password)
 
     # Submit the details
@@ -83,7 +89,7 @@ def checkReportAvailable(browser, daterange):
         return e[0]
 
 
-def downloadTransactions(username, password, range_value='YESTERDAY') -> str:
+def downloadTransactions(secrets: PaypalSecrets, range_value='YESTERDAY') -> str:
     """ Download the transactions for yesterday. Returns the filename of the download """
     chromeOptions = webdriver.ChromeOptions()
     prefs = {"download.default_directory": downloaddir}
@@ -92,11 +98,11 @@ def downloadTransactions(username, password, range_value='YESTERDAY') -> str:
 
     today = datetime.datetime.now()
     yesterday = today - datetime.timedelta(1)
-    daterange = yesterday.strftime('%d %b. %Y - %d %b. %Y').lower()
+    daterange = yesterday.strftime('%d %b %Y - %d %b %Y')
 
     # browser = webdriver.Chrome()
     with quitter(browser):
-        login(browser, username, password)
+        login(browser, secrets)
 
         # Wait until the website is loaded
         wait_till_loaded(browser)
@@ -213,6 +219,11 @@ def pp_reader(fname):
         keys = [(k.translate(translator), k) for k in reader.fieldnames]
         keys = [(k1, k2) for k1, k2 in keys if k1 in allfields]
 
+        # PP uses different key names depending on the language of the UI
+        # Ensure the Dutch names are used
+        if 'Gross' in reader._fieldnames:
+            reader._fieldnames = 'Datum,Tijd,Tijdzone,Naam,Type,Status,Valuta,Bruto,Fee,Net,Van e-mailadres,Naar e-mailadres,Transactiereferentie,Verzendadres,Status adres,Item Title,Objectreferentie,Verzendkosten,Verzekeringsbedrag,Sales Tax,Naam optie 1,Waarde optie 1,Naam optie 2,Waarde optie 2,Reference Txn ID,Factuurnummer,Custom Number,Hoeveelheid,Ontvangstbewijsreferentie,Saldo,Adresregel 1,Adresregel 2/regio/omgeving,Plaats,Staat/Provincie/Regio/Gebied,Zip/Postal Code,Land,Telefoonnummer contactpersoon,Onderwerp,Note,Landcode,Effect op saldo'.split(',')
+
         # The only thing wrong with reader is that the numbers are strings, not numbers,
         # and the date is a string, not a datetime.
         for line in reader:
@@ -222,7 +233,10 @@ def pp_reader(fname):
                 s = s.replace('.', '')
                 s = s.replace(',', '.')
                 line[key] = Decimal(s, ) if s else Decimal('0.00')
-            line['Datum'] = datetime.datetime.strptime(line['Datum'], '%d-%m-%Y')
+            if '-' in line['Datum']:
+                line['Datum'] = datetime.datetime.strptime(line['Datum'], '%d-%m-%Y')
+            elif '/' in line['Datum']:
+                line['Datum'] = datetime.datetime.strptime(line['Datum'], '%m/%d/%Y')
             # Strip keys from illegal element characters and unused elements
             line = {k1:line[k2] for k1, k2 in keys}
 

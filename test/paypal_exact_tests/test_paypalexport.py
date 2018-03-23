@@ -159,6 +159,11 @@ class TestPayPalExport(TestCase):
         with open('/home/ehwaal/tmp/pp_retro_q1-3.xml', 'w') as f:
             f.write(xml)
 
+    def testEnglishLanguage(self):
+        fname = 'pp_testdata2.csv'
+        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
+        xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
+
     def testWithZekeData(self):
         details = zeke.ZekeDetails(username='pietje', url='http://pietje_puk.com')
 

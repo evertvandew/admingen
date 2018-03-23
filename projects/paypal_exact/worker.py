@@ -248,11 +248,11 @@ class PaypalExactTask:
     secrets: [ExactSecrets, PaypalSecrets]
     optional_secrets: [zeke.ZekeSecrets]
 
-    def __init__(self, task_id, config, secrets):
+    def __init__(self, task_id, config_details, secrets):
         self.task_id = task_id
         self.exact_token, self.pp_login = secrets[:2]
         # TODO: Handle the optional secrets
-        self.config = config[0]
+        self.config = config_details[0]
         # TODO: Handle the optional configuration
         self.sale_accounts = {SalesType.Local: self.config.sale_account_nl,
                               SalesType.EU_private: self.config.sale_account_eu_vat,
@@ -269,13 +269,17 @@ class PaypalExactTask:
                                 SalesType.EU_ICP: Decimal('0.00'),
                                 SalesType.Other: Decimal('0.00'),
                                 SalesType.Unknown: Decimal('0.21')}
-        if len(config) == 1:
+        if len(config_details) == 1:
             self.classifier = None
-        self.pp_username = self.pp_login[0]
+        self.pp_username = self.pp_login.username
 
         with sessionScope():
-            q = select(t.timestamp for t in PaypalExchangeLog if t.task_id==task_id)
-            self.last_run = q.order_by(orm.desc(PaypalExchangeLog.timestamp)).first()
+            q = select(t.timestamp for t in PaypalExchangeLog if t.task_id==task_id).order_by(lambda: orm.desc(t.timestamp))
+            self.last_run = q.first()
+
+        # Ensure the download directory exists
+        if not os.path.exists(config.downloaddir):
+            os.mkdir(config.downloaddir)
 
 
     def classifyTransaction(self, transaction: PPTransactionDetails):
@@ -519,7 +523,7 @@ class PaypalExactTask:
         n = datetime.datetime.now()
         # Normally, retrieve the data of the last day three hours after the start of the new day
         # Also get the data for yesterday immediatly if no exchanges were had (for testing)
-        r = self.last_run
+        r = self.last_run is None
         r = r or ((n.date() - self.last_run.date()).days > 0 and n.hour > 3)
         return r
 
@@ -527,11 +531,10 @@ class PaypalExactTask:
     @log_exceptions
     def run(self):
         """ The actual worker. Loads the transactions for yesterday and processes them """
-        # First retrieve all necessary passwords from the keychain
         print ('RUNNING')
-        return
-        self.pp_login.password
-        pp_details = downloadTransactions(*self.pp_login)
+
+        # Load the transaction from PayPal
+        fname = downloadTransactions(self.pp_login)
         #zeke_details = zeke.loadTransactions()
         xml_lines = [generateExactTransaction(details) for details in self.detailsGenerator(fname)]
 
@@ -606,6 +609,8 @@ class Worker:
                           for t in self.cls.__annotations__['config']]
                 keys = [(t, self.secret_key(task_id, t))
                         for t in self.cls.__annotations__['secrets']]
+                optional_config = []
+                optional_keys = []
                 if 'optional_config' in self.cls.__annotations__:
                     optional_config = [deserialize(t, details[t.__name__])
                               for t in self.cls.__annotations__['optional_config'] if t.__name__ in details]
@@ -625,7 +630,7 @@ class Worker:
                     self.errors[task_names[task_id]] = 'Some configuration is missing'
                     logging.error('Task %s missing some configuration'%task_names[task_id])
                 else:
-                    self.tasks[task_names[task_id]] = self.cls(task_id, [config+optional_config], secrets)
+                    self.tasks[task_names[task_id]] = self.cls(task_id, config+optional_config, secrets)
 
     @expose
     def status(self):
@@ -669,6 +674,7 @@ class Worker:
                         t.run()
                 except:
                     logging.exception('Exception in scheduler')
+                    break
 
     @expose
     def exit(self):
@@ -678,10 +684,11 @@ class Worker:
     @staticmethod
     @logging.log_exceptions
     def run(cls=PaypalExactTask):
-        # In test mode, we need to create our own event loop
         openDb(appconfig.database, create=False)
 
         print('Starting worker')
+
+        # In test mode, we need to create our own event loop
         if threading.current_thread() != threading.main_thread():
             # Only the main thread has an event loop. If necessary, start a new one.
             loop = asyncio.new_event_loop()
