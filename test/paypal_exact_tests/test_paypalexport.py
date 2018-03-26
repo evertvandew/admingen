@@ -6,7 +6,8 @@ from unittest import TestCase, main
 from io import StringIO
 import re
 
-from paypal_exact.worker import PaypalExactTask, WorkerConfig, generateExactTransactionsFile, PPTransactionDetails, zeke_classifier
+from paypal_exact.worker import (PaypalExactTask, WorkerConfig, generateExactTransactionsFile,
+                                 PPTransactionDetails, zeke_classifier, PaypalSecrets, ExactSecrets)
 from admingen.clients import zeke
 from admingen.db_api import the_db, sessionScope, select
 from admingen.dataclasses import asdict
@@ -44,7 +45,7 @@ class TestPayPalExport(TestCase):
 
     def testConversion(self):
         fname = os.path.join(os.path.dirname(__file__), 'pp_testdata.csv')
-        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
+        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
 
         # Check that the transactions are consistent
         saldo = Decimal('1875.88') - Decimal('49.87')
@@ -85,7 +86,7 @@ class TestPayPalExport(TestCase):
     def testXmlGeneration(self):
 
         fname = os.path.join(os.path.dirname(__file__), 'pp_testdata.csv')
-        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
+        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
 
         # Check that the result is valid XML
@@ -113,7 +114,7 @@ class TestPayPalExport(TestCase):
 06-12-2017,17:47:00,CEST,Pietje Puk,Express Checkout betaling,Voltooid,EUR,"100,00","-5,00","95,00",p.puk@sesamstraat.nl,iniminie@sesamstraat.nl,1A207897G9979282J,"Pietje Puk, sesamstraat 1234, Hilversum, 1234AB, NL",Bevestigd,,,"0,00",,"0,00",,,,,,papa 8344,,1,,"1.875,88",sesamstraat 1234,,Hilversum,Noord Holland,1234AB,Nederland,,,,NL,Bij
 """)
 
-        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
+        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
         xml = generateExactTransactionsFile(converter.detailsGenerator(f))
 
         with open('output.xml', 'w') as f:
@@ -144,7 +145,7 @@ class TestPayPalExport(TestCase):
 2-12-2017,05:23:35,CEST,Pietje Puk,Express Checkout betaling,Voltooid,EUR,"160,40","-5,48","154,92",p.puk@sesamstraat.nl,iniminie@sesamstraat.nl,94Y71337XM919902F,"Pietje Puk, sesamstraat 1234, Hilversum, 1234AB, NL",Bevestigd,,,"0,00",,"0,00",,,,,,papa 9293,,1,,"1.331,90",sesamstraat 1234,,Hilversum,Noord Holland,1234AB,Nederland,,,,NL,Bij
 30-12-2017,01:33:18,CEST,Pietje Puk,Terugbetaling,Voltooid,EUR,"-128,45","4,11","-124,34",iniminie@sesamstraat.nl,p.puk@sesamstraat.nl,97R07110EC540663X,"Pietje Puk, sesamstraat 1234, Hilversum, 1234AB, NL",Niet-bevestigd,,,"0,00",,"0,00",,,,,94Y71337XM919902F,papa 9293,,,,"391,25",,,,,,,,,,,Af
 """)
-        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
+        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
         xml = generateExactTransactionsFile(converter.detailsGenerator(f))
 
         with open('output.xml', 'w') as f:
@@ -153,16 +154,19 @@ class TestPayPalExport(TestCase):
 
     def testRealFile(self):
         # Test converting a real file.
-        fname = os.path.join('/home/ehwaal/tmp/pp_retro_q1-3.csv')
-        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
+        fname = 'pp_testdata.csv'
+        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
-        with open('/home/ehwaal/tmp/pp_retro_q1-3.xml', 'w') as f:
+        with open('tmp/pp_testdata.xml', 'w') as f:
             f.write(xml)
 
     def testEnglishLanguage(self):
         fname = 'pp_testdata2.csv'
-        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None)
+        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
+        self.assertTrue(xml)
+        with open('tmp/pp_testdata2.xml', 'w') as f:
+            f.write(xml)
 
     def testWithZekeData(self):
         details = zeke.ZekeDetails(username='pietje', url='http://pietje_puk.com')
@@ -200,7 +204,8 @@ class TestPayPalExport(TestCase):
 
         # Now process the paypal transactions
         fname = os.path.join('pp_testdata.csv')
-        converter = PaypalExactTask(('pietje_puk', 'mijn_password'), config, None, zeke_classifier)
+        converter = PaypalExactTask(1, [config, zeke_classifier], [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
+        #PaypalExactTask(('pietje_puk', 'mijn_password'), config, None, zeke_classifier)
         transactions = list(converter.detailsGenerator(fname))
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
         with open('pp_testdata.xml', 'w') as f:

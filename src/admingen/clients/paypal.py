@@ -214,15 +214,16 @@ def pp_reader(fname):
     with file as f:
         reader = DictReader(f, delimiter=',', quotechar='"')
 
-        translator = str.maketrans({' ':None, '-':None, '/':None, })
-        allfields = [f.name for f in fields(PPTransactionDetails)]
-        keys = [(k.translate(translator), k) for k in reader.fieldnames]
-        keys = [(k1, k2) for k1, k2 in keys if k1 in allfields]
-
         # PP uses different key names depending on the language of the UI
         # Ensure the Dutch names are used
-        if 'Gross' in reader._fieldnames:
-            reader._fieldnames = 'Datum,Tijd,Tijdzone,Naam,Type,Status,Valuta,Bruto,Fee,Net,Van e-mailadres,Naar e-mailadres,Transactiereferentie,Verzendadres,Status adres,Item Title,Objectreferentie,Verzendkosten,Verzekeringsbedrag,Sales Tax,Naam optie 1,Waarde optie 1,Naam optie 2,Waarde optie 2,Reference Txn ID,Factuurnummer,Custom Number,Hoeveelheid,Ontvangstbewijsreferentie,Saldo,Adresregel 1,Adresregel 2/regio/omgeving,Plaats,Staat/Provincie/Regio/Gebied,Zip/Postal Code,Land,Telefoonnummer contactpersoon,Onderwerp,Note,Landcode,Effect op saldo'.split(',')
+        if 'Gross' in reader.fieldnames:
+            reader.fieldnames = 'Datum,Tijd,Tijdzone,Naam,Type,Status,Valuta,Bruto,Fee,Net,Van e-mailadres,Naar e-mailadres,Transactiereferentie,Verzendadres,Status adres,Item Title,Objectreferentie,Verzendkosten,Verzekeringsbedrag,Sales Tax,Naam optie 1,Waarde optie 1,Naam optie 2,Waarde optie 2,Reference Txn ID,Factuurnummer,Custom Number,Hoeveelheid,Ontvangstbewijsreferentie,Saldo,Adresregel 1,Adresregel 2/regio/omgeving,Plaats,Staat/Provincie/Regio/Gebied,Zip/Postal Code,Land,Telefoonnummer contactpersoon,Onderwerp,Note,Landcode,Effect op saldo'.split(',')
+
+        allfields = [f.name for f in fields(PPTransactionDetails)]
+        # Paypal uses some characters that mess-up XML: get rid of them.
+        translator = str.maketrans({' ':None, '-':None, '/':None, })
+        keys = [(k.translate(translator), k) for k in reader.fieldnames]
+        keys = [(k1, k2) for k1, k2 in keys if k1 in allfields]
 
         # The only thing wrong with reader is that the numbers are strings, not numbers,
         # and the date is a string, not a datetime.

@@ -252,7 +252,15 @@ class PaypalExactTask:
         self.task_id = task_id
         self.exact_token, self.pp_login = secrets[:2]
         # TODO: Handle the optional secrets
-        self.config = config_details[0]
+        self.config = config_details if isinstance(config_details, WorkerConfig) \
+            else config_details[0]
+
+        self.classifier = None
+        if isinstance(config_details, list) and len(config_details) > 1:
+            for option in config_details[1:]:
+                if isinstance(option, zeke.ZekeDetails):
+                    self.classifier = zeke.classifySale
+
         # TODO: Handle the optional configuration
         self.sale_accounts = {SalesType.Local: self.config.sale_account_nl,
                               SalesType.EU_private: self.config.sale_account_eu_vat,
@@ -269,8 +277,7 @@ class PaypalExactTask:
                                 SalesType.EU_ICP: Decimal('0.00'),
                                 SalesType.Other: Decimal('0.00'),
                                 SalesType.Unknown: Decimal('0.21')}
-        if len(config_details) == 1:
-            self.classifier = None
+
         self.pp_username = self.pp_login.username
 
         with sessionScope():

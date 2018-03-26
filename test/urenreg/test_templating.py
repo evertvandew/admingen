@@ -24,7 +24,7 @@ class Test(TestCase):
         with open('uren_crm.txt') as f:
             model = readconfig(f)
         cls.model = model
-        cls.fsmmodel = createFsmModel(model)
+        #cls.fsmmodel = createFsmModel(model)
         # Instantiate the database
         the_db.bind(provider='sqlite', filename=':memory:', create_db=True)
         the_db.generate_mapping(create_tables=True)
@@ -88,12 +88,15 @@ class Test(TestCase):
                            201751 0 0 8
                            201802 0 0 8
                            201803 0 0 0 0 8
-                           201805 0 0 0 0 8'''
+                           201805 0 0 0 0 8
+                           201811 0 0 0 0 8'''
 
             uren_dis = '''201805 0 0 7 6
                           201806 0 0 8 5.5 8
                           201807 0 0 8 4
-                          201808 0 0 8 5'''
+                          201808 0 0 8 5
+                          201810 0 0 8 5
+                          201811 0 0 8 5'''
 
             weekstates = {}
 
@@ -183,7 +186,22 @@ class Test(TestCase):
     def testFactuur(self):
         # Try to create a factuur using the Review and Goedgekeurd functions.
         #
-        self.fsmmodel.
+        pass
+
+    def testDynniqUrenstaat(self):
+        Urenregel = self.model.dbmodel['Urenregel']
+        with sessionScope():
+            regel = orm.select(u for u in Urenregel if u.week.weeknr==11 and u.opdracht.naam=='DYNNIQ: 43889 NECKERSPOEL').first()
+            with open('../templates/dynniq-weekstaat.fods') as f:
+                templ = f.read()
+
+            render(templ,
+                   'test.fods',
+                   'xls',
+                   staat=regel,
+                   total=sum([regel.ma, regel.di, regel.wo, regel.do, regel.vr, regel.za, regel.zo])
+                   )
+
 
     def testUrenstaat(self):
         # Get an urenregel
