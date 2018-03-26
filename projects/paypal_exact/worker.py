@@ -18,8 +18,6 @@ from typing import List, Tuple, Dict, Any
 import re
 import threading
 
-import paypalrestsdk
-from paypalrestsdk.payments import Payment
 from admingen.servers import mkUnixServer, Message, expose, serialize, deserialize, update
 from admingen.keyring import KeyRing
 from admingen.email import sendmail
