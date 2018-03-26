@@ -15,6 +15,10 @@ from admingen.reporting import render
 database = 'test.db'
 
 
+if not os.path.exists('tmp'):
+    os.mkdir('tmp')
+
+
 class Test(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -176,7 +180,7 @@ class Test(TestCase):
                     templ = f.read()
 
                 render(templ,
-                       '%s.fodt' % factuur.nummer,
+                       'tmp/%s.fodt' % factuur.nummer,
                        weeks=weeks,
                        total_uren=total_uren,
                        factuur=factuur,
@@ -196,7 +200,7 @@ class Test(TestCase):
                 templ = f.read()
 
             render(templ,
-                   'test.fods',
+                   'tmp/test.fods',
                    'xls',
                    staat=regel,
                    total=sum([regel.ma, regel.di, regel.wo, regel.do, regel.vr, regel.za, regel.zo])
@@ -212,7 +216,7 @@ class Test(TestCase):
                 templ = f.read()
 
             render(templ,
-                   'test.fods',
+                   'tmp/test.fods',
                    'xls',
                    staat=regel,
                    total=sum([regel.ma, regel.di, regel.wo, regel.do, regel.vr, regel.za, regel.zo])
@@ -222,7 +226,7 @@ class Test(TestCase):
                 templ = f.read()
 
             render(templ,
-                   'test1.fods',
+                   'tmp/test1.fods',
                    'xls',
                    staat=regel,
                    total=sum([regel.ma, regel.di, regel.wo, regel.do, regel.vr, regel.za, regel.zo])
