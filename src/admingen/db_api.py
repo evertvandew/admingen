@@ -17,7 +17,8 @@ commit = orm.commit
 
 # TODO: replace with dataclass once py3.7 is out
 ColumnDetails = namedtuple('ColumnDetails', ['name', 'primarykey', 'type', 'nullable',
-                                             'collection', 'options', 'required', 'related_columns'])
+                                             'collection', 'options', 'required', 'related_columns',
+                                             'default'])
 
 TableDetails = namedtuple('TableDetails', ['name', 'compoundkey', 'columns'])
 
@@ -27,6 +28,7 @@ def getHmiDetails(table) -> TableDetails:
     columndetails = {}
     for name in colum_names:
         a = getattr(table, name)
+        default = a.default if a.default is not None else ''
         d = ColumnDetails(name=name,
                           primarykey=a.is_pk,
                           type=a.py_type,
@@ -35,7 +37,8 @@ def getHmiDetails(table) -> TableDetails:
                           nullable=a.is_required,
                           collection=a.is_collection,
                           options=getattr(a.py_type, 'options', None),
-                          required=a.is_required)
+                          required=a.is_required,
+                          default=default)
         columndetails[name] = d
     return TableDetails(name=table.__name__, compoundkey=False, columns=columndetails)
 
