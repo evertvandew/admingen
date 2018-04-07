@@ -27,7 +27,8 @@ from admingen.htmltools import *
 from admingen.keyring import DecodeError
 from admingen.db_api import fields, the_db, openDb
 
-from paypal_exact.worker import Worker, PaypalExactTask, Task, TaskDetails, WorkerConfig, appconfig
+from paypal_exact.worker import PaypalExactTask, WorkerConfig
+from admingen.worker import Worker, Task, TaskDetails, appconfig
 
 
 def taskdetails_editor(base):
@@ -152,13 +153,14 @@ def production_worker():
     """ Runs the worker in a separate process """
     # We need to start the database directly
     logging.debug('Opening application database %s'%appconfig.database)
-    openDb(appconfig.database)
+    openDb(appconfig.database, create=True)
 
     # Run the worker and create a proxy to it
     home = os.path.dirname(__file__)
 
     p = subprocess.Popen(['/usr/bin/env', 'python3.6', 'worker.py'], cwd=home)
-    worker = unixproxy(Worker, Worker.sockname())
+    WorkerCls = Worker(PaypalExactTask)
+    worker = unixproxy(WorkerCls, WorkerCls.sockname())
     TaskHandler.worker = worker
 
     # let the worker run
@@ -179,8 +181,7 @@ def production_worker():
 @contextmanager
 def test_worker():
     # We need to start the database directly
-    the_db.bind(provider='sqlite', filename=':memory:', create_db=True)
-    the_db.generate_mapping(create_tables=True)
+    openDb('sqlite://:memory:', create=True)
 
     # Just make the worker proxy the actual worker
     worker = Worker()
@@ -191,6 +192,9 @@ def test_worker():
 @contextmanager
 def threaded_worker():
     """ Runs the worker in a separate thread, to test the server mechanisms """
+    # We need to start the database directly
+    openDb('sqlite://:memory:', create=True)
+
     th = threading.Thread(target=Worker.run)
     th.setDaemon(True)
     th.start()

@@ -93,14 +93,17 @@ class Test(TestCase):
                            201802 0 0 8
                            201803 0 0 0 0 8
                            201805 0 0 0 0 8
-                           201811 0 0 0 0 8'''
+                           201811 0 0 0 0 8
+                           201813 0 6 0 0 0'''
 
             uren_dis = '''201805 0 0 7 6
                           201806 0 0 8 5.5 8
                           201807 0 0 8 4
                           201808 0 0 8 5
                           201810 0 0 8 5
-                          201811 0 0 8 5'''
+                          201811 0 0 8 5
+                          201812 0 0 8 5 6.5
+                          201813 0 0 8 5'''
 
             weekstates = {}
 
@@ -136,8 +139,8 @@ class Test(TestCase):
             orm.commit()
 
             # Generate the factuur objecten (but without accounting details)
-            for periods, opdr in [[['201710', '201711', '201712', '201801', '201802'], neck],
-                                  [['201801', '201802'], inclino]]:
+            for periods, opdr in [[['201710', '201711', '201712', '201801', '201802', '201803'], neck],
+                                  [['201801', '201802', '201803'], inclino]]:
                 for period in periods:
                     p = datetime.datetime.strptime(period, '%Y%m')
                     factnr = '%s%03i%02i1'%(p.year, opdr.id, p.month)
@@ -157,7 +160,7 @@ class Test(TestCase):
                 nr_days = calendar.monthrange(factuur.periode.year, factuur.periode.month)[1]
                 start = factuur.periode
                 end = start + datetime.timedelta(nr_days, 0)
-                _weeks = orm.select(w for w in Weekstaat if (w.start + datetime.timedelta(4)) >= start and w.start < end)[:]
+                _weeks = orm.select(w for w in Weekstaat if (w.start + datetime.timedelta(4)) >= start and w.start < end).order_by(Weekstaat.weeknr)[:]
                 _week_filter = {w.weeknr: [(start <= d < end)
                                        for d in [w.start + datetime.timedelta(i) for i in range(7)]]
                                 for w in _weeks}
@@ -180,7 +183,7 @@ class Test(TestCase):
                     templ = f.read()
 
                 render(templ,
-                       'tmp/%s.fodt' % factuur.nummer,
+                       'tmp/%s_%s_%s.fodt' % (factuur.nummer, factuur.opdracht.opdrachtgever.naam, factuur.opdracht.naam),
                        weeks=weeks,
                        total_uren=total_uren,
                        factuur=factuur,

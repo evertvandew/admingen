@@ -10,12 +10,13 @@ import threading
 import time
 
 from admingen import config
-from admingen.db_api import sessionScope
+from admingen.db_api import sessionScope, openDb
 from admingen.servers import unixproxy
 from admingen.dataclasses import dataclass, asdict
 from admingen.keyring import KeyRing
+from admingen.worker import Worker, appconfig
 
-from projects.paypal_exact import Task, TaskDetails, WorkerConfig, Worker, the_db
+from projects.paypal_exact import Task, TaskDetails
 
 
 testdir = os.path.dirname(__file__)
@@ -41,7 +42,7 @@ class TestTask:
 
     runned = []
 
-    def __init__(self, config, secrets):
+    def __init__(self, client_id, config, secrets):
         assert len(config) == 1
         assert len(secrets) == 1
         assert isinstance(config[0], TestConfig)
@@ -58,7 +59,7 @@ class tests(TestCase):
     @classmethod
     def setUpClass(cls):
         # Ensure there are no artifacts from previous tests
-        for fname in glob.glob(testdir+'/tmp/*'):
+        for fname in glob.glob(testdir+'/tmp/*') + glob.glob(testdir+'/*.db'):
             os.remove(fname)
 
         # Ensure the relevant environment variables are set
@@ -70,9 +71,6 @@ class tests(TestCase):
         config.load_context()
 
         cls.p = None # subprocess.Popen(['python3.6', 'run', 'paypal_exact'], cwd=rootdir)
-        cls.th = threading.Thread(target=Worker.run, args=(TestTask,))
-        cls.th.setDaemon(True)
-        cls.th.start()
 
     @classmethod
     def tearDownClass(cls):
@@ -81,12 +79,11 @@ class tests(TestCase):
 
     def testWorker(self):
         # Connect with the taskrunner
-        if False:
-            client: Worker = unixproxy(Worker, Worker.sockname())
+        if self.p:
+            client: Worker = unixproxy(Worker, appconfig.sockname())
         else:
-            client: Worker = Worker(TestTask)
-            the_db.bind(provider='sqlite', filename=':memory:', create_db=True)
-            the_db.generate_mapping(create_tables=True)
+            openDb(appconfig.database, create=True)
+            client: Worker = Worker(TestTask)()
 
         # check the status
         status = client.status()
@@ -113,8 +110,8 @@ class tests(TestCase):
 
 
         # Fill the keyring
-        kr = KeyRing(Worker.keyringname(), test_password)
-        kr[Worker.secret_key(1, TestSecrets)] = TestSecrets(12345, test_password)
+        kr = KeyRing(client.keyringname(), test_password)
+        kr[client.secret_key(1, TestSecrets)] = TestSecrets(12345, test_password)
 
         # Unlock the worker: a task should be started.
         client.unlock(test_password)
@@ -125,6 +122,8 @@ class tests(TestCase):
         self.assertEqual(len(status['errors']), 0)
 
         # Check if the task is run properly
-        time.sleep(10)
-        self.assertLess(abs(len(TestTask.runned)-10), 2)
+        for _ in range(10):
+            client.runOnce()
+
+        self.assertEqual(len(TestTask.runned), 10)
         pass

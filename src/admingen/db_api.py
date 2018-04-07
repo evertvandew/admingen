@@ -1,5 +1,7 @@
 
 import logging
+import os.path
+import shutil
 from collections import namedtuple
 from typing import Tuple
 from urllib.parse import urlparse
@@ -99,9 +101,9 @@ def openDb(url, version=1, update=None, create=True):
     parts = urlparse(url)
     if parts.scheme == 'sqlite':
         path = parts.netloc or parts.path
-        if create and update:
+        if create and update and os.path.exists(path):
             update(path)
-        the_db.bind(parts.scheme, path, create_db=create)
+        the_db.bind(provider=parts.scheme, filename=path, create_db=create)
         the_db.generate_mapping(create_tables=create)
         with orm.db_session:
             if orm.count(d for d in DbaseVersion) == 0:
