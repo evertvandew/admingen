@@ -163,10 +163,10 @@ def configtype(cls):
     cls.update = update
     return factory
 
-projectname = logdir = opsdir = rundir = downloaddir = ''
+projectname = logdir = opsdir = rundir = downloaddir = projdir = rootdir = ''
 
 def load_context():
-    global projectname, logdir, opsdir, rundir, downloaddir
+    global projectname, logdir, opsdir, rundir, downloaddir, projdir, rootdir
 
     # Define a number of variables for accessing the file system.
     # These directories can be set by environment variables, and default to the cwd.
@@ -176,9 +176,11 @@ def load_context():
     # RUNDIR: the context where a program lives, e.g. a HOME directory or /run/<project>.
     # CONFDIR: the directory where config files live, e.g. /etc/project
     projectname = os.environ.get('PROJECTNAME', os.path.basename(sys.argv[0]))
-    logdir = os.environ.get('LOGDIR', '') or os.getcwd()
-    opsdir = os.environ.get('OPSDIR', '') or os.getcwd()
-    rundir = os.environ.get('RUNDIR', '') or os.getcwd()
+    rootdir = os.environ.get('ROOTDIR') or os.path.abspath(os.path.dirname(__file__)+'/../..')
+    logdir = os.environ.get('LOGDIR') or os.getcwd()
+    opsdir = os.environ.get('OPSDIR') or os.getcwd()
+    rundir = os.environ.get('RUNDIR') or os.getcwd()
+    projdir = os.environ.get('PROJDIR') or rootdir + '/projects/' + projectname
 
     downloaddir = os.path.join(rundir, 'downloads')
 

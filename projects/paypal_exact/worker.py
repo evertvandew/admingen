@@ -21,7 +21,8 @@ import threading
 from admingen.servers import mkUnixServer, Message, expose, serialize, deserialize, update
 from admingen import config
 from admingen.logging import log_exceptions
-from admingen.clients.paypal import downloadTransactions, pp_reader, PPTransactionDetails, PaypalSecrets
+from admingen.clients.paypal import (downloadTransactions, pp_reader, PPTransactionDetails,
+                                     PaypalSecrets, DataRanges)
 from admingen.clients import zeke
 from admingen import logging
 from admingen.db_api import the_db, sessionScope, DbTable, select, Required, Set, openDb, orm
@@ -51,6 +52,7 @@ class ExactTransactionLine:
     GLType: int
     Description: str
     Amount: Decimal
+    Currency: str
     ForeignAmount: Decimal
     ForeignCurrency: str
     ConversionRate: Decimal
@@ -64,7 +66,7 @@ class ExactTransaction:
     closingbalance: Decimal
 
 @dataclass
-class WorkerConfig:
+class paypal_export_config:
     ledger: str
     costs_account: str
     pp_account: str
@@ -78,6 +80,7 @@ class WorkerConfig:
     purchase_account_world: str
     pp_kruispost: str
     vat_account: str
+    currency: str
 
 
 # Create a cache for storing the details of earlier transactions
@@ -157,11 +160,11 @@ LineTemplate = '''            <GLTransactionLine type="40" line="{linenr}" statu
                 {additional}
                 <Description>{Description}</Description>
                 <Amount>
-                    <Currency code="EUR" />
+                    <Currency code="{Currency}" />
                     <Value>{Amount}</Value>
                 </Amount>
                 <ForeignAmount>
-                    <Currency code="EUR" />
+                    <Currency code="{Currency}" />
                     <Value>{Amount}</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
@@ -198,8 +201,8 @@ def generateExactTransaction(transaction: ExactTransaction):
 
 
 def generateExactTransactionsFile(transactions: List[ExactTransaction]):
-    transactions = [generateExactTransaction(t) for t in transactions]
-    return FileTemplate.format(transactions = '\n'.join(transactions))
+    transactions_xml = [generateExactTransaction(t) for t in transactions]
+    return FileTemplate.format(transactions = '\n'.join(transactions_xml))
 
 
 # In PayPal, the order_nr has a strange string prepended ('papa xxxx')
@@ -217,7 +220,7 @@ def zeke_classifier(transaction: PPTransactionDetails):
 
 class PaypalExactTask:
     """ Produce exact transactions based on the PayPal transactions """
-    config: [WorkerConfig]
+    config: [paypal_export_config]
     optional_config: [zeke.ZekeDetails]
     secrets: [ExactSecrets, PaypalSecrets]
     optional_secrets: [zeke.ZekeSecrets]
@@ -226,7 +229,7 @@ class PaypalExactTask:
         self.task_id = task_id
         self.exact_token, self.pp_login = secrets[:2]
         # TODO: Handle the optional secrets
-        self.config = config_details if isinstance(config_details, WorkerConfig) \
+        self.config = config_details if isinstance(config_details, paypal_export_config) \
             else config_details[0]
 
         self.classifier = None
@@ -286,18 +289,22 @@ class PaypalExactTask:
     def determineAccountVat(self, transaction: PPTransactionDetails):
         """ Determine the grootboeken to be used for a specific transaction """
 
-        if transaction.Type == 'Algemene opname':
+        if transaction.Type == 'Algemene opname' or 'withdrawl' in transaction.Type:
             # A bank withdrawl goes directly to the kruispost
             return self.config.pp_kruispost, Decimal('0.00')
 
         # Determine if the transaction is within the Netherlands, the EU or the world.
         region = self.classifyTransaction(transaction)
-
-        # Sales with an unknown region are parked on the kruispost
-        if region == SalesType.Unknown and transaction.Net > 0:
-            return self.config.pp_kruispost, Decimal('0.00')
-
         accounts = self.sale_accounts if transaction.Net > 0 else self.purchase_accounts
+
+        if region == SalesType.Unknown:
+            if transaction.Valuta != 'EUR':
+                # non-euro transactions are assumed to be outside the EU
+                return accounts[SalesType.Other], self.vat_percentages[SalesType.Other]
+            if transaction.Net > 0:
+                # Sales with an unknown region are parked on the kruispost
+                return self.config.pp_kruispost, Decimal('0.00')
+
         if transaction.ReferenceTxnID:
             # This is related to another payment, in almost all cases a return of a previous payment
             # If available, use the details from the previous transaction
@@ -327,7 +334,7 @@ class PaypalExactTask:
                  ]
         return ' '.join(parts)
 
-    def make_transaction(self, transaction: PPTransactionDetails, rate=1):
+    def make_transaction(self, transaction: PPTransactionDetails, rate=1) -> ExactTransaction:
         """ Translate a PayPal transaction into a set of Exact bookings
             :param rate: euro_amount / foreign_amount
 
@@ -367,21 +374,21 @@ class PaypalExactTask:
                 comment = 'BTW kosten ' + base_comment
                 lines.append((self.config.vat_account, GLAccountTypes.General,
                              comment,
-                             -vat_costs_euro, -vat_costs, foreign_valuta, rate,
+                             -vat_costs_euro, self.config.currency, -vat_costs, foreign_valuta, rate,
                              '<GLOffset code="%s" />'%self.config.pp_account))
                 lines.append((self.config.pp_account, GLAccountTypes.Bank,
                               comment,
-                              vat_costs_euro, vat_costs, foreign_valuta, rate,
+                              vat_costs_euro, self.config.currency, vat_costs, foreign_valuta, rate,
                               ''))
             # The actual fee
             comment = 'Kosten ' + base_comment
             lines.append((self.config.costs_account, GLAccountTypes.SalesMarketingGeneralExpenses,
                          comment,
-                          -net_costs_euro, -net_costs, foreign_valuta, rate,
+                          -net_costs_euro, self.config.currency, -net_costs, foreign_valuta, rate,
                          '<GLOffset code="%s" />'%self.config.pp_account))
             lines.append((self.config.pp_account, GLAccountTypes.Bank,
                           comment,
-                          net_costs_euro, net_costs, foreign_valuta, rate,
+                          net_costs_euro, self.config.currency, net_costs, foreign_valuta, rate,
                           ''))
 
         # Here, the difference between Net and Gross is the taxes to be deducted.
@@ -408,11 +415,11 @@ class PaypalExactTask:
         comment = base_comment
         lines.append((gb_sales, GLAccountTypes.Revenue,
                          comment,
-                      -net_euro, -net, foreign_valuta, rate,
+                      -net_euro, self.config.currency, -net, foreign_valuta, rate,
                          '<GLOffset code="%s" />'%self.config.pp_account))
         lines.append((self.config.pp_account, GLAccountTypes.Bank,
                          comment,
-                      net_euro, net, foreign_valuta, rate,
+                      net_euro, self.config.currency, net, foreign_valuta, rate,
                          ''))
 
         # The VAT over the sale
@@ -420,11 +427,11 @@ class PaypalExactTask:
             comment = 'BTW ' + base_comment
             lines.append((self.config.vat_account, GLAccountTypes.General,
                           comment,
-                          -vat_euro, -vat, foreign_valuta, rate,
+                          -vat_euro, self.config.currency, -vat, foreign_valuta, rate,
                              '<GLOffset code="%s" />'%self.config.pp_account))
             lines.append((self.config.pp_account, GLAccountTypes.Bank,
                           comment,
-                          vat_euro, vat, foreign_valuta, rate,
+                          vat_euro, self.config.currency, vat, foreign_valuta, rate,
                              ''))
 
         lines = [ExactTransactionLine(*l) for l in lines]
@@ -436,20 +443,20 @@ class PaypalExactTask:
     def make_foreign_transaction(self, transactions: List[PPTransactionDetails]):
         # Get the details from the original transaction
         sale:PPTransactionDetails = next(t for t in transactions if
-                    t.Type != 'Algemeen valutaomrekening' and t.Valuta != 'EUR')
-        euro_details:PPTransactionDetails = next(t for t in transactions if
-                            t.Type == 'Algemeen valutaomrekening' and t.Valuta == 'EUR')
+                    t.Type != 'Algemeen valutaomrekening' and t.Valuta != self.config.currency)
+        valuta_details:PPTransactionDetails = next(t for t in transactions if
+                            t.Type == 'Algemeen valutaomrekening' and t.Valuta == self.config.currency)
         foreign_details:PPTransactionDetails = next(t for t in transactions if
-                               t.Type == 'Algemeen valutaomrekening' and t.Valuta != 'EUR')
+                               t.Type == 'Algemeen valutaomrekening' and t.Valuta != self.config.currency)
         # Check the right transactions were found
-        assert euro_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
+        assert valuta_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
         assert foreign_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
 
         # Paypal converts the net amount of foreign money into the gross amount of local money
-        rate = (euro_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
+        rate = (valuta_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
 
         exact_transaction = self.make_transaction(sale, rate)
-        exact_transaction.closingbalance = euro_details.Saldo
+        exact_transaction.closingbalance = valuta_details.Saldo
 
         # Check if an extra line is necessary to handle any left-over foreign species
         # This happens (very rarly), probably due to bugs at PayPal.
@@ -460,11 +467,11 @@ class PaypalExactTask:
             foreign_valuta = sale.Valuta
             lines = [(self.config.pp_kruispost, GLAccountTypes.General,
                          comment,
-                      diff_euros, diff, foreign_valuta, rate,
+                      diff_euros, self.config.currency, diff, foreign_valuta, rate,
                          '<GLOffset code="%s" />'%self.config.pp_account),
                      (self.config.pp_account, GLAccountTypes.Bank,
                       comment,
-                      -diff_euros, -diff, foreign_valuta, rate,
+                      -diff_euros, self.config.currency, -diff, foreign_valuta, rate,
                       '')
                      ]
             exact_transaction.lines.extend([ExactTransactionLine(*l) for l in lines])
@@ -473,6 +480,7 @@ class PaypalExactTask:
         return exact_transaction
 
     def detailsGenerator(self, fname):
+        """ Generator that reads a list of PayPal transactions, and yields ExactTransactions """
         conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
         try:
             # Download the PayPal Transactions
@@ -482,9 +490,15 @@ class PaypalExactTask:
                 # Skip memo transactions.
                 if transaction.Effectopsaldo.lower() == 'memo':
                     continue
-                if transaction.Type == 'Algemeen valutaomrekening' or transaction.Valuta != 'EUR':
+                if transaction.Type == 'Algemeen valutaomrekening' or \
+                   transaction.Valuta != self.config.currency:
                     # We need to compress the next three transactions into a single, foreign valuta one.
-                    ref = transaction.ReferenceTxnID or transaction.Transactiereferentie
+                    # The actual transaction is NOT a conversion and is in foreign valuta.
+                    # The two conversions refer to this transaction
+                    if transaction.Type != 'Algemeen valutaomrekening':
+                        ref = transaction.Transactiereferentie
+                    else:
+                        ref = transaction.ReferenceTxnID
                     txs = conversions_stack.setdefault(ref, [])
                     txs.append(transaction)
                     if len(txs) == 3:
@@ -499,14 +513,23 @@ class PaypalExactTask:
             raise
 
     @log_exceptions
-    def run(self):
+    def run(self, period: DataRanges=DataRanges.Yesterday):
         """ The actual worker. Loads the transactions for yesterday and processes them """
         print ('RUNNING')
 
         # Load the transaction from PayPal
-        fname = downloadTransactions(self.pp_login)
+        fname = '/home/ehwaal/admingen/downloads/Download (1).CSV'
+        #fname = downloadTransactions(self.pp_login, period)
         #zeke_details = zeke.loadTransactions()
-        xml_lines = [generateExactTransaction(details) for details in self.detailsGenerator(fname)]
+        transactions: List[ExactTransaction] = list(self.detailsGenerator(fname))
+        xml = generateExactTransactionsFile(transactions)
+        fname = 'exact_transactions.xml'
+        with open(fname, 'w') as of:
+            of.write(xml)
+
+        total = sum(sum(l.Amount for l in t.lines if l.GLAccount==self.config.pp_account)
+                    for t in transactions)
+        logging.info('Written exact transactions to %s: %s\t%s'%(fname, len(transactions), total))
 
         # Upload the XML to Exact
 
@@ -516,6 +539,7 @@ class PaypalExactTask:
 
 
 if __name__ == '__main__':
+    config.load_context()
     worker = Worker(PaypalExactTask)
     print('Worker starting')
-    worker.run()
+    worker.run(DataRanges.Past3Months)

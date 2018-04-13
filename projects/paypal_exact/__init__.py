@@ -27,7 +27,7 @@ from admingen.htmltools import *
 from admingen.keyring import DecodeError
 from admingen.db_api import fields, the_db, openDb
 
-from paypal_exact.worker import PaypalExactTask, WorkerConfig
+from paypal_exact.worker import PaypalExactTask, paypal_export_config
 from admingen.worker import Worker, Task, TaskDetails, appconfig
 
 
@@ -156,8 +156,9 @@ def production_worker():
     openDb(appconfig.database, create=True)
 
     # Run the worker and create a proxy to it
-    home = os.path.dirname(__file__)
+    home = config.projdir
 
+    logging.debug('starting worker in %s'%home)
     p = subprocess.Popen(['/usr/bin/env', 'python3.6', 'worker.py'], cwd=home)
     WorkerCls = Worker(PaypalExactTask)
     worker = unixproxy(WorkerCls, WorkerCls.sockname())
