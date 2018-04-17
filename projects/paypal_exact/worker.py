@@ -163,10 +163,18 @@ LineTemplate = '''            <GLTransactionLine type="40" line="{linenr}" statu
                     <Currency code="{Currency}" />
                     <Value>{Amount}</Value>
                 </Amount>
+            </GLTransactionLine>'''
+
+ForeignLineTemplate = '''            <GLTransactionLine type="40" line="{linenr}" status="20">
+                <Date>{date}</Date>
+                <FinYear number="{year}" />
+                <FinPeriod number="{period}" />
+                <GLAccount code="{GLAccount}" type="{GLType}" />
+                {additional}
+                <Description>{Description}</Description>
                 <ForeignAmount>
                     <Currency code="{Currency}" />
                     <Value>{Amount}</Value>
-                    <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>'''
 
@@ -177,6 +185,8 @@ def generateExactLine(transaction: ExactTransaction, line: ExactTransactionLine,
     date = transaction.date.strftime('%Y-%m-%d')
     year = transaction.date.strftime('%Y')
     period = transaction.date.strftime('%m')
+    if line.ForeignCurrency != 'EUR' or line.Currency != 'EUR':
+        return ForeignLineTemplate.format(**locals(), **asdict(line))
     return LineTemplate.format(**locals(), **asdict(line))
 
 
@@ -520,6 +530,7 @@ class PaypalExactTask:
         # Load the transaction from PayPal
         fname = '/home/ehwaal/admingen/downloads/Download (1).CSV'
         #fname = downloadTransactions(self.pp_login, period)
+        logging.info('Processing transactions from %s'%os.path.abspath(fname))
         #zeke_details = zeke.loadTransactions()
         transactions: List[ExactTransaction] = list(self.detailsGenerator(fname))
         xml = generateExactTransactionsFile(transactions)
@@ -529,7 +540,7 @@ class PaypalExactTask:
 
         total = sum(sum(l.Amount for l in t.lines if l.GLAccount==self.config.pp_account)
                     for t in transactions)
-        logging.info('Written exact transactions to %s: %s\t%s'%(fname, len(transactions), total))
+        logging.info('Written exact transactions to %s: %s\t%s'%(os.path.abspath(fname), len(transactions), total))
 
         # Upload the XML to Exact
 
@@ -542,4 +553,4 @@ if __name__ == '__main__':
     config.load_context()
     worker = Worker(PaypalExactTask)
     print('Worker starting')
-    worker.run(DataRanges.Past3Months)
+    worker.run()

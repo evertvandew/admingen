@@ -159,7 +159,7 @@ def production_worker():
     home = config.projdir
 
     logging.debug('starting worker in %s'%home)
-    p = subprocess.Popen(['/usr/bin/env', 'python3.6', 'worker.py'], cwd=home)
+    #p = subprocess.Popen(['/usr/bin/env', 'python3.6', 'worker.py'], cwd=home)
     WorkerCls = Worker(PaypalExactTask)
     worker = unixproxy(WorkerCls, WorkerCls.sockname())
     TaskHandler.worker = worker
