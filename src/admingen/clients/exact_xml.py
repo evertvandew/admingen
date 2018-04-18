@@ -49,3 +49,7 @@ class XML:
         params = kwargs.copy()
         params['PageNumber'] = 1
         r = requests.get(self.download_url, params=params, headers=headers)
+
+
+def uploadTransactions(token, administration, fname):
+    raise NotImplementedError()

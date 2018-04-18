@@ -13,6 +13,8 @@ import logging
 from admingen.util import loads, dumps
 
 
+VERSION = 1
+
 class DecodeError(RuntimeError): pass
 
 
@@ -26,11 +28,13 @@ def writeFile(fname, password, data):
     """ Write (update) the encrypted file. Simply overwrite the whole file.
         A new salt is created for each write, so the complete file will change.
     """
+    # TODO: investigate if it would be better to keep the same salt
     salt = secrets.token_bytes(32)
     key = mkKey(password, salt)
     cypher = AES.new(key, AES.MODE_CFB, IV='\x00'*16)
     darktext = cypher.encrypt(dumps(data))
     with open(fname, 'wb') as f:
+        f.write(b'%i\n'%VERSION)
         f.write(base64.b64encode(salt))
         f.write(b'\n')
         f.write(darktext)
@@ -41,19 +45,21 @@ def readFile(fname, password):
     """
     logging.debug('Reading keyring %s'%fname)
     with open(fname, 'rb') as f:
-        data = f.read().split(b'\n', 1)
-    salt = base64.b64decode(data[0])
+        data = f.read().split(b'\n', 2)
+    version = int(data[0])
+    salt = base64.b64decode(data[1])
     key = mkKey(password, salt)
     cypher = AES.new(key, AES.MODE_CFB, IV='\x00'*16)
     try:
-        txt = cypher.decrypt(data[1])
+        txt = cypher.decrypt(data[2])
         return loads(txt)
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise DecodeError('Could not decrypt keyring: probably wrong password.')
 
 
 class KeyRing:
-    """ File format: the first line contains a base64 encoded salt.
+    """ File format: the first line contains a version number.
+        The second line contains a base64 encoded salt.
         Then follows the encrypted data: JSON data with key:value pairs.
     """
     theKeyring = None

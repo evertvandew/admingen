@@ -29,6 +29,11 @@ def binquote(value):
     return urllib.parse.quote(value.encode('utf-8'))
 
 
+
+class OAuthError(RuntimeError):
+    pass
+
+
 class OAuth2:
     def __init__(self, token_url, client_id, client_secret, redirect_uri):
         # Copy all elements blindly into the internal dict
@@ -123,7 +128,8 @@ def loginOAuth(username, password, client_id, client_secret, redirect_uri):
     data = '&'.join(['%s=%s' % it for it in params.items()])
     response = requests.post(token_url, data=data.encode('utf8'),
                              headers={'Content-Type': 'application/x-www-form-urlencoded'})
-    assert response.status_code == 200, 'get Access Token failed'
+    if response.status_code != 200:
+        raise OAuthError('Get Access Token failed')
     token = response.json()
     token['birth'] = time.time()
     return token
@@ -144,7 +150,8 @@ def refreshToken(token, client_id, client_secret, redirect_uri):
     data = '&'.join(['%s=%s' % it for it in params.items()])
     response = requests.post(token_url, data=data.encode('utf8'),
                              headers={'Content-Type': 'application/x-www-form-urlencoded'})
-    assert response.status_code == 200, 'get Access Token failed'
+    if response.status_code != 200:
+        raise OAuthError('Refresh Access Token failed')
     token = response.json()
     token['birth'] = time.time()
     return token

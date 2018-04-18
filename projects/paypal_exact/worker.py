@@ -24,6 +24,8 @@ from admingen.logging import log_exceptions
 from admingen.clients.paypal import (downloadTransactions, pp_reader, PPTransactionDetails,
                                      PaypalSecrets, DataRanges)
 from admingen.clients import zeke
+from admingen.clients.rest import refreshToken, loginOAuth, OAuthError
+from admingen.clients.exact_xml import uploadTransactions
 from admingen import logging
 from admingen.db_api import the_db, sessionScope, DbTable, select, Required, Set, openDb, orm
 from admingen.international import SalesType, PP_EU_COUNTRY_CODES
@@ -44,7 +46,8 @@ class ExactSecrets:
     administration: int
     client_id: str
     client_secret: str
-    client_token: str
+    username: str
+    password: str
 
 @dataclass
 class ExactTransactionLine:
@@ -237,9 +240,11 @@ class PaypalExactTask:
 
     def __init__(self, task_id, config_details, secrets):
         self.task_id = task_id
-        self.exact_token, self.pp_login = secrets[:2]
+        self.exact_secrets: ExactSecrets = secrets[0]
+        self.pp_login: paypallogin = secrets[1]
+        self.token = None
         # TODO: Handle the optional secrets
-        self.config = config_details if isinstance(config_details, paypal_export_config) \
+        self.config: paypal_export_config = config_details if isinstance(config_details, paypal_export_config) \
             else config_details[0]
 
         self.classifier = None
@@ -543,6 +548,25 @@ class PaypalExactTask:
         logging.info('Written exact transactions to %s: %s\t%s'%(os.path.abspath(fname), len(transactions), total))
 
         # Upload the XML to Exact
+        # First get a fresh token
+        try:
+            if self.token:
+                # Do we need a new token?
+                if time.time() - self.token['birth'] + 30 > int(self.token['expires_in']):
+                    self.token = refreshToken(self.token,
+                                              self.exact_secrets.client_id,
+                                              self.exact_secrets.client_secret,
+                                              'http://localhost:13957')
+        except OAuthError:
+            self.token = None
+
+        if not self.token:
+            self.token = loginOAuth(self.exact_secrets.username,
+                                    self.exact_secrets.password,
+                                    self.exact_secrets.client_id,
+                                    self.exact_secrets.client_secret,
+                                    'http://localhost:13957')
+        uploadTransactions(self.token, self.exact_secrets.administration, self.fname)
 
         # Log the exchange
         with sessionScope():
