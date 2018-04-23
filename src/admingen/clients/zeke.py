@@ -15,12 +15,19 @@ from admingen.keyring import KeyRing
 from admingen.util import quitter, findNewFile, checkExists, DownloadError
 from admingen.config import downloaddir
 from admingen.db_api import DbTable, sessionScope, Required, Set, select, Optional
+from admingen.international import SalesType, ISO_EU_COUNTRY_CODES
+from admingen.dataclasses import dataclass
 
 
-@Message
+@dataclass
 class ZekeDetails:
     url: str = ''
     username: str = ''
+
+@dataclass
+class ZekeSecrets:
+    password: str = ''
+
 
 
 def downloadTransactions(start: datetime, end: datetime, details: ZekeDetails,
@@ -92,7 +99,7 @@ class ZekeAccount:
 @DbTable
 class ZekeTransaction:
     account: Required(ZekeAccount, index=True)
-    order_nr: Required(int, index=True, unique=True)
+    order_nr: Required(int, index=True)   # The order number is what is referred to in PayPal
     timestamp: datetime
     herkomst: str
     valuta: str
@@ -107,11 +114,10 @@ def readTransactions(fnames, details: ZekeDetails):
     # These records have additional data for those transactions
     icp_transactions = {}
     if fnames[0]:
-        # There are no ICP transactions during the period
+        # There are ICP transactions during the period
         with open(fnames[0], newline='') as f:
-            reader = csv.reader(f, delimiter=',')
-            _ = next(reader)   # Skip the first line
-            icp_transactions = {t[0]:t for t in reader}
+            reader = csv.DictReader(f, delimiter=';')
+            icp_transactions = {t['Order ID']:t for t in reader}
 
     # Now handle the non-icp transactions
     fname = fnames[1]
@@ -119,8 +125,7 @@ def readTransactions(fnames, details: ZekeDetails):
         # There are no transactions to download
         return
     with open(fname, newline='') as f:
-        reader = csv.reader(f, delimiter=',')
-        _ = next(reader)  # Skip the first line
+        reader = csv.DictReader(f, delimiter=';')
         transactions = list(reader)
 
     with sessionScope():
@@ -133,35 +138,35 @@ def readTransactions(fnames, details: ZekeDetails):
 
         # Process all new transaction details
         for transactie in transactions:
-            td = {k:transactie[v] for k, v in {'order_nr':2,
-                                               'herkomst':3,
-                                               'valuta':4,
-                                               'countrycode':10}.items()}
-            td['timestamp'] = datetime.strptime(transactie[1], '%d-%m-%Y')
+            td = {k:transactie[v] for k, v in {'order_nr':'Order ID',
+                                               'herkomst':'Herkomst',
+                                               'valuta':'Valuta',
+                                               'countrycode':'Land factuuradres'}.items()}
+            td['timestamp'] = datetime.strptime(transactie['Factuurdatum'], '%d-%m-%Y')
             td['account'] = account
-            td['gross'] = Decimal('.'.join(transactie[5:7]))
-            td['tax'] = Decimal('.'.join(transactie[7:9]))
-            if transactie[0] in icp_transactions:
-                icp = icp_transactions[transactie[0]]
-                td['btwcode'] = icp[10]
-                assert Decimal('.'.join(icp[4:6])) == td['gross']
-                assert Decimal('.'.join(icp[6:8])) == td['tax']
+            gross = Decimal(transactie['Totaalbedrag incl. BTW'].replace(',', '.'))
+            tax = Decimal(transactie['BTW-bedrag'].replace(',', '.'))
+            if transactie['Order ID'] in icp_transactions:
+                icp = icp_transactions[transactie['Order ID']]
+                td['btwcode'] = icp['BTW-nummer klant']
             else:
                 td['btwcode'] = None
 
-            # Try if there is already a record for this order
-            if td['order_nr'] in existing:
-                t = existing[td['order_nr']]
-                # If non-zero, update the financials
-                if td['gross'] != Decimal('0.0'):
-                    # Check the original financials were unset
-                    assert t.gross == Decimal('0.0')
-                    assert t.tax == Decimal('0.0')
-                    t.gross = td['gross']
-                    t.tax = td['tax']
+            if transactie['Order ID'] in existing:
+                print ('Overwriting existing transaction')
+                existing_zt = existing[transactie['Order ID']]
+
+                existing_zt.gross = gross
+                existing_zt.tax = tax
+
             else:
+                td['gross'] = gross
+                td['tax'] = tax
+
                 # Add a new transaction
-                existing[td['order_nr']] = ZekeTransaction(**td)
+                new_zt = ZekeTransaction(**td)
+                existing[td['order_nr']] = new_zt
+
 
 
 def loadTransactions(start: datetime, end: datetime, details: ZekeDetails):
@@ -170,3 +175,17 @@ def loadTransactions(start: datetime, end: datetime, details: ZekeDetails):
     # ICP transactions hold additional information for certain transactions
     fnames = [downloadTransactions(start, end, details, icp) for icp in [True, False]]
     readTransactions(fnames, details)
+
+
+def classifySale(order_nr):
+    with sessionScope():
+        t: ZekeTransaction = select(t for t in ZekeTransaction if t.order_nr==order_nr).first()
+        if t is None:
+            return SalesType.Unknown
+        if t.countrycode.upper() == 'NL':
+            return SalesType.Local
+        if t.countrycode.upper() in ISO_EU_COUNTRY_CODES:
+            if t.btwcode:
+                return SalesType.EU_ICP
+            return SalesType.EU_private
+        return SalesType.Other

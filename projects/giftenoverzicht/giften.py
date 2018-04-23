@@ -9,6 +9,7 @@ import sys
 import re
 import datetime
 import shutil
+import hashlib
 
 binfile = 'rst2pdf.exe' if 'win' in sys.platform else 'rst2pdf'
 RST2PDF = shutil.which(binfile)
@@ -187,8 +188,14 @@ def generate_overviews(org, users, transactions):
 
 
 def pdfName(org_id, user_name, user_code):
+    salt = b'EenGedrukte,Geschudde,OverlopendeMaat'
+
+    upart = (user_name.translate(REMOVE_PUNC) + '_%s' % user_code.strip('_ ')).encode('utf8')
+    m = hashlib.sha512()
+    m.update(salt)
+    m.update(upart)
     return os.path.join(PDF_DIR.format(vardir, org_id),
-                        user_name.translate(REMOVE_PUNC) + '_%s' % user_code.strip('_ ') + '.pdf')
+                        m.hexdigest() + '.pdf')
 
 def pdfUrl(user_name, user_code):
     return os.path.join('/all/' + user_name.translate(REMOVE_PUNC) + '_%s' % user_code.strip('_ ') + '.pdf')

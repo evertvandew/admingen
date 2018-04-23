@@ -1,0 +1,4064 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2010 (http://www.altova.com) by Robert Huberts (Robert) -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="unqualified" attributeFormDefault="unqualified">
+	<xsd:element name="eExact">
+		<xsd:annotation>
+			<xsd:documentation>This is the root of the supported entities for Exact Online</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Accounts" minOccurs="0"/>
+				<xsd:element ref="Administrations" minOccurs="0"/>
+				<xsd:element ref="ARs" minOccurs="0"/>
+				<xsd:element ref="APs" minOccurs="0"/>
+				<xsd:element ref="Balances" minOccurs="0"/>
+				<xsd:element ref="Items" minOccurs="0"/>
+				<xsd:element ref="Documents" minOccurs="0"/>
+				<xsd:element ref="GLTransactions" minOccurs="0"/>
+				<xsd:element ref="Invoices" minOccurs="0"/>
+				<xsd:element ref="PurchaseOrders" minOccurs="0"/>
+				<xsd:element ref="SalesOrders" minOccurs="0"/>
+				<xsd:element ref="GLAccounts" minOccurs="0"/>
+				<xsd:element ref="GLAccountCategories" minOccurs="0"/>
+				<xsd:element ref="GLAccountClassifications" minOccurs="0"/>
+				<xsd:element ref="VATs" minOccurs="0"/>
+				<xsd:element ref="Journals" minOccurs="0"/>
+				<xsd:element ref="Costcenters" minOccurs="0"/>
+				<xsd:element ref="Costunits" minOccurs="0"/>
+				<xsd:element ref="JobTitles" minOccurs="0"/>
+				<xsd:element ref="JobGroups" minOccurs="0"/>
+				<xsd:element ref="Departments" minOccurs="0"/>
+				<xsd:element ref="Employees" minOccurs="0"/>
+				<xsd:element ref="Employments" minOccurs="0"/>
+				<xsd:element ref="Agencies" minOccurs="0"/>
+				<xsd:element ref="PayrollYears" minOccurs="0"/>
+				<xsd:element ref="PayrollGLLinks" minOccurs="0"/>
+				<xsd:element ref="PayrollComponents" minOccurs="0"/>
+				<xsd:element ref="PayrollComponentGroups" minOccurs="0"/>
+				<xsd:element ref="PaymentConditions" minOccurs="0"/>
+				<xsd:element ref="FinYears" minOccurs="0"/>
+				<xsd:element ref="Settings" minOccurs="0"/>
+				<xsd:element ref="Titles" minOccurs="0"/>
+				<xsd:element ref="Assets" minOccurs="0"/>
+				<xsd:element ref="AssetGroups" minOccurs="0"/>
+				<xsd:element ref="DepreciationMethods" minOccurs="0"/>
+				<xsd:element ref="MatchSets" minOccurs="0"/>
+				<xsd:element ref="ActivitySectors" minOccurs="0"/>
+				<xsd:element ref="CompanySizes" minOccurs="0"/>
+				<xsd:element ref="BusinessTypes" minOccurs="0"/>
+				<xsd:element ref="LeadSources" minOccurs="0"/>
+				<xsd:element ref="SalesTypes" minOccurs="0"/>
+				<xsd:element ref="ReasonCodes" minOccurs="0"/>
+				<xsd:element ref="OpportunityStages" minOccurs="0"/>
+				<xsd:element ref="Opportunities" minOccurs="0"/>
+				<xsd:element ref="LeadStages" minOccurs="0"/>
+				<xsd:element ref="LeadRatings" minOccurs="0"/>
+				<xsd:element ref="Leads" minOccurs="0"/>
+				<xsd:element ref="Users" minOccurs="0"/>
+				<xsd:element ref="UserAdministrations" minOccurs="0"/>
+				<xsd:element ref="ExchangeRates" minOccurs="0"/>
+				<xsd:element ref="TimeTransactions" minOccurs="0"/>
+				<xsd:element ref="CostTransactions" minOccurs="0"/>
+				<xsd:element ref="SubscriptionTypes" minOccurs="0"/>
+				<xsd:element ref="HRMSubscriptions" minOccurs="0"/>
+				<xsd:element ref="Projects" minOccurs="0"/>
+				<xsd:element ref="Topics" minOccurs="0"/>
+				<xsd:element ref="Messages" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="schemaVersion" type="xsd:string" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<!--Topics & Messages-->
+	<xsd:element name="Topics">
+		<xsd:annotation>
+			<xsd:documentation>Topic and timestamp information</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Topic" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Topic">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="Data" minOccurs="0" maxOccurs="unbounded">
+					<xsd:complexType>
+						<xsd:attribute name="key" type="xsd:string"/>
+						<xsd:attribute name="keyAlt" type="xsd:string"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="Parameters" minOccurs="0" maxOccurs="1">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element name="Export" minOccurs="0" maxOccurs="1">
+								<xsd:complexType>
+									<xsd:sequence minOccurs="0">
+										<xsd:element ref="Parameter" minOccurs="0" maxOccurs="unbounded"/>
+									</xsd:sequence>
+								</xsd:complexType>
+							</xsd:element>
+							<xsd:element name="Import" minOccurs="0" maxOccurs="1">
+								<xsd:complexType>
+									<xsd:sequence minOccurs="0">
+										<xsd:element ref="Parameter" minOccurs="0" maxOccurs="unbounded"/>
+									</xsd:sequence>
+								</xsd:complexType>
+							</xsd:element>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="optional"/>
+			<xsd:attribute name="node" type="xsd:string" use="optional"/>
+			<xsd:attribute name="ts_d" type="xsd:string" use="optional"/>
+			<xsd:attribute name="ts_u" type="xsd:string" use="optional"/>
+			<xsd:attribute name="count" type="xsd:integer" use="optional"/>
+			<xsd:attribute name="pagesize" type="xsd:integer" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<!--Topic parameters-->
+	<xsd:element name="Parameter">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="ParameterValues" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="ParameterValue" minOccurs="0" maxOccurs="unbounded"/>
+						</xsd:sequence>
+						<xsd:attribute name="multiselect" use="optional">
+							<xsd:simpleType>
+								<xsd:restriction base="xsd:integer">
+									<xsd:enumeration value="0"/>
+									<xsd:enumeration value="1"/>
+								</xsd:restriction>
+							</xsd:simpleType>
+						</xsd:attribute>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+			<xsd:attribute name="name" type="xsd:string" use="required"/>
+			<xsd:attribute name="description" type="xsd:string" use="optional"/>
+			<xsd:attribute name="type" type="xsd:string" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="ParameterValue">
+		<xsd:complexType>
+			<xsd:attribute name="value" type="xsd:string" use="required"/>
+			<xsd:attribute name="description" type="xsd:string" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<!--Root Elements-->
+	<xsd:element name="Message">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Topic" minOccurs="0"/>
+				<xsd:element ref="Date"/>
+				<xsd:element ref="Description"/>
+			</xsd:sequence>
+			<xsd:attribute name="type" type="xsd:integer" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Messages">
+		<xsd:annotation>
+			<xsd:documentation>Result messages</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Message" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Account" type="typeAccount"/>
+	<xsd:element name="Accounts">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Account" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Administration">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Name"/>
+				<xsd:element name="AddressLine1" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="AddressLine2" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="AddressLine3" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Postcode" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="City" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="State" minOccurs="0"/>
+				<xsd:element ref="Country" minOccurs="0"/>
+				<xsd:element ref="Currency" minOccurs="0"/>
+				<xsd:element ref="Phone" minOccurs="0"/>
+				<xsd:element ref="PhoneExt" minOccurs="0"/>
+				<xsd:element ref="Fax" minOccurs="0"/>
+				<xsd:element ref="Email" minOccurs="0"/>
+				<xsd:element ref="HomePage" minOccurs="0"/>
+				<xsd:element name="VATNumber" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="ChamberOfCommerce" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="StartDate" minOccurs="0"/>
+				<xsd:element ref="EndDate" minOccurs="0"/>
+				<xsd:element name="BlockingStatus" minOccurs="0">
+					<xsd:annotation>
+						<xsd:documentation>0=Not blocked,
+1=Backup,
+2=Conversion busy,
+3=Conversion shadow,
+4=Conversion waiting,
+5=Copy data waiting,
+6=Copy data busy</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element ref="UserAdministrations" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code">
+				<xsd:annotation>
+					<xsd:documentation>The internal unique code of the administration.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:attribute>
+			<xsd:attribute ref="number">
+				<xsd:annotation>
+					<xsd:documentation>The external code of the administration as shown in the administration card.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Administrations">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Administration" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="AR">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Account"/>
+				<xsd:element name="OutstandingItems">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element name="OutstandingItem" maxOccurs="unbounded">
+								<xsd:complexType>
+									<xsd:sequence>
+										<xsd:element ref="Description" minOccurs="0"/>
+										<xsd:element ref="InvoiceDate"/>
+										<xsd:element ref="DueDate"/>
+										<xsd:element ref="Currency"/>
+										<xsd:element name="InvoiceAmtFC" type="xsd:float"/>
+										<xsd:element name="OutstandingAmtFC" type="xsd:float"/>
+										<xsd:element name="InvoiceAmtDC" type="xsd:float"/>
+										<xsd:element name="OutstandingAmtDC" type="xsd:float"/>
+									</xsd:sequence>
+									<xsd:attribute ref="number"/>
+								</xsd:complexType>
+							</xsd:element>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="ARs">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="AR" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="AP">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Account"/>
+				<xsd:element name="OutstandingItems">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element name="OutstandingItem" maxOccurs="unbounded">
+								<xsd:complexType>
+									<xsd:sequence>
+										<xsd:element ref="YourRef" minOccurs="0"/>
+										<xsd:element ref="Description" minOccurs="0"/>
+										<xsd:element ref="InvoiceDate"/>
+										<xsd:element ref="DueDate"/>
+										<xsd:element ref="Currency"/>
+										<xsd:element name="InvoiceAmtFC" type="xsd:float"/>
+										<xsd:element name="OutstandingAmtFC" type="xsd:float"/>
+										<xsd:element name="InvoiceAmtDC" type="xsd:float"/>
+										<xsd:element name="OutstandingAmtDC" type="xsd:float"/>
+									</xsd:sequence>
+									<xsd:attribute ref="number"/>
+								</xsd:complexType>
+							</xsd:element>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="APs">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="AP" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Balance">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+				<xsd:element name="LeadCode" type="xsd:string"/>
+				<xsd:element name="Years">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element name="Year" maxOccurs="unbounded">
+								<xsd:complexType>
+									<xsd:sequence>
+										<xsd:element name="Open" type="xsd:float"/>
+										<xsd:element name="Debit" type="xsd:float"/>
+										<xsd:element name="Credit" type="xsd:float"/>
+										<xsd:element name="Close" type="xsd:float"/>
+										<xsd:element name="Periods" minOccurs="0">
+											<xsd:complexType>
+												<xsd:sequence>
+													<xsd:element name="Period" maxOccurs="unbounded">
+														<xsd:complexType>
+															<xsd:sequence>
+																<xsd:element name="Debit" type="xsd:float"/>
+																<xsd:element name="Credit" type="xsd:float"/>
+															</xsd:sequence>
+															<xsd:attribute name="ReportingPeriod" type="xsd:integer"/>
+														</xsd:complexType>
+													</xsd:element>
+												</xsd:sequence>
+											</xsd:complexType>
+										</xsd:element>
+										<xsd:element name="Groups" minOccurs="0">
+											<xsd:complexType>
+												<xsd:sequence>
+													<xsd:element name="Group" maxOccurs="unbounded">
+														<xsd:complexType>
+															<xsd:sequence>
+																<xsd:element ref="Journal" minOccurs="0"/>
+																<xsd:element ref="Costcenter" minOccurs="0"/>
+																<xsd:element name="Debit" type="xsd:float"/>
+																<xsd:element name="Credit" type="xsd:float"/>
+															</xsd:sequence>
+														</xsd:complexType>
+													</xsd:element>
+												</xsd:sequence>
+											</xsd:complexType>
+										</xsd:element>
+									</xsd:sequence>
+									<xsd:attribute name="ReportingYear" type="xsd:integer"/>
+								</xsd:complexType>
+							</xsd:element>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+			<xsd:attribute ref="code"/>
+			<xsd:attribute ref="balanceType"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Balances">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="CompanyData">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element name="CompanyName" type="xsd:string"/>
+							<xsd:element name="Address" type="xsd:string"/>
+							<xsd:element name="PostalCode" type="xsd:string"/>
+							<xsd:element name="City" type="xsd:string"/>
+							<xsd:element ref="Country"/>
+							<xsd:element name="ChamberOfCommerce" type="xsd:string"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="Balance" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Item">
+		<xsd:annotation>
+			<xsd:documentation>Items are used if you have Purchase order, Sales order or Invoice functionality in your subscription</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+				<xsd:element name="IsSalesItem" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="IsStockItem" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="IsPurchaseItem" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="IsFractionAllowedItem" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="IsSubscriptionItem" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element ref="Assortment" minOccurs="0"/>
+				<xsd:element ref="GLRevenue" minOccurs="0"/>
+				<xsd:element ref="GLCosts" minOccurs="0"/>
+				<xsd:element ref="GLPurchase" minOccurs="0"/>
+				<xsd:element name="GLAsset" type="typeGLAccount" minOccurs="0"/>
+				<xsd:element name="Sales" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Price"/>
+							<xsd:element ref="Unit" minOccurs="0"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="Costs" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Price"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="DateStart" minOccurs="0"/>
+				<xsd:element ref="DateEnd" minOccurs="0"/>
+				<xsd:element name="Statistical" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element name="Number" type="xsd:string"/>
+							<xsd:element name="Units" type="xsd:float"/>
+							<xsd:element name="Quantity" type="xsd:float"/>
+							<xsd:element name="Value" type="xsd:float" minOccurs="0"/>
+							<xsd:element name="NetWeight" type="xsd:float" minOccurs="0"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="Image" minOccurs="0"/>
+				<xsd:element ref="Note" minOccurs="0"/>
+				<xsd:element name="ItemPrice" minOccurs="0" maxOccurs="unbounded">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Currency"/>
+							<xsd:element ref="Value"/>
+							<xsd:element name="Type" type="xsd:token"/>
+							<xsd:element ref="Unit"/>
+							<xsd:element ref="UnitFactor"/>
+							<xsd:element ref="DateStart"/>
+							<xsd:element ref="DateEnd" minOccurs="0"/>
+							<xsd:element ref="Quantity" minOccurs="0"/>
+							<xsd:element ref="Country" minOccurs="0"/>
+						</xsd:sequence>
+						<xsd:attribute name="type">
+							<xsd:simpleType>
+								<xsd:restriction base="xsd:token">
+									<xsd:enumeration value="S"/>
+								</xsd:restriction>
+							</xsd:simpleType>
+						</xsd:attribute>
+						<xsd:attribute name="leading">
+							<xsd:simpleType>
+								<xsd:restriction base="xsd:token">
+									<xsd:enumeration value="I"/>
+									<xsd:enumeration value="U"/>
+								</xsd:restriction>
+							</xsd:simpleType>
+						</xsd:attribute>
+						<xsd:attribute ref="ID" use="optional"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="ItemCategory" minOccurs="0" maxOccurs="unbounded">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element ref="Description"/>
+						</xsd:sequence>
+						<xsd:attribute ref="number" use="required"/>
+						<xsd:attribute ref="code" use="required"/>
+						<xsd:attribute name="class"/>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+			<xsd:attribute ref="ID" use="optional"/>
+			<xsd:attribute ref="code" use="required"/>
+			<xsd:attribute ref="number" use="optional"/>
+			<xsd:attribute name="searchcode" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Items">
+		<xsd:annotation>
+			<xsd:documentation>Items are used if you have the invoice functionality in your subscription</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Item" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Document">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="Subject" type="xsd:string"/>
+				<xsd:element name="DDView" minOccurs="0"/>
+				<xsd:element name="Publish" minOccurs="0">
+					<xsd:simpleType>
+						<xsd:restriction base="xsd:token">
+							<xsd:enumeration value="0"/>
+							<xsd:enumeration value="1"/>
+							<xsd:enumeration value="2"/>
+						</xsd:restriction>
+					</xsd:simpleType>
+				</xsd:element>
+				<xsd:element name="Status" minOccurs="0">
+					<xsd:simpleType>
+						<xsd:restriction base="xsd:token">
+							<xsd:enumeration value="10"/>
+							<xsd:enumeration value="20"/>
+							<xsd:enumeration value="25"/>
+							<xsd:enumeration value="30"/>
+							<xsd:enumeration value="100"/>
+						</xsd:restriction>
+					</xsd:simpleType>
+				</xsd:element>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element name="DocumentType" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Description" minOccurs="0"/>
+						</xsd:sequence>
+						<xsd:attribute ref="number" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="DocumentCategory" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element ref="Description"/>
+						</xsd:sequence>
+						<xsd:attribute ref="ID" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="Language" minOccurs="0"/>
+				<xsd:element ref="Account" minOccurs="0"/>
+				<xsd:element ref="Assortment" minOccurs="0"/>
+				<xsd:element ref="Item" minOccurs="0"/>
+				<xsd:element name="SerialNumber" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="Amount" minOccurs="0"/>
+				<xsd:element ref="DateStart" minOccurs="0"/>
+				<xsd:element ref="DateEnd" minOccurs="0"/>
+				<xsd:element ref="Date" minOccurs="0"/>
+				<xsd:element name="Share" type="xsd:integer" minOccurs="0"/>
+				<xsd:element ref="References" minOccurs="0"/>
+				<xsd:element name="Body" minOccurs="0"/>
+				<xsd:element name="Images" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Image" maxOccurs="unbounded"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="Attachments" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Attachment" maxOccurs="unbounded"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+			<xsd:attribute ref="number" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Documents">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Document" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLAccount" type="typeGLAccount"/>
+	<xsd:element name="GLAccounts">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="GLAccount" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLAccountCategory">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="GLAccountCategoryName" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Description"/>
+						</xsd:sequence>
+						<xsd:attribute ref="number" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="Description"/>
+			</xsd:sequence>
+			<xsd:attribute ref="number" use="required"/>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLAccountCategories">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="GLAccountCategory" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLAccountClassifications">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="GLAccountScheme" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLAccountScheme">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description"/>
+				<xsd:element ref="GLClassification" minOccurs="0" maxOccurs="unbounded"/>
+				<xsd:element ref="GLAccountCategory" minOccurs="0" maxOccurs="unbounded"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+			<xsd:attribute name="main" type="xsd:string" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLClassification">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description"/>
+				<xsd:element ref="GLClassification" minOccurs="0" maxOccurs="unbounded"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLClassificationLink">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="GLAccountScheme"/>
+				<xsd:element ref="GLClassification"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLTransactionLine">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Date"/>
+				<xsd:element name="VATType" type="typeVATType" minOccurs="0"/>
+				<xsd:element ref="FinYear" minOccurs="0"/>
+				<xsd:element ref="FinPeriod" minOccurs="0"/>
+				<xsd:element ref="GLAccount"/>
+				<xsd:element ref="GLOffset" minOccurs="0"/>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element ref="DueDate" minOccurs="0"/>
+				<xsd:element ref="InvoiceDate" minOccurs="0"/>
+				<xsd:element ref="Account" minOccurs="0"/>
+				<xsd:element ref="Costcenter" minOccurs="0"/>
+				<xsd:element ref="Costunit" minOccurs="0"/>
+				<xsd:element ref="Item" minOccurs="0"/>
+				<xsd:element ref="Quantity" minOccurs="0"/>
+				<xsd:element ref="Amount" minOccurs="0"/>
+				<xsd:element ref="ForeignAmount" minOccurs="0"/>
+				<xsd:element ref="References" minOccurs="0"/>
+				<xsd:element ref="OwnBankAccount" minOccurs="0"/>
+				<xsd:element ref="BankAccount" minOccurs="0"/>
+				<xsd:element name="MatchID" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="Note" minOccurs="0"/>
+				<xsd:element ref="Document" minOccurs="0"/>
+				<xsd:element ref="Project" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="type">
+				<xsd:annotation>
+					<xsd:documentation>10=Opening balance,
+20=Sales entry,
+21=Sales credit note,
+30=Purchase entry,
+31=Purchase credit note,
+40=Cash flow,
+50=VAT return,
+70=Asset depreciation,
+71=Asset investment,
+72=Asset revaluation,
+73=Asset transfer,
+74=Asset split,
+75=Asset discontinue,
+76=Asset sales,
+80=Revaluation,
+82=Exchange rate difference,
+83=Payment difference,
+90=Other,
+120=Fulfillment,
+121=Return fulfillment,
+290=Correction entry,
+310=Period closing</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:integer">
+						<xsd:enumeration value="10"/>
+						<xsd:enumeration value="20"/>
+						<xsd:enumeration value="21"/>
+						<xsd:enumeration value="30"/>
+						<xsd:enumeration value="31"/>
+						<xsd:enumeration value="40"/>
+						<xsd:enumeration value="50"/>
+						<xsd:enumeration value="70"/>
+						<xsd:enumeration value="71"/>
+						<xsd:enumeration value="72"/>
+						<xsd:enumeration value="73"/>
+						<xsd:enumeration value="74"/>
+						<xsd:enumeration value="75"/>
+						<xsd:enumeration value="76"/>
+						<xsd:enumeration value="80"/>
+						<xsd:enumeration value="82"/>
+						<xsd:enumeration value="83"/>
+						<xsd:enumeration value="90"/>
+						<xsd:enumeration value="120"/>
+						<xsd:enumeration value="121"/>
+						<xsd:enumeration value="290"/>
+						<xsd:enumeration value="310"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+			<xsd:attribute name="linetype">
+				<xsd:annotation>
+					<xsd:documentation>In case of type Opening balance (10), the possible values are:
+
+10=Cash,
+12=Bank,
+20=Accounts receivable,
+22=Accounts payable,
+24=VAT,
+26=Prepaid expenses,
+27=Accrued expenses,
+29=Income tax payable,
+30=Fixed assets,
+32=Other assets,
+35=Accumulated depreciations,
+40=Inventory,
+50=Capital stock,
+52=Retained earnings,
+55=Long term debt,
+60=Current portion of debt,
+90=General,
+110=Revenue,
+111=Cost of goods,
+120=Other costs,
+121=Sales, marketing general expenses,
+122=Depreciation costs,
+123=Research and development,
+125=Employee costs,
+130=Exceptional costs,
+140=Exceptional income,
+150=Income taxes,
+160=Interest income
+
+In case of asset transactions (type 70-76), the possible values are:
+
+0=Asset investment (used for type Asset investment (71), GLAssets transaction line),
+1=Asset depreciation (used for all asset transactions (70-76), GLDepreciationBS transaction line),
+2=Asset depreciation costs (used for types Asset depreciation (70), Asset revaluation (72), Asset split (74), Asset discontinue (75) and Asset sales (76), GLDepreciationPL transaction line),
+3=Asset temporary revenue (used for type Asset sales (76), GLSales transaction line),
+10=Asset opening balance investment (used for type Asset investment (71), GLAssets transaction line in opening entry),
+11=Asset opening balance depreciation (used for type Asset investment (71), GLDepreciationBS transaction line in opening entry),
+12=Asset opening balance revaluation (used for type Asset revaluation (72), GLRevaluationBS transaction line in opening entry)</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:integer">
+						<xsd:enumeration value="0"/>
+						<xsd:enumeration value="1"/>
+						<xsd:enumeration value="2"/>
+						<xsd:enumeration value="3"/>
+						<xsd:enumeration value="10"/>
+						<xsd:enumeration value="11"/>
+						<xsd:enumeration value="12"/>
+						<xsd:enumeration value="20"/>
+						<xsd:enumeration value="22"/>
+						<xsd:enumeration value="24"/>
+						<xsd:enumeration value="26"/>
+						<xsd:enumeration value="27"/>
+						<xsd:enumeration value="29"/>
+						<xsd:enumeration value="30"/>
+						<xsd:enumeration value="32"/>
+						<xsd:enumeration value="35"/>
+						<xsd:enumeration value="40"/>
+						<xsd:enumeration value="50"/>
+						<xsd:enumeration value="52"/>
+						<xsd:enumeration value="55"/>
+						<xsd:enumeration value="60"/>
+						<xsd:enumeration value="90"/>
+						<xsd:enumeration value="110"/>
+						<xsd:enumeration value="111"/>
+						<xsd:enumeration value="120"/>
+						<xsd:enumeration value="121"/>
+						<xsd:enumeration value="122"/>
+						<xsd:enumeration value="123"/>
+						<xsd:enumeration value="125"/>
+						<xsd:enumeration value="130"/>
+						<xsd:enumeration value="140"/>
+						<xsd:enumeration value="150"/>
+						<xsd:enumeration value="160"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+			<xsd:attribute name="line" type="xsd:integer"/>
+			<xsd:attribute name="status">
+				<xsd:annotation>
+					<xsd:documentation>20=Open, 50=Processed</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="20"/>
+						<xsd:enumeration value="50"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLTransaction">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="TransactionType" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element ref="Description"/>
+						</xsd:sequence>
+						<xsd:attribute ref="number" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="Journal" minOccurs="0"/>
+				<xsd:element ref="PaymentCondition" minOccurs="0"/>
+				<xsd:element ref="Date" minOccurs="0"/>
+				<xsd:element ref="FinYear" minOccurs="0"/>
+				<xsd:element ref="FinPeriod" minOccurs="0"/>
+				<xsd:element name="OpeningBalance" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="ClosingBalance" type="xsd:float" minOccurs="0"/>
+				<xsd:element ref="Document" minOccurs="0"/>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element ref="Account" minOccurs="0"/>
+				<xsd:element ref="GLTransactionLine" maxOccurs="unbounded"/>
+				<xsd:element ref="PaymentTerms" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="entry" type="xsd:integer" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLTransactions">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="GLTransaction" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Invoice">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Journal" minOccurs="0"/>
+				<xsd:element ref="OrderDate" minOccurs="0"/>
+				<xsd:element name="InvoiceDate" type="xsd:date" minOccurs="0">
+					<xsd:annotation>
+						<xsd:documentation>Invoice date: YYYY-MM-DD.
+Only used for export. For imported invoices the invoice date will be determined at final printing.</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="DueDate" type="xsd:date" minOccurs="0">
+					<xsd:annotation>
+						<xsd:documentation>Due date: YYYY-MM-DD.
+Only used for export. For imported invoices the due date will be calculated based on the payment condition.</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element ref="YourRef" minOccurs="0"/>
+				<xsd:element name="OrderedBy" type="typeAccount"/>
+				<xsd:element name="InvoiceTo" type="typeAccount"/>
+				<xsd:element ref="PaymentCondition" minOccurs="0"/>
+				<xsd:element ref="ForeignAmount" minOccurs="0"/>
+				<xsd:element ref="Document" minOccurs="0"/>
+				<xsd:element name="InvoiceLine" maxOccurs="unbounded">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Description" minOccurs="0"/>
+							<xsd:element ref="Item"/>
+							<xsd:element ref="Quantity" minOccurs="0"/>
+							<xsd:element ref="Unit" minOccurs="0"/>
+							<xsd:element name="UnitPrice" type="typePrice" minOccurs="0"/>
+							<xsd:element name="NetPrice" type="typePrice" minOccurs="0"/>
+							<xsd:element ref="ForeignAmount" minOccurs="0"/>
+							<xsd:element name="DiscountPercentage" type="typePercentage" minOccurs="0"/>
+							<xsd:element ref="Costcenter" minOccurs="0"/>
+							<xsd:element ref="Costunit" minOccurs="0"/>
+							<xsd:element ref="Note" minOccurs="0"/>
+							<xsd:element ref="StartDate" minOccurs="0"/>
+							<xsd:element ref="EndDate" minOccurs="0"/>
+						</xsd:sequence>
+						<xsd:attribute name="line" type="xsd:integer" use="optional"/>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+			<xsd:attribute name="ordernumber" use="optional">
+				<xsd:annotation>
+					<xsd:documentation>The order number can be used multiple times. If an invoice
+with this order number already exists or was already finally printed, a new invoice with the same order number will be created.
+When no order number is supplied, a new invoice with the next available order number will be created.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:attribute>
+			<xsd:attribute name="invoicenumber" use="optional"/>
+			<xsd:attribute name="status" use="optional">
+				<xsd:annotation>
+					<xsd:documentation>20=Open, 50=historical/printed.
+Only used for export, imported invoices always get status 20.</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="20"/>
+						<xsd:enumeration value="50"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Invoices">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Invoice" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PurchaseOrder">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="Supplier" type="typeAccount"/>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element ref="OrderDate" minOccurs="0"/>
+				<xsd:element ref="ReceiptDate" minOccurs="0"/>
+				<xsd:element ref="YourRef" minOccurs="0"/>
+				<xsd:element ref="PaymentCondition" minOccurs="0"/>
+				<xsd:element ref="ForeignAmount" minOccurs="0"/>
+				<xsd:element ref="Document" minOccurs="0"/>
+				<xsd:element name="PurchaseOrderLine" maxOccurs="unbounded">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Description" minOccurs="0"/>
+							<xsd:element ref="Item"/>
+							<xsd:element ref="Quantity" minOccurs="0"/>
+							<xsd:element ref="Unit" minOccurs="0"/>
+							<xsd:element name="UnitPrice" type="typePrice" minOccurs="0"/>
+							<xsd:element name="NetPrice" type="typePrice" minOccurs="0"/>
+							<xsd:element ref="ForeignAmount" minOccurs="0"/>
+							<xsd:element name="DiscountPercentage" type="typePercentage" minOccurs="0"/>
+							<xsd:element ref="Costcenter" minOccurs="0"/>
+							<xsd:element ref="Costunit" minOccurs="0"/>
+							<xsd:element ref="Remarks" minOccurs="0"/>
+							<xsd:element name="SupplierItemCode" type="xsd:string" minOccurs="0"/>
+							<xsd:element ref="ReceiptDate" minOccurs="0"/>
+							<xsd:element ref="Country" minOccurs="0"/>
+						</xsd:sequence>
+						<xsd:attribute name="line" type="xsd:integer" use="optional"/>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+			<xsd:attribute name="ordernumber" use="optional">
+				<xsd:annotation>
+					<xsd:documentation>
+						The order number can be used multiple times. If a purchase order
+						with this order number already exists, a new purchase order with the same order number will be created.
+						When no order number is supplied, a new purchase order with the next available order number will be created.
+					</xsd:documentation>
+				</xsd:annotation>
+			</xsd:attribute>
+			<xsd:attribute name="status" use="optional">
+				<xsd:annotation>
+					<xsd:documentation>
+						10=Open, 20=Partial, 30=Complete, 40=Canceled.
+						Only used for export, imported purchase orders always get status 10.
+					</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="10"/>
+						<xsd:enumeration value="20"/>
+						<xsd:enumeration value="30"/>
+						<xsd:enumeration value="40"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PurchaseOrders">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PurchaseOrder" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="SalesOrder">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Journal" minOccurs="0"/>
+				<xsd:element ref="OrderDate" minOccurs="0"/>
+				<xsd:element name="DeliveryDate" type="xsd:date" minOccurs="0">
+					<xsd:annotation>
+						<xsd:documentation>
+							Due date: YYYY-MM-DD.
+							Only used for export. For imported sales orders the delivery date will be calculated based on the minimum delivery date of the lines.
+						</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element ref="YourRef" minOccurs="0"/>
+				<xsd:element name="OrderedBy" type="typeAccount"/>
+				<xsd:element name="InvoiceTo" type="typeAccount"/>
+				<xsd:element ref="PaymentCondition" minOccurs="0"/>
+				<xsd:element ref="ForeignAmount" minOccurs="0"/>
+				<xsd:element ref="Document" minOccurs="0"/>
+				<xsd:element name="SalesOrderLine" maxOccurs="unbounded">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Description" minOccurs="0"/>
+							<xsd:element ref="Item"/>
+							<xsd:element ref="Quantity" minOccurs="0"/>
+							<xsd:element name="DeliveryDate" type="xsd:date" minOccurs="0"/>
+							<xsd:element ref="Unit" minOccurs="0"/>
+							<xsd:element name="UnitPrice" type="typePrice" minOccurs="0"/>
+							<xsd:element name="NetPrice" type="typePrice" minOccurs="0"/>
+							<xsd:element ref="ForeignAmount" minOccurs="0"/>
+							<xsd:element name="DiscountPercentage" type="typePercentage" minOccurs="0"/>
+							<xsd:element ref="Costcenter" minOccurs="0"/>
+							<xsd:element ref="Costunit" minOccurs="0"/>
+							<xsd:element ref="Note" minOccurs="0"/>
+						</xsd:sequence>
+						<xsd:attribute name="line" type="xsd:integer" use="optional"/>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+			<xsd:attribute name="salesordernumber" use="optional">
+				<xsd:annotation>
+					<xsd:documentation>
+						The sales order number can be used multiple times. If a sales order
+						with this sales order number already exists, a new sales order with the same sales order number will be created.
+						When no sales order number is supplied, a new sales order with the next available sales order number will be created.
+					</xsd:documentation>
+				</xsd:annotation>
+			</xsd:attribute>
+			<xsd:attribute name="status" use="optional">
+				<xsd:annotation>
+					<xsd:documentation>
+						12=Open, 20=Partial, 21=Complete, 45=Canceled.
+						Only used for export, imported sales orders always get status 12.
+					</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="12"/>
+						<xsd:enumeration value="20"/>
+						<xsd:enumeration value="21"/>
+						<xsd:enumeration value="45"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="SalesOrders">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="SalesOrder" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PaymentTerm">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description"/>
+				<xsd:element ref="GLAccount"/>
+				<xsd:element ref="OwnBankAccount" minOccurs="0"/>
+				<xsd:element ref="BankAccount" minOccurs="0"/>
+				<xsd:element ref="Account" minOccurs="0"/>
+				<xsd:element ref="Amount"/>
+				<xsd:element ref="ForeignAmount"/>
+				<xsd:element name="DaysToPayment" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="Reference" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="YourRef"/>
+				<xsd:element ref="OrderNumber" minOccurs="0"/>
+				<xsd:element ref="InvoiceNumber"/>
+				<xsd:element name="InvoiceDate" type="xsd:anySimpleType" minOccurs="0"/>
+				<xsd:element name="DueDate" type="xsd:date"/>
+				<xsd:element name="ProcessingDate" minOccurs="0"/>
+				<xsd:element name="PaymentDate" type="xsd:date" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="entry" type="xsd:integer"/>
+			<xsd:attribute name="matchID" type="xsd:string"/>
+			<xsd:attribute name="line" type="xsd:integer"/>
+			<xsd:attribute name="paymentMethod" type="xsd:string"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PaymentTerms">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PaymentTerm" minOccurs="0" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:complexType name="typeUser">
+		<xsd:sequence minOccurs="0">
+			<xsd:group ref="groupPersonName"/>
+			<xsd:element name="NickName" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="BirthDate" type="xsd:date" minOccurs="0"/>
+			<xsd:element ref="StartDate" minOccurs="0"/>
+			<xsd:element ref="EndDate" minOccurs="0"/>
+			<xsd:element ref="UserAdministrations" minOccurs="0"/>
+		</xsd:sequence>
+		<xsd:attribute ref="ID"/>
+		<xsd:attribute name="username" type="xsd:string"/>
+		<xsd:attribute name="authentication">
+			<xsd:annotation>
+				<xsd:documentation>Possible values (or a combination of these):
+0=No login rights, 
+1=Vasco token (should be set via the user card),
+2=Forms authentication,
+4=Federated authentication</xsd:documentation>
+			</xsd:annotation>
+			<xsd:simpleType>
+				<xsd:restriction base="xsd:integer">
+					<xsd:enumeration value="0"/>
+					<xsd:enumeration value="1"/>
+					<xsd:enumeration value="2"/>
+					<xsd:enumeration value="3"/>
+					<xsd:enumeration value="4"/>
+					<xsd:enumeration value="5"/>
+					<xsd:enumeration value="6"/>
+					<xsd:enumeration value="7"/>
+				</xsd:restriction>
+			</xsd:simpleType>
+		</xsd:attribute>
+		<xsd:attribute ref="gender"/>
+	</xsd:complexType>
+	<xsd:element name="User" type="typeUser"/>
+	<xsd:element name="Users">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="User" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="UserAdministration">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="User" minOccurs="0"/>
+				<xsd:element ref="Administration" minOccurs="0"/>
+				<xsd:element ref="EndDate" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="ID"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="UserAdministrations">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="UserAdministration" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="VATBoxLink">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="VATBox"/>
+			</xsd:sequence>
+			<xsd:attribute name="sign">
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="P"/>
+						<xsd:enumeration value="N"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+			<xsd:attribute name="type">
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="A"/>
+						<xsd:enumeration value="I"/>
+						<xsd:enumeration value="M"/>
+						<xsd:enumeration value="N"/>
+						<xsd:enumeration value="O"/>
+						<xsd:enumeration value="P"/>
+						<xsd:enumeration value="Q"/>
+						<xsd:enumeration value="R"/>
+						<xsd:enumeration value="S"/>
+						<xsd:enumeration value="T"/>
+						<xsd:enumeration value="V"/>
+						<xsd:enumeration value="W"/>
+						<xsd:enumeration value="X"/>
+						<xsd:enumeration value="Y"/>
+						<xsd:enumeration value="Z"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+			<xsd:attribute name="VATGLAccountType">
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="D"/>
+						<xsd:enumeration value="G"/>
+						<xsd:enumeration value="I"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="VATBox">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Country"/>
+				<xsd:element ref="Description"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" type="xsd:string"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:complexType name="VATSimple">
+		<xsd:annotation>
+			<xsd:documentation>The simple variant of VAT can be used in transactions for information purposes.
+				VAT codes can only be imported when they comply with the complex type VAT.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element ref="Description" minOccurs="0"/>
+		</xsd:sequence>
+		<xsd:attribute name="code" use="required"/>
+	</xsd:complexType>
+	<xsd:complexType name="VAT">
+		<xsd:complexContent>
+			<xsd:extension base="VATSimple">
+				<xsd:sequence minOccurs="0">
+					<xsd:element ref="Percentage"/>
+					<xsd:element name="EUSalesListing" minOccurs="0">
+						<xsd:annotation>
+							<xsd:documentation>N=No listing, L=Listing goods, S=Listing services, T=Triangulation</xsd:documentation>
+						</xsd:annotation>
+						<xsd:simpleType>
+							<xsd:restriction base="xsd:token">
+								<xsd:enumeration value="N"/>
+								<xsd:enumeration value="L"/>
+								<xsd:enumeration value="S"/>
+								<xsd:enumeration value="T"/>
+							</xsd:restriction>
+						</xsd:simpleType>
+					</xsd:element>
+					<xsd:element name="Intrastat" type="xsd:boolean" minOccurs="0"/>
+					<xsd:element name="VatPartialRatio" type="xsd:integer" minOccurs="0"/>
+					<xsd:element name="TaxReturnType" type="xsd:integer" minOccurs="0"/>
+					<xsd:element name="CalculationBasis" type="xsd:integer" minOccurs="0"/>
+					<xsd:element name="GLToPay" type="typeGLAccount" minOccurs="0"/>
+					<xsd:element name="GLToClaim" type="typeGLAccount" minOccurs="0"/>
+					<xsd:element ref="Account" minOccurs="0"/>
+					<xsd:element ref="VATBoxLink" minOccurs="0" maxOccurs="unbounded"/>
+				</xsd:sequence>
+				<xsd:attribute name="type">
+					<xsd:annotation>
+						<xsd:documentation>E=Excluding, I=Including, N=No vat, B= VAT 0%</xsd:documentation>
+					</xsd:annotation>
+					<xsd:simpleType>
+						<xsd:restriction base="xsd:token">
+							<xsd:enumeration value="E"/>
+							<xsd:enumeration value="I"/>
+							<xsd:enumeration value="N"/>
+							<xsd:enumeration value="B"/>
+						</xsd:restriction>
+					</xsd:simpleType>
+				</xsd:attribute>
+				<xsd:attribute name="charged" type="xsd:boolean"/>
+				<xsd:attribute name="vattransactiontype">
+					<xsd:annotation>
+						<xsd:documentation>P=Purchase, S=Sales, B=Both</xsd:documentation>
+					</xsd:annotation>
+					<xsd:simpleType>
+						<xsd:restriction base="xsd:token">
+							<xsd:enumeration value="P"/>
+							<xsd:enumeration value="S"/>
+							<xsd:enumeration value="B"/>
+						</xsd:restriction>
+					</xsd:simpleType>
+				</xsd:attribute>
+				<xsd:attribute name="blocked" type="xsd:boolean"/>
+			</xsd:extension>
+		</xsd:complexContent>
+	</xsd:complexType>
+	<xsd:element name="VAT" type="VAT"/>
+	<xsd:element name="VATs">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="VAT" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!--Types-->
+	<xsd:complexType name="typePrice">
+		<xsd:sequence>
+			<xsd:element ref="Currency"/>
+			<xsd:element ref="Value"/>
+			<xsd:element ref="VAT" minOccurs="0"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="typeAccount">
+		<xsd:sequence minOccurs="0">
+			<xsd:element ref="Name"/>
+			<xsd:element ref="Phone" minOccurs="0"/>
+			<xsd:element ref="PhoneExt" minOccurs="0"/>
+			<xsd:element ref="Fax" minOccurs="0"/>
+			<xsd:element ref="Email" minOccurs="0"/>
+			<xsd:element ref="HomePage" minOccurs="0"/>
+			<xsd:element ref="Language" minOccurs="0"/>
+			<xsd:element name="IsSupplier" type="xsd:boolean" minOccurs="0"/>
+			<xsd:element name="IsBlocked" type="xsd:boolean" minOccurs="0"/>
+			<xsd:element name="IsReseller" type="xsd:boolean" minOccurs="0"/>
+			<xsd:element name="IsSales" type="xsd:boolean" minOccurs="0"/>
+			<xsd:element name="IsPurchase" type="xsd:boolean" minOccurs="0"/>
+			<xsd:element name="CodeAtSupplier" minOccurs="0"/>
+			<xsd:element ref="Contact" minOccurs="0" maxOccurs="unbounded"/>
+			<xsd:element ref="Address" minOccurs="0" maxOccurs="unbounded"/>
+			<xsd:element ref="BankAccount" minOccurs="0" maxOccurs="unbounded"/>
+			<xsd:element name="AccountManager" type="typeUser" minOccurs="0"/>
+			<xsd:element ref="Image" minOccurs="0"/>
+			<xsd:element ref="Note" minOccurs="0"/>
+			<xsd:element name="VATSales" type="VAT" minOccurs="0"/>
+			<xsd:element name="VATPurchase" type="VAT" minOccurs="0"/>
+			<xsd:element name="VATNumber" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="VATLiability" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="ChamberOfCommerce" type="xsd:string" minOccurs="0"/>
+			<xsd:element ref="Currency" minOccurs="0"/>
+			<xsd:element ref="CreditLine" minOccurs="0"/>
+			<xsd:element name="InvoiceAccount" type="typeAccount" minOccurs="0"/>
+			<xsd:element name="Discount" type="AccountDiscount" minOccurs="0"/>
+			<xsd:element name="CostRevenueDirectAllowed" type="xsd:boolean" minOccurs="0"/>
+			<xsd:element name="GLPurchase" type="typeGLAccount" minOccurs="0"/>
+			<xsd:element name="GLSales" type="typeGLAccount" minOccurs="0"/>
+			<xsd:element name="GLAP" type="typeGLAccount" minOccurs="0"/>
+			<xsd:element name="GLAR" type="typeGLAccount" minOccurs="0"/>
+			<xsd:element name="SalesPaymentCondition" type="PaymentCondition" minOccurs="0"/>
+			<xsd:element name="PurchasePaymentCondition" type="PaymentCondition" minOccurs="0"/>
+			<xsd:element ref="Classification" minOccurs="0"/>
+			<xsd:element name="Sector" type="ActivitySectorType" minOccurs="0"/>
+			<xsd:element name="SubSector" type="ActivitySectorType" minOccurs="0"/>
+			<xsd:element ref="CompanySize" minOccurs="0"/>
+			<xsd:element ref="BusinessType" minOccurs="0"/>
+			<xsd:element ref="LeadSource" minOccurs="0"/>
+			<xsd:element name="IsMailing" type="xsd:boolean" minOccurs="0"/>
+			<xsd:element name="IsCompetitor" type="xsd:boolean" minOccurs="0"/>
+			<xsd:element ref="StartDate" minOccurs="0"/>
+			<xsd:element ref="EndDate" minOccurs="0"/>
+			<xsd:element name="IsInactive" type="xsd:boolean" minOccurs="0"/>
+			<xsd:element name="IntraStat" minOccurs="0">
+				<xsd:complexType>
+					<xsd:sequence minOccurs="0">
+						<xsd:element name="System" minOccurs="0"/>
+						<xsd:element name="TransactionA" minOccurs="0"/>
+						<xsd:element name="TransactionB" minOccurs="0"/>
+						<xsd:element name="TransportMethod" minOccurs="0"/>
+						<xsd:element name="DeliveryTerm" minOccurs="0"/>
+						<xsd:element name="Area" minOccurs="0"/>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="InvoicingMethod" minOccurs="0">
+				<xsd:simpleType>
+					<xsd:annotation>
+						<xsd:documentation>0=Empty, 1=Paper, 2=E-Mail, 3=Facturenpost, 4=Mailbox</xsd:documentation>
+					</xsd:annotation>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="0"/>
+						<xsd:enumeration value="1"/>
+						<xsd:enumeration value="2"/>
+						<xsd:enumeration value="3"/>
+						<xsd:enumeration value="4"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+		</xsd:sequence>
+		<xsd:attribute ref="code" use="required"/>
+		<xsd:attribute name="searchcode"/>
+		<xsd:attribute name="status">
+			<xsd:simpleType>
+				<xsd:annotation>
+					<xsd:documentation>Status of the customer. S=Suspect, P=Prospect, C=Customer</xsd:documentation>
+				</xsd:annotation>
+				<xsd:restriction base="xsd:token">
+					<xsd:enumeration value=""/>
+					<xsd:enumeration value="S"/>
+					<xsd:enumeration value="P"/>
+					<xsd:enumeration value="C"/>
+				</xsd:restriction>
+			</xsd:simpleType>
+		</xsd:attribute>
+		<xsd:attribute ref="ID" use="optional"/>
+	</xsd:complexType>
+	<xsd:complexType name="typeGLAccount">
+		<xsd:sequence minOccurs="0">
+			<xsd:element ref="Description"/>
+			<xsd:element name="SearchCode" minOccurs="0"/>
+			<xsd:element name="ReportingCode" minOccurs="0"/>
+			<xsd:element ref="VAT" minOccurs="0"/>
+			<xsd:element name="VATNonDeductiblePercentage" type="typePercentage" minOccurs="0"/>
+			<xsd:element name="VATGLAccountType" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Only used in Belgium legislation. Values D=Services, G=Goods, I=Investments</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="D"/>
+						<xsd:enumeration value="G"/>
+						<xsd:enumeration value="I"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+			<xsd:element name="BelcoTaxType" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Only used in Belgium legislation. Values:
+2   = 281.30 - Attendance fees (2064),
+3   = 281.30 - Price allotted amount (2060 or 2070),
+4   = 281.30 - Price exemption (2061 or 2071),
+5   = 281.30 - Subsidies allotted amount (2065 or 2073),
+6   = 281.30 - Subsidies exemption (2066 or 2074),
+7   = 281.30 - Nonprofessional revenues or pensions (2068),
+9   = 281.30 - Periodic food revenues (2076),
+12  = 281.30 - Capital amount (2079, 2055),
+13  = 281.30 - Benefit or profits (2080),
+14  = 281.30 - Remunerations (2081),
+16  = 281.30 - Incomes for artists (2083),
+19  = 281.30 - Advance Tax Payment (2063),
+20  = 281.30 - Sportsman incomes &lt; 30 days (2113),
+21  = 281.30 - Sportsman incomes (2115),
+22  = 281.30 - Sportsman profits &lt; 30 days (2116),
+23  = 281.30 - Sports manager profits (2117),
+24  = 281.50 - Commission, brokers fees, refunds, etc. (2060),
+25  = 281.50 - Honorary fees or attendance fees (2061),
+26  = 281.50 - Benefits in kind (2062),
+27  = 281.50 - Expenses incurred by the beneficiary (2063),
+28  = 281.50 - Sportsman amount (2066),
+29  = 281.50 - Sports manager amount (2067),
+30  = 281.71 - Liberalities amount (2060)</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="2"/>
+						<xsd:enumeration value="3"/>
+						<xsd:enumeration value="4"/>
+						<xsd:enumeration value="5"/>
+						<xsd:enumeration value="6"/>
+						<xsd:enumeration value="7"/>
+						<xsd:enumeration value="9"/>
+						<xsd:enumeration value="12"/>
+						<xsd:enumeration value="13"/>
+						<xsd:enumeration value="14"/>
+						<xsd:enumeration value="16"/>
+						<xsd:enumeration value="19"/>
+						<xsd:enumeration value="20"/>
+						<xsd:enumeration value="21"/>
+						<xsd:enumeration value="22"/>
+						<xsd:enumeration value="23"/>
+						<xsd:enumeration value="24"/>
+						<xsd:enumeration value="25"/>
+						<xsd:enumeration value="26"/>
+						<xsd:enumeration value="27"/>
+						<xsd:enumeration value="28"/>
+						<xsd:enumeration value="29"/>
+						<xsd:enumeration value="30"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+			<xsd:element name="VATNonDeductibleGLAccount" type="typeGLAccount" minOccurs="0"/>
+			<xsd:element name="PrivatePercentage" type="typePercentage" minOccurs="0"/>
+			<xsd:element name="PrivateGLAccount" type="typeGLAccount" minOccurs="0"/>
+			<xsd:element name="ExpenseNonDeductiblePercentage" type="typePercentage" minOccurs="0"/>
+			<xsd:element name="UseCostcenter" type="typeUse" minOccurs="0"/>
+			<xsd:element name="UseCostunit" type="typeUse" minOccurs="0"/>
+			<xsd:element ref="Costcenter" minOccurs="0"/>
+			<xsd:element ref="Costunit" minOccurs="0"/>
+			<xsd:element ref="GLAccountCategory" minOccurs="0" maxOccurs="unbounded"/>
+			<xsd:element name="GLClassificationLinks" minOccurs="0" maxOccurs="unbounded">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element ref="GLClassificationLink" minOccurs="0" maxOccurs="unbounded"/>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="XBRL" minOccurs="0">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="Element" maxOccurs="unbounded">
+							<xsd:complexType>
+								<xsd:attribute ref="code" use="required"/>
+								<xsd:attribute name="namespace" use="required"/>
+							</xsd:complexType>
+						</xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+		</xsd:sequence>
+		<xsd:attribute ref="code" use="required"/>
+		<xsd:attribute name="type" use="optional">
+			<xsd:annotation>
+				<xsd:documentation>10=Cash,
+12=Bank,
+20=Accounts receivable,
+22=Accounts payable,
+24=VAT,
+25=Employees payable,
+26=Prepaid expenses,
+27=Accrued expenses,
+29=Income tax payable,
+30=Fixed assets,
+32=Other assets,
+35=Accumulated depreciations,
+40=Inventory,
+50=Capital stock,
+52=Retained earnings,
+55=Long term debt,
+60=Current portion of debt,
+90=General,
+110=Revenue,
+111=Cost of goods,
+120=Other costs,
+121=Sales, marketing general expenses,
+122=Depreciation costs,
+123=Research and development,
+125=Employee costs,
+130=Exceptional costs,
+140=Exceptional income,
+150=Income taxes,
+160=Interest income</xsd:documentation>
+			</xsd:annotation>
+			<xsd:simpleType>
+				<xsd:restriction base="xsd:integer">
+					<xsd:enumeration value="10"/>
+					<xsd:enumeration value="12"/>
+					<xsd:enumeration value="20"/>
+					<xsd:enumeration value="22"/>
+					<xsd:enumeration value="24"/>
+					<xsd:enumeration value="25"/>
+					<xsd:enumeration value="26"/>
+					<xsd:enumeration value="27"/>
+					<xsd:enumeration value="29"/>
+					<xsd:enumeration value="30"/>
+					<xsd:enumeration value="32"/>
+					<xsd:enumeration value="35"/>
+					<xsd:enumeration value="40"/>
+					<xsd:enumeration value="50"/>
+					<xsd:enumeration value="52"/>
+					<xsd:enumeration value="55"/>
+					<xsd:enumeration value="60"/>
+					<xsd:enumeration value="90"/>
+					<xsd:enumeration value="110"/>
+					<xsd:enumeration value="111"/>
+					<xsd:enumeration value="120"/>
+					<xsd:enumeration value="121"/>
+					<xsd:enumeration value="122"/>
+					<xsd:enumeration value="123"/>
+					<xsd:enumeration value="125"/>
+					<xsd:enumeration value="130"/>
+					<xsd:enumeration value="140"/>
+					<xsd:enumeration value="150"/>
+					<xsd:enumeration value="160"/>
+				</xsd:restriction>
+			</xsd:simpleType>
+		</xsd:attribute>
+		<xsd:attribute name="blocked" type="xsd:boolean"/>
+		<xsd:attribute name="revalueCurrency" type="xsd:boolean"/>
+		<xsd:attribute name="balanceSide">
+			<xsd:simpleType>
+				<xsd:annotation>
+					<xsd:documentation>D=debit, C=credit</xsd:documentation>
+				</xsd:annotation>
+				<xsd:restriction base="xsd:token">
+					<xsd:enumeration value="D"/>
+					<xsd:enumeration value="C"/>
+				</xsd:restriction>
+			</xsd:simpleType>
+		</xsd:attribute>
+		<xsd:attribute ref="balanceType"/>
+		<xsd:attribute name="matching" type="xsd:boolean" use="optional"/>
+		<xsd:attribute name="compress" type="xsd:boolean" use="optional"/>
+	</xsd:complexType>
+	<xsd:simpleType name="typePercentage">
+		<xsd:annotation>
+			<xsd:documentation>The percentage as a number from -1 to 1, for example 0.19 = 19%</xsd:documentation>
+		</xsd:annotation>
+		<xsd:restriction base="xsd:float">
+			<xsd:maxInclusive value="1"/>
+			<xsd:minInclusive value="-1"/>
+		</xsd:restriction>
+	</xsd:simpleType>
+	<!-- Start Asset element type definition -->
+	<xsd:complexType name="typeAsset">
+		<xsd:sequence>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+			</xsd:sequence>
+			<xsd:element ref="AssetGroup"/>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="DepreciationMethod">
+					<xsd:annotation>
+						<xsd:documentation>Depreciation method used to calculate depreciation budget plans.
+On import: if asset already exists and almost one depreciation entry already exists then the depreciation method will be ignored.</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="InvestmentAmount" type="xsd:float">
+					<xsd:annotation>
+						<xsd:documentation>Investment amount in administration currency.
+On import: if asset already exists and activation entry is already processed or almost one depreciation entry already exists then the investment amount will be ignored.</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="InvestmentDate" type="xsd:date">
+					<xsd:annotation>
+						<xsd:documentation>Investment date.
+On import: if asset already exists and activation entry is already processed or almost one depreciation entry already exists then the investment date will be ignored.</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="PurchaseLine" minOccurs="0">
+					<xsd:annotation>
+						<xsd:documentation>The purchase line will be identified by his journal, financial year, entry number and entry line.</xsd:documentation>
+					</xsd:annotation>
+					<xsd:complexType>
+						<xsd:attribute name="journalNumber" type="xsd:string" use="required"/>
+						<xsd:attribute name="financialYear" type="xsd:integer" use="required"/>
+						<xsd:attribute name="entryNumber" type="xsd:integer" use="required"/>
+						<xsd:attribute name="entryLine" type="xsd:integer" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="Supplier" minOccurs="0">
+					<xsd:annotation>
+						<xsd:documentation>The supplier will be identified by his code.</xsd:documentation>
+					</xsd:annotation>
+					<xsd:complexType>
+						<xsd:attribute name="code" type="xsd:string" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="Costcenter" minOccurs="0"/>
+				<xsd:element ref="Costunit" minOccurs="0"/>
+				<xsd:element ref="ParentAsset" minOccurs="0"/>
+				<xsd:sequence minOccurs="0">
+					<xsd:element name="InvestmentDeduction">
+						<xsd:annotation>
+							<xsd:documentation>Values:
+O - Once-Only,
+S - Spreaded.
+Only used in Belgium legislation (form: 276 U).</xsd:documentation>
+						</xsd:annotation>
+						<xsd:simpleType>
+							<xsd:restriction base="xsd:token">
+								<xsd:enumeration value="O"/>
+								<xsd:enumeration value="S"/>
+							</xsd:restriction>
+						</xsd:simpleType>
+					</xsd:element>
+					<xsd:element name="DeductionPercentage" type="typePercentage">
+						<xsd:annotation>
+							<xsd:documentation>Deduction percentage.
+Only used in Belgium legislation (form: 276 U).</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+				</xsd:sequence>
+				<xsd:element ref="Image" minOccurs="0"/>
+				<xsd:sequence minOccurs="0">
+					<xsd:annotation>
+						<xsd:documentation>Information relative to depreciations plans.</xsd:documentation>
+					</xsd:annotation>
+					<xsd:element name="DepreciationStartDate" type="xsd:date">
+						<xsd:annotation>
+							<xsd:documentation>If not completely depreciated, the next depreciation date.
+If fully depreciated, the entry date of the investment activation entry.
+On import: if asset already exists and almost one depreciation entry already exists then the depreciation method will be ignored. This date should exist in the period-date table.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element name="RevaluationAmount" type="xsd:float" minOccurs="0">
+						<xsd:annotation>
+							<xsd:documentation>Residual amount when the asset is fully depreciated.
+On import: if asset already exists and activation entry is already processed or almost one depreciation entry already exists then the revaluation amount will be ignored.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element name="ResidualAmount" type="xsd:float" minOccurs="0">
+						<xsd:annotation>
+							<xsd:documentation>Residual amount when the asset is fully depreciated.
+On import: if asset already exists and almost one depreciation entry already exists then the residual amount will be ignored.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:sequence minOccurs="0">
+						<xsd:choice>
+							<xsd:element name="DepreciatedSince" type="xsd:date">
+								<xsd:annotation>
+									<xsd:documentation>Only used in Belgium legislation.
+Already depreciated since.
+On import: if asset already exists and activation entry is already processed or almost one depreciation entry already exists then the depreciated since will be ignored.</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="DepreciatedPeriods" type="xsd:integer">
+								<xsd:annotation>
+									<xsd:documentation>Periods already depreciated.
+On import: if asset already exists and activation entry is already processed or almost one depreciation entry already exists then the depreciated periods will be ignored.</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+						</xsd:choice>
+						<xsd:element name="DepreciatedAmount" type="xsd:float">
+							<xsd:annotation>
+								<xsd:documentation>Already depreciated amount.
+On import: if asset already exists and activation entry is already processed or almost one depreciation entry already exists then the depreciated amount will be ignored.</xsd:documentation>
+							</xsd:annotation>
+						</xsd:element>
+					</xsd:sequence>
+				</xsd:sequence>
+			</xsd:sequence>
+		</xsd:sequence>
+		<xsd:attribute ref="code" use="required"/>
+		<xsd:attribute name="status" use="optional">
+			<xsd:annotation>
+				<xsd:documentation>Values:
+A - Active,
+D - Inactive,
+S - Sold.
+During import assets with status S - Sold will be rejected, other assets will be created with status A - Active, if asset already exists, his status will remain unchanged.</xsd:documentation>
+			</xsd:annotation>
+			<xsd:simpleType>
+				<xsd:restriction base="xsd:token">
+					<xsd:enumeration value="A"/>
+					<xsd:enumeration value="D"/>
+					<xsd:enumeration value="S"/>
+				</xsd:restriction>
+			</xsd:simpleType>
+		</xsd:attribute>
+	</xsd:complexType>
+	<!-- End Asset element type definition -->
+	<!-- Start AssetGroup element type definition -->
+	<xsd:complexType name="typeAssetGroup">
+		<xsd:sequence minOccurs="0">
+			<xsd:element ref="Description"/>
+			<xsd:element ref="DepreciationMethod" minOccurs="0"/>
+			<xsd:element name="GLAssets" type="typeGLAccount">
+				<xsd:annotation>
+					<xsd:documentation>Asset (B/S) GLAccount should be defined with type = 30 - Fixed assets.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="GLDepreciationBS" type="typeGLAccount">
+				<xsd:annotation>
+					<xsd:documentation>Asset depreciation (B/S) GLAccount should be defined with type = 35 - Accumulated depreciations.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="GLDepreciationPL" type="typeGLAccount">
+				<xsd:annotation>
+					<xsd:documentation>Asset depreciation costs (P/L) GLAccount should be defined with type = 122 - Depreciation costs.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="GLRevaluationBS" type="typeGLAccount">
+				<xsd:annotation>
+					<xsd:documentation>Asset revaluation (B/S) GLAccount should be defined with type = 90 - General.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+		<xsd:attribute ref="code" use="required"/>
+	</xsd:complexType>
+	<!-- End AssetGroup element type definition -->
+	<!-- Start DepreciationMethod element type definition -->
+	<xsd:complexType name="typeDepreciationMethod">
+		<xsd:sequence minOccurs="0">
+			<xsd:element ref="Description"/>
+			<xsd:element name="Type">
+				<xsd:annotation>
+					<xsd:documentation>Values:
+1 - Linear depreciation,
+2 - Linear (until residual value),
+4 - No depreciation,
+10 - Degressive to linear,
+11 - Degressive (fixed perc. of book value),
+21 - Fixed Amount,
+30 - Sum of the year digits (fixed decr. amt),
+40 - Normal annuity method,
+3 - Linear depreciation (Belgium only),
+12 - Degressive to linear (Belgium only).
+On import: Can not be modified if depreciation method is already linked to an asset.</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="1"/>
+						<xsd:enumeration value="2"/>
+						<xsd:enumeration value="4"/>
+						<xsd:enumeration value="10"/>
+						<xsd:enumeration value="11"/>
+						<xsd:enumeration value="21"/>
+						<xsd:enumeration value="30"/>
+						<xsd:enumeration value="40"/>
+						<xsd:enumeration value="3"/>
+						<xsd:enumeration value="12"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+			<xsd:choice>
+				<xsd:sequence>
+					<xsd:element ref="DepreciationInterval" minOccurs="0">
+						<xsd:annotation>
+							<xsd:documentation>Depreciation interval (years | periods) for methods:
+10 - Degressive to linear),
+11 - Degressive (fixed perc. of book value),
+21 - Fixed Amount,
+3 - Linear depreciation (Belgium only).
+12 - Degressive to linear (Belgium only).
+On import: Can not be modified if depreciation method is already linked to an asset.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:choice>
+						<xsd:element name="Years" type="xsd:integer" minOccurs="0">
+							<xsd:annotation>
+								<xsd:documentation>Number of years for methods:
+1 - Linear depreciation,
+2 - Linear (until residual value),
+30 - Sum of the year digits (fixed decr. amt),
+40 - Normal annuity method,
+3 - Linear depreciation (Belgium only).
+On import: Can not be modified if depreciation method is already linked to an asset.</xsd:documentation>
+							</xsd:annotation>
+						</xsd:element>
+						<xsd:element name="Periods" type="xsd:integer" minOccurs="0">
+							<xsd:annotation>
+								<xsd:documentation>Number of periods for methods:
+1 - Linear depreciation,
+2 - Linear (until residual value),
+30 - Sum of the year digits (fixed decr. amt),
+40 - Normal annuity method,
+On import: Can not be modified if depreciation method is already linked to an asset.</xsd:documentation>
+							</xsd:annotation>
+						</xsd:element>
+					</xsd:choice>
+					<xsd:element ref="Percentage" minOccurs="0">
+						<xsd:annotation>
+							<xsd:documentation>Degressive percentage for methods:
+10 - Degressive to linear,
+11 - Degressive (fixed perc. of book value),
+12 - Degressive to linear (Belgium only).
+And interest percentage for method:
+40 - Normal annuity method.
+On import: Can not be modified if depreciation method is already linked to an asset. For Belgium the degressive percentage is calculated as double of the linear percentage.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element name="Percentage2" type="typePercentage" minOccurs="0">
+						<xsd:annotation>
+							<xsd:documentation>Linear percentage for methods:
+10 - Degressive to linear,
+3 - Linear depreciation (Belgium only),
+12 - Degressive to linear (Belgium only).
+On import: Can not be modified if depreciation method is already linked to an asset.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element name="Amount" type="xsd:float" minOccurs="0">
+						<xsd:annotation>
+							<xsd:documentation>Amount for methods: 21 - Fixed Amount
+On import: Can not be modified if depreciation method is already linked to an asset.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+					<xsd:element name="MaxPercentage" type="typePercentage" minOccurs="0">
+						<xsd:annotation>
+							<xsd:documentation>MaxPercentage for methods: 12 - Degressive to linear (Belgium only).
+On import: Can not be modified if depreciation method is already linked to an asset.</xsd:documentation>
+						</xsd:annotation>
+					</xsd:element>
+				</xsd:sequence>
+			</xsd:choice>
+			<xsd:element ref="Country" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>On export: for information.
+On import: value is ignored and administration country will be used.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+		<xsd:attribute ref="code" use="required"/>
+	</xsd:complexType>
+	<!-- End DepreciationMethod element type definition -->
+	<!--Groups-->
+	<xsd:group name="groupPersonName">
+		<xsd:sequence>
+			<xsd:element name="LastName" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="MiddleName" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="BirthName" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="BirthNamePrefix" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="PartnerName" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="PartnerNamePrefix" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="FirstName" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Initials" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="FullName" type="xsd:string" minOccurs="0"/>
+			<xsd:element ref="Title" minOccurs="0"/>
+			<xsd:element ref="Language" minOccurs="0"/>
+			<xsd:element ref="Nationality" minOccurs="0"/>
+			<xsd:element ref="Phone" minOccurs="0"/>
+			<xsd:element ref="PhoneExt" minOccurs="0"/>
+			<xsd:element ref="Fax" minOccurs="0"/>
+			<xsd:element ref="Mobile" minOccurs="0"/>
+			<xsd:element ref="Email" minOccurs="0"/>
+			<xsd:element name="SocialSecurityNumber" minOccurs="0"/>
+			<xsd:element ref="Image" minOccurs="0"/>
+			<xsd:element ref="Note" minOccurs="0"/>
+		</xsd:sequence>
+	</xsd:group>
+	<!--Global Attributes-->
+	<xsd:attribute name="ID" type="xsd:string">
+		<xsd:annotation>
+			<xsd:documentation>GUID identification of the entity</xsd:documentation>
+		</xsd:annotation>
+	</xsd:attribute>
+	<xsd:attribute name="number" type="xsd:integer">
+		<xsd:annotation>
+			<xsd:documentation>Numeric identification of the entity</xsd:documentation>
+		</xsd:annotation>
+	</xsd:attribute>
+	<xsd:attribute name="code" type="xsd:string">
+		<xsd:annotation>
+			<xsd:documentation>Alpha numeric identification of the entity</xsd:documentation>
+		</xsd:annotation>
+	</xsd:attribute>
+	<xsd:attribute name="default" type="xsd:boolean">
+		<xsd:annotation>
+			<xsd:documentation>A flag that will indicate if an entity is set to default</xsd:documentation>
+		</xsd:annotation>
+	</xsd:attribute>
+	<xsd:attribute name="gender" default="O">
+		<xsd:annotation>
+			<xsd:documentation>Gender of the entity</xsd:documentation>
+		</xsd:annotation>
+		<xsd:simpleType>
+			<xsd:restriction base="xsd:token">
+				<xsd:enumeration value="M"/>
+				<xsd:enumeration value="V"/>
+				<xsd:enumeration value="O"/>
+			</xsd:restriction>
+		</xsd:simpleType>
+	</xsd:attribute>
+	<xsd:attribute name="balanceType">
+		<xsd:annotation>
+			<xsd:documentation>W=profit and loss, B=balance</xsd:documentation>
+		</xsd:annotation>
+		<xsd:simpleType>
+			<xsd:restriction base="xsd:token">
+				<xsd:enumeration value="W"/>
+				<xsd:enumeration value="B"/>
+			</xsd:restriction>
+		</xsd:simpleType>
+	</xsd:attribute>
+	<!--Global Elements-->
+	<xsd:element name="Description">
+		<xsd:annotation>
+			<xsd:documentation>The description involving the entity</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:simpleContent>
+				<xsd:extension base="xsd:string">
+					<xsd:attribute name="termid"/>
+				</xsd:extension>
+			</xsd:simpleContent>
+		</xsd:complexType>
+	</xsd:element>
+	<!--Names-->
+	<xsd:element name="Name" type="xsd:string"/>
+	<!--Dates-->
+	<xsd:element name="Date" type="xsd:date">
+		<xsd:annotation>
+			<xsd:documentation>YYYY-MM-DD</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="OrderDate" type="xsd:date">
+		<xsd:annotation>
+			<xsd:documentation>YYYY-MM-DD</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ReceiptDate" type="xsd:date">
+		<xsd:annotation>
+			<xsd:documentation>Receipt date: YYYY-MM-DD</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="DateStart" type="xsd:date">
+		<xsd:annotation>
+			<xsd:documentation>Start date: YYYY-MM-DD</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="DateEnd" type="xsd:date">
+		<xsd:annotation>
+			<xsd:documentation>End date: YYYY-MM-DD</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="StartDate" type="xsd:date">
+		<xsd:annotation>
+			<xsd:documentation>Start date: YYYY-MM-DD</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="EndDate" type="xsd:date">
+		<xsd:annotation>
+			<xsd:documentation>End date: YYYY-MM-DD</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="DateFinal" type="xsd:date"/>
+	<xsd:element name="DueDate" type="xsd:date">
+		<xsd:annotation>
+			<xsd:documentation>Due date: YYYY-MM-DD</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="InvoiceDate" type="xsd:date">
+		<xsd:annotation>
+			<xsd:documentation>Invoice date: YYYY-MM-DD</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<!--Personal-->
+	<xsd:element name="Phone" type="xsd:string"/>
+	<xsd:element name="PhoneExt" type="xsd:string"/>
+	<xsd:element name="Fax" type="xsd:string"/>
+	<xsd:element name="Mobile" type="xsd:string"/>
+	<xsd:element name="Email" type="xsd:string"/>
+	<xsd:element name="HomePage" type="xsd:string"/>
+	<xsd:element name="State">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Country">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<!--Images & Attachments-->
+	<xsd:element name="Image">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Name"/>
+				<xsd:element ref="BinaryData"/>
+			</xsd:sequence>
+			<xsd:attribute ref="ID"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Attachment">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Name"/>
+				<xsd:element ref="BinaryData"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="BinaryData" type="xsd:base64Binary"/>
+	<!--Note element-->
+	<xsd:element name="Note" type="xsd:string">
+		<xsd:annotation>
+			<xsd:documentation>Notes can contain many different characters, make sure to use a CDATA section.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<!--Remarks element-->
+	<xsd:element name="Remarks" type="xsd:string">
+		<xsd:annotation>
+			<xsd:documentation>Remarks can contain many different characters, make sure to use a CDATA section.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<!--References-->
+	<xsd:element name="References">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:choice>
+					<xsd:sequence>
+						<xsd:element ref="InvoiceNumber" minOccurs="0"/>
+						<xsd:element ref="OrderNumber" minOccurs="0"/>
+					</xsd:sequence>
+					<xsd:sequence>
+						<xsd:element name="Sales" minOccurs="0">
+							<xsd:complexType>
+								<xsd:sequence>
+									<xsd:element ref="InvoiceNumber" minOccurs="0"/>
+									<xsd:element ref="OrderNumber" minOccurs="0"/>
+								</xsd:sequence>
+							</xsd:complexType>
+						</xsd:element>
+						<xsd:element name="Purchase" minOccurs="0">
+							<xsd:complexType>
+								<xsd:sequence>
+									<xsd:element ref="InvoiceNumber" minOccurs="0"/>
+									<xsd:element ref="OrderNumber" minOccurs="0"/>
+								</xsd:sequence>
+							</xsd:complexType>
+						</xsd:element>
+					</xsd:sequence>
+				</xsd:choice>
+				<xsd:element name="PaymentReference" minOccurs="0"/>
+				<xsd:element name="Contact" minOccurs="0"/>
+				<xsd:element ref="YourRef" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="InvoiceNumber" type="xsd:string"/>
+	<xsd:element name="YourRef" type="xsd:string"/>
+	<!--Financial-->
+	<xsd:element name="Discount">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:choice>
+					<xsd:element ref="Percentage"/>
+					<xsd:element name="Amount" type="xsd:float"/>
+				</xsd:choice>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Currency">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Value" type="xsd:float"/>
+	<xsd:element name="Percentage" type="typePercentage"/>
+	<!--Related elements: Resource -->
+	<xsd:element name="Title">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+				<xsd:element name="Heading" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Abbreviation" type="xsd:string" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Language">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Nationality">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<!--Related elements: Account-->
+	<xsd:element name="Contact">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:group ref="groupPersonName"/>
+				<xsd:element name="BirthDate" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="BirthPlace" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="IsMailingExcluded" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="Job" minOccurs="0">
+					<xsd:complexType>
+						<xsd:choice>
+							<xsd:element ref="Description"/>
+						</xsd:choice>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="Address" minOccurs="0" maxOccurs="unbounded"/>
+			</xsd:sequence>
+			<xsd:attribute ref="number" use="optional"/>
+			<xsd:attribute ref="code" use="optional"/>
+			<xsd:attribute ref="gender" use="optional"/>
+			<xsd:attribute ref="default" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:complexType name="typeContact">
+		<xsd:attribute ref="number" use="required"/>
+	</xsd:complexType>
+	<xsd:element name="Address">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="Addressee" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:group ref="groupPersonName"/>
+							<xsd:element name="Job" minOccurs="0">
+								<xsd:complexType>
+									<xsd:choice>
+										<xsd:element ref="Description"/>
+									</xsd:choice>
+								</xsd:complexType>
+							</xsd:element>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:choice>
+					<xsd:element name="AddressLine1" type="xsd:string"/>
+					<xsd:sequence>
+						<xsd:element name="AddressStreet" type="xsd:string"/>
+						<xsd:element name="AddressStreetNumber" type="xsd:string" minOccurs="0"/>
+						<xsd:element name="AddressStreetSuffix" type="xsd:string" minOccurs="0"/>
+					</xsd:sequence>
+				</xsd:choice>
+				<xsd:element name="AddressLine2" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="AddressLine3" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="AddressNo" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="AddressSuffix" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="PostalCode" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="City" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="State" minOccurs="0"/>
+				<xsd:element ref="Country" minOccurs="0"/>
+				<xsd:element ref="Phone" minOccurs="0"/>
+				<xsd:element ref="Fax" minOccurs="0"/>
+				<xsd:element name="Mailbox" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Contact" type="typeContact" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="type" use="optional">
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="INV"/>
+						<xsd:enumeration value="POS"/>
+						<xsd:enumeration value="DEL"/>
+						<xsd:enumeration value="VIS"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+			<xsd:attribute ref="default" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Classification">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+				<xsd:element name="Type" minOccurs="0">
+					<xsd:simpleType>
+						<xsd:restriction base="xsd:token">
+							<xsd:enumeration value=""/>
+							<xsd:enumeration value="C"/>
+							<xsd:enumeration value="R"/>
+							<xsd:enumeration value="S"/>
+						</xsd:restriction>
+					</xsd:simpleType>
+				</xsd:element>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="CreditLine">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="Sales" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="Purchase" type="xsd:float" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:complexType name="AccountDiscount">
+		<xsd:sequence minOccurs="0">
+			<xsd:element name="SalesPercentage" type="typePercentage" minOccurs="0"/>
+			<xsd:element name="PurchasePercentage" type="typePercentage" minOccurs="0"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<!--Related elements: Financial-->
+	<xsd:element name="FinYear">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="FinPeriod" maxOccurs="unbounded"/>
+			</xsd:sequence>
+			<xsd:attribute ref="number"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="FinPeriod">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="DateStart"/>
+				<xsd:element ref="DateEnd"/>
+			</xsd:sequence>
+			<xsd:attribute ref="number"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="BankAccount">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element ref="Currency" minOccurs="0"/>
+				<xsd:element ref="Country" minOccurs="0"/>
+				<xsd:element ref="BankName" minOccurs="0"/>
+				<xsd:element ref="BICCode" minOccurs="0"/>
+				<xsd:element ref="IBAN" minOccurs="0"/>
+				<xsd:element ref="Holder" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+			<xsd:attribute name="format" type="xsd:string"/>
+			<xsd:attribute ref="default"/>
+			<xsd:attribute name="type" type="xsd:string"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Holder">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Name"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="OwnBankAccount">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+				<xsd:element ref="Currency"/>
+				<xsd:element ref="Country" minOccurs="0"/>
+				<xsd:element ref="BankName" minOccurs="0"/>
+				<xsd:element ref="BICCode" minOccurs="0"/>
+				<xsd:element ref="IBAN" minOccurs="0"/>
+				<xsd:element ref="GLAccount"/>
+				<xsd:element name="GLPaymentInTransit" type="typeGLAccount" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+			<xsd:attribute name="type">
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="C"/>
+						<xsd:enumeration value="K"/>
+						<xsd:enumeration value="P"/>
+						<xsd:enumeration value="R"/>
+						<xsd:enumeration value="U"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GLOffset" type="typeGLAccount"/>
+	<xsd:element name="GLRevenue" type="typeGLAccount"/>
+	<xsd:element name="GLCosts" type="typeGLAccount"/>
+	<xsd:element name="GLPurchase" type="typeGLAccount"/>
+	<xsd:element name="Quantity" type="xsd:float"/>
+	<xsd:element name="PriceEntry">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Currency"/>
+				<xsd:element ref="Value" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Amount">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Currency"/>
+				<xsd:choice>
+					<xsd:sequence>
+						<xsd:element ref="Debit" minOccurs="0"/>
+						<xsd:element ref="Credit" minOccurs="0"/>
+					</xsd:sequence>
+					<xsd:element ref="Value" minOccurs="0"/>
+				</xsd:choice>
+				<xsd:element ref="VAT" minOccurs="0"/>
+				<xsd:element name="VATBaseAmount" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="PaymentDiscountAmount" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Value" minOccurs="0"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="ForeignAmount">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Currency"/>
+				<xsd:choice>
+					<xsd:sequence>
+						<xsd:element ref="Debit" minOccurs="0"/>
+						<xsd:element ref="Credit" minOccurs="0"/>
+					</xsd:sequence>
+					<xsd:element ref="Value" minOccurs="0"/>
+				</xsd:choice>
+				<xsd:element name="Rate" type="xsd:float" minOccurs="0"/>
+				<xsd:element ref="VAT" minOccurs="0"/>
+				<xsd:element name="VATBaseAmount" type="xsd:float" default="0" minOccurs="0"/>
+				<xsd:element name="VATAmount" type="xsd:float" default="0" minOccurs="0"/>
+				<xsd:element name="PaymentDiscountAmount" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="Value" minOccurs="0"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!--Related elements: Logistics-->
+	<xsd:element name="Assortment">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+				<xsd:element ref="GLRevenue" minOccurs="0"/>
+				<xsd:element ref="GLCosts" minOccurs="0"/>
+				<xsd:element ref="GLPurchase" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="number" use="optional"/>
+			<xsd:attribute ref="code" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Price" type="typePrice"/>
+	<xsd:element name="Unit">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+				<xsd:element name="Timeunit" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+			<xsd:attribute name="type" use="optional">
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="L"/>
+						<xsd:enumeration value="W"/>
+						<xsd:enumeration value="T"/>
+						<xsd:enumeration value="O"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="UnitFactor"/>
+	<xsd:element name="Debit" type="xsd:float"/>
+	<xsd:element name="Credit" type="xsd:float"/>
+	<xsd:element name="Journals">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Journal" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Journal">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+				<xsd:element ref="GLAccount" minOccurs="0"/>
+				<xsd:element ref="Currency" minOccurs="0"/>
+				<xsd:element ref="OwnBankAccount" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+			<xsd:attribute name="type" type="xsd:integer"/>
+			<xsd:attribute name="variableCurrency" type="xsd:boolean"/>
+			<xsd:attribute name="variableExchangeRate" type="xsd:boolean"/>
+			<xsd:attribute name="autoSave" type="xsd:boolean"/>
+			<xsd:attribute name="allowVAT" type="xsd:boolean"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Costunits">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Costunit" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Costunit">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Costcenters">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Costcenter" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Costcenter">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code"/>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- Payroll/HRM - Begin -->
+	<xsd:element name="JobTitles">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="JobTitle" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="JobTitle">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description"/>
+				<xsd:element name="JobLevelFrom" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="JobLevelTo" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="JobCode" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="JobGroup" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="JobGroups">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="JobGroup" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="JobGroup">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Departments">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Department" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Department">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element ref="Costcenter" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:complexType name="PersonAddress">
+		<xsd:sequence>
+			<xsd:element name="AddressStreet" type="xsd:string"/>
+			<xsd:element name="AddressStreetNumber" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="AddressStreetSuffix" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="AddressLine2" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="PostalCode" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="City" type="xsd:string" minOccurs="0"/>
+			<xsd:element ref="State" minOccurs="0"/>
+			<xsd:element ref="Country" minOccurs="0"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:group name="groupPersonData">
+		<xsd:sequence>
+			<xsd:element name="HID" type="xsd:integer"/>
+			<xsd:group ref="groupPersonName"/>
+			<xsd:element name="NameComposition" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="NickName" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="gender" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Address" type="PersonAddress" minOccurs="0"/>
+			<xsd:element name="JobTitleDescription" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="BirthDate" type="xsd:date" minOccurs="0"/>
+			<xsd:element name="MaritalStatus" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="MaritalDate" type="xsd:date" minOccurs="0"/>
+			<xsd:element name="BirthPlace" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Municipality" type="xsd:string" minOccurs="0"/>
+		</xsd:sequence>
+	</xsd:group>
+	<xsd:element name="Employees">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Employee" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Employee">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="Code" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="StartDate" minOccurs="0"/>
+				<xsd:element ref="EndDate" minOccurs="0"/>
+				<xsd:element name="Manager">
+					<xsd:annotation>
+						<xsd:documentation>Please ensure that the manager is already created before creating the employee</xsd:documentation>
+					</xsd:annotation>
+					<xsd:complexType>
+						<xsd:attribute name="EmployeeHID" type="xsd:integer" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="BusinessPhone" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="BusinessPhoneExt" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="BusinessFax" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="BusinessEmail" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="BusinessMobile" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="LocationDescription" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="CommissionPercentage" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="PartnerPhone" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="CASONumber" type="xsd:string" minOccurs="0"/>
+				<xsd:group ref="groupPersonData"/>
+				<xsd:element ref="BankAccounts" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="EmployeeHID" type="xsd:integer" use="required"/>
+			<xsd:attribute ref="gender" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="BankAccounts">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="BankAccount" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollYears">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PayrollYear" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollYear">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="PayrollPeriod" maxOccurs="unbounded"/>
+			</xsd:sequence>
+			<xsd:attribute ref="number"/>
+			<xsd:attribute name="Frequency" type="xsd:int" use="required"/>
+			<xsd:attribute name="YearChanges" type="xsd:boolean" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollPeriod">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="StartDate"/>
+				<xsd:element ref="EndDate"/>
+				<xsd:element name="EntryDueDate" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="PaymentDueDate" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="DeclarationDueDate" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="number"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Agencies">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Agency" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Agency">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="Account"/>
+				<xsd:element name="Type" type="xsd:integer"/>
+				<xsd:element name="SubType" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="Reference" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="DeclarationPeriod" type="xsd:integer" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="ID" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponentGroups">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PayrollComponentGroup" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponentGroup" type="typePayrollComponentGroup"/>
+	<xsd:complexType name="typePayrollComponentGroup">
+		<xsd:sequence minOccurs="0">
+			<xsd:element ref="Description"/>
+			<xsd:element ref="StartDate"/>
+			<xsd:element ref="EndDate" minOccurs="0"/>
+			<xsd:element name="ParentGroup" minOccurs="0">
+				<xsd:complexType>
+					<xsd:attribute ref="code" use="required"/>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="Status" type="xsd:string"/>
+			<xsd:element name="Version" type="xsd:integer"/>
+			<xsd:element name="ReasonModified" type="xsd:integer" minOccurs="0"/>
+			<xsd:element name="HoursWeek" type="xsd:integer" minOccurs="0"/>
+			<xsd:element name="ExternalCode1" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="ExternalCode2" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="ExternalCode3" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="ExternalCode4" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="ExternalCode5" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="AgencyType" type="xsd:integer" minOccurs="0"/>
+			<xsd:element name="AgencySubType" type="xsd:integer" minOccurs="0"/>
+			<xsd:element name="Hyperlink" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+		</xsd:sequence>
+		<xsd:attribute ref="code"/>
+	</xsd:complexType>
+	<xsd:element name="PayrollComponents">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PayrollComponent" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponent" type="typePayrollComponent"/>
+	<xsd:complexType name="typePayrollComponent">
+		<xsd:sequence>
+			<xsd:element name="PayrollComponentGroup">
+				<xsd:complexType>
+					<xsd:attribute ref="code" use="required"/>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element ref="StartDate"/>
+			<xsd:element ref="EndDate" minOccurs="0"/>
+			<xsd:element name="SearchCode" type="xsd:string"/>
+			<xsd:element name="ParentComponent" minOccurs="0">
+				<xsd:complexType>
+					<xsd:attribute ref="code" use="required"/>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element ref="Description"/>
+			<xsd:element name="CalculationMethod" minOccurs="0">
+				<xsd:complexType>
+					<xsd:attribute ref="code" use="required"/>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="Type" type="xsd:string"/>
+			<xsd:element name="Calculate" type="xsd:boolean"/>
+			<xsd:element name="Template" type="xsd:boolean"/>
+			<xsd:element name="EditableByEmployer" type="xsd:boolean"/>
+			<xsd:element name="EditableByEmployee" type="xsd:boolean"/>
+			<xsd:element name="EditableByTransaction" type="xsd:boolean"/>
+			<xsd:element name="Classification1" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Classification2" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Classification3" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Classification4" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Classification5" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Hyperlink" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Status" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Version" type="xsd:integer" minOccurs="0"/>
+			<xsd:element name="ReasonModified" type="xsd:integer" minOccurs="0"/>
+			<xsd:element name="ChangesAnnually" type="xsd:boolean"/>
+			<xsd:element name="PayrollTransactionType" type="xsd:integer"/>
+			<xsd:element name="AgencyType" type="xsd:integer" minOccurs="0"/>
+			<xsd:element name="AgencySubType" type="xsd:integer" minOccurs="0"/>
+			<xsd:element ref="PayrollComponentOutputs" minOccurs="0"/>
+			<xsd:element ref="PayrollComponentCriteria" minOccurs="0"/>
+			<xsd:element ref="PayrollComponentInputs" minOccurs="0"/>
+		</xsd:sequence>
+		<xsd:attribute ref="code" use="required"/>
+	</xsd:complexType>
+	<xsd:element name="CalculationMethod">
+		<xsd:complexType>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="CalculationStep">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="CalculationMethod"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="CalculationParameter">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="CalculationMethod"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="FieldDefinition">
+		<xsd:complexType>
+			<xsd:attribute ref="code" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponentInputs">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PayrollComponentInput" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponentInput">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="Type" type="xsd:integer"/>
+				<xsd:element ref="FieldDefinition" minOccurs="0"/>
+				<xsd:element ref="CalculationParameter" minOccurs="0"/>
+				<xsd:element name="PayrollTable" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="StartDate"/>
+						</xsd:sequence>
+						<xsd:attribute ref="code" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="EntryFieldType" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="ComponentResult" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="DefaultCharacter" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="DefaultInteger" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="DefaultDecimal" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="DefaultBoolean" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="DefaultDate" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="UsePayrollTable" type="xsd:boolean"/>
+				<xsd:element name="Dimension1" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Dimension2" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Dimension3" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Dimension4" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Dimension5" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="HistoryType" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="PeriodFrom" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="PeriodTo" type="xsd:integer" minOccurs="0"/>
+				<xsd:element ref="PayrollCompCriterionInputs" minOccurs="0"/>
+				<xsd:element ref="PayrollComponentHistoryPeriods" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponentOutputs">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PayrollComponentOutput" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponentOutput">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="CalculationStep"/>
+				<xsd:element ref="FieldDefinition"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponentCriteria">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PayrollComponentCriterion" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponentCriterion">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="CalculationMethod" minOccurs="0">
+					<xsd:complexType>
+						<xsd:attribute ref="code" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollCompCriterionInputs">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PayrollCompCriterionInput" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollCompCriterionInput">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="CalculationParameter"/>
+				<xsd:element name="PayrollComponentCriterion">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element name="CalculationMethod">
+								<xsd:complexType>
+									<xsd:attribute ref="code" use="required"/>
+								</xsd:complexType>
+							</xsd:element>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponentHistoryPeriods">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PayrollComponentHistoryPeriod" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollComponentHistoryPeriod">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="Frequency" type="xsd:integer"/>
+				<xsd:element name="PeriodFrom" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="PeriodTo" type="xsd:integer" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollGLLinks">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PayrollGLLink" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="PayrollGLLink">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="GLClassification" type="xsd:string"/>
+				<xsd:element name="GLAccount" type="typeGLAccount"/>
+				<xsd:element name="OffsetGLAccount" type="typeGLAccount"/>
+				<xsd:element name="PayrollComponent" minOccurs="0">
+					<xsd:complexType>
+						<xsd:attribute ref="code" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="SequenceNumber" type="xsd:integer"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Employments">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Employment" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Employment">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="Employee">
+					<xsd:complexType>
+						<xsd:attribute name="EmployeeHID" type="xsd:integer" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="StartDate"/>
+				<xsd:element ref="EndDate" minOccurs="0"/>
+				<xsd:element name="StartDateOrganization" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="ReasonEnd" type="xsd:integer" minOccurs="0"/>
+				<xsd:element ref="EmploymentContract"/>
+				<xsd:element ref="EmploymentOrganization"/>
+				<xsd:element ref="EmploymentCLA"/>
+				<xsd:element ref="EmploymentContracts" minOccurs="0"/>
+				<xsd:element ref="EmploymentOrganizations" minOccurs="0"/>
+				<xsd:element ref="EmploymentCLAs" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="HID" type="xsd:integer" use="required"/>
+			<xsd:attribute name="EmploymentNumber" type="xsd:integer" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentContracts">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="EmploymentContract" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentContract">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="StartDate"/>
+				<xsd:element ref="EndDate" minOccurs="0"/>
+				<xsd:element name="Type" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="Sequence" type="xsd:integer"/>
+				<xsd:element name="EmployeeType" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="ProbationPeriod" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="ProbationEndDate" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="ReasonContract" type="xsd:integer" minOccurs="0"/>
+				<xsd:element ref="Document" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentOrganizations">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="EmploymentOrganization" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentOrganization">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="StartDate"/>
+				<xsd:element ref="EndDate" minOccurs="0"/>
+				<xsd:element ref="Department" minOccurs="0"/>
+				<xsd:element ref="Costcenter" minOccurs="0"/>
+				<xsd:element ref="Costunit" minOccurs="0"/>
+				<xsd:element ref="JobTitle" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentCLAs">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="EmploymentCLA" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentCLA">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="StartDate"/>
+				<xsd:element ref="EndDate" minOccurs="0"/>
+				<xsd:element name="PayrollComponentGroup">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="StartDate"/>
+						</xsd:sequence>
+						<xsd:attribute ref="code" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="EmploymentSalary"/>
+				<xsd:element ref="EmploymentComponents" minOccurs="0"/>
+				<xsd:element ref="EmploymentAgencies" minOccurs="0"/>
+				<xsd:element ref="EmploymentSalaries" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentComponents">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="EmploymentComponent" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentComponent">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="PayrollComponent" type="xsd:string"/>
+				<xsd:element name="Description" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="StartDate"/>
+				<xsd:element ref="EndDate" minOccurs="0"/>
+				<xsd:element name="Amount" type="xsd:float"/>
+				<!--<xsd:element name="Percentage" type="xsd:float" minOccurs="1"/>
+				<xsd:element name="Number" type="xsd:float" minOccurs="1"/>
+				<xsd:element name="BaseValue" type="xsd:float" minOccurs="1"/>-->
+				<xsd:element ref="Account" minOccurs="0"/>
+				<xsd:element ref="BankAccount" minOccurs="0"/>
+				<!--<xsd:element name="PaymentReference" type="xsd:string" minOccurs="0"/>-->
+				<xsd:element name="Calculate" type="xsd:boolean"/>
+				<!--<xsd:element name="Visible" type="xsd:boolean" minOccurs="1"/>-->
+				<xsd:element ref="Document" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentAgencies">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="EmploymentAgency" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentAgency">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="PayrollYear" type="xsd:integer"/>
+				<xsd:element ref="Agency"/>
+				<xsd:element ref="StartDate"/>
+				<xsd:element ref="EndDate" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeAmountField01" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField02" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField03" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField04" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField05" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField06" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField07" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField08" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField09" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField10" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField11" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField12" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField13" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField14" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField15" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField16" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField17" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField18" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField19" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField20" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField21" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField22" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField23" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField24" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField25" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField26" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField27" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField28" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField29" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeAmountField30" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="FreeDateField01" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="FreeDateField02" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="FreeDateField03" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="FreeDateField04" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="FreeDateField05" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="FreeDateField06" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="FreeDateField07" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="FreeDateField08" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="FreeDateField09" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="FreeDateField10" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField01" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField02" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField03" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField04" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField05" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField06" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField07" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField08" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField09" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField10" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField11" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField12" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField13" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField14" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField15" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField16" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField17" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField18" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField19" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeNoYesField20" type="xsd:boolean" minOccurs="0"/>
+				<xsd:element name="FreeTextField01" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField02" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField03" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField04" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField05" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField06" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField07" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField08" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField09" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField10" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField11" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField12" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField13" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField14" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField15" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField16" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField17" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField18" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField19" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField20" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField21" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField22" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField23" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField24" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField25" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField26" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField27" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField28" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField29" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField30" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField31" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField32" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField33" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField34" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField35" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField36" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField37" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField38" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField39" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeTextField40" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FreeIntField01" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="FreeIntField02" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="FreeIntField03" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="FreeIntField04" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="FreeIntField05" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="FreeIntField06" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="FreeIntField07" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="FreeIntField08" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="FreeIntField09" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="FreeIntField10" type="xsd:integer" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentSalaries">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="EmploymentSalary" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="EmploymentSalary">
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element ref="StartDate"/>
+				<xsd:element ref="EndDate" minOccurs="0"/>
+				<xsd:element name="EmploymentSalaryType" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="Scale" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="JobLevel" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="FulltimeAmount" type="xsd:float"/>
+				<xsd:element name="ParttimeAmount" type="xsd:float"/>
+				<xsd:element name="HourlyWage" type="xsd:float"/>
+				<xsd:element name="AverageDaysPerWeek" type="xsd:float"/>
+				<xsd:element name="AverageHoursPerWeek" type="xsd:float"/>
+				<xsd:element name="ParttimeFactor" type="xsd:float"/>
+				<xsd:element name="PayrollPeriodFrequency" type="xsd:integer"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="PayrollTable" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="StartDate"/>
+						</xsd:sequence>
+						<xsd:attribute ref="code" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- Payroll/HRM - End -->
+	<xsd:element name="PaymentConditions">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="PaymentCondition" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="BICCode" type="xsd:string">
+		<xsd:annotation>
+			<xsd:documentation>The Bank Identification Code</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="BankName" type="xsd:string">
+		<xsd:annotation>
+			<xsd:documentation>The name of the bank</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="OrderNumber" type="xsd:string">
+		<xsd:annotation>
+			<xsd:documentation>The order number</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="IBAN" type="xsd:string">
+		<xsd:annotation>
+			<xsd:documentation>The International Bank Account Number (IBAN)</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="PaymentCondition" type="PaymentCondition">
+		<xsd:annotation>
+			<xsd:documentation>During import of financial entries, the payment condition will first be retrieved
+from the payment term element. If not found there, the payment condition from the element GLTransaction will be used.
+When not found, the default from the administration settings will be used.</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:complexType name="PaymentCondition">
+		<xsd:sequence minOccurs="0">
+			<xsd:element ref="Description"/>
+			<xsd:element name="PaymentDiscountType" default="B" minOccurs="0">
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="B"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+			<xsd:element name="PaymentMethod" default="B" minOccurs="0">
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="B"/>
+						<xsd:enumeration value="C"/>
+						<xsd:enumeration value="E"/>
+						<xsd:enumeration value="H"/>
+						<xsd:enumeration value="I"/>
+						<xsd:enumeration value="K"/>
+						<xsd:enumeration value="R"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+			<xsd:element name="PaymentEndOfMonths" type="xsd:integer" minOccurs="0"/>
+			<xsd:element name="PaymentDays" type="xsd:integer" minOccurs="0"/>
+			<xsd:element name="DiscountPaymentDays" type="xsd:integer" minOccurs="0"/>
+			<xsd:element name="DiscountPercentage" type="typePercentage" minOccurs="0"/>
+			<xsd:element name="DiscountCalculation" default="E" minOccurs="0">
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="E"/>
+						<xsd:enumeration value="I"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+			<xsd:element name="VATCalculation" default="E" minOccurs="0">
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="E"/>
+						<xsd:enumeration value="I"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+		</xsd:sequence>
+		<xsd:attribute ref="code" use="required"/>
+	</xsd:complexType>
+	<xsd:element name="FinYears">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="FinYear" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Setting">
+		<xsd:complexType>
+			<xsd:attribute name="SettingName" type="xsd:string" use="required"/>
+			<xsd:attribute name="Value"/>
+			<xsd:attribute name="ValueType">
+				<xsd:annotation>
+					<xsd:documentation>0=StringValue,
+1=LongValue,
+2=DoubleValue,
+3=DateValue,
+4=XMLValue,
+5=GuidValue,
+6=BinaryValue</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:integer">
+						<xsd:enumeration value="0"/>
+						<xsd:enumeration value="1"/>
+						<xsd:enumeration value="2"/>
+						<xsd:enumeration value="3"/>
+						<xsd:enumeration value="4"/>
+						<xsd:enumeration value="5"/>
+						<xsd:enumeration value="6"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+			<xsd:attribute name="Legislation" type="xsd:integer"/>
+			<xsd:attribute name="Modules" type="xsd:long"/>
+			<xsd:attribute name="TableName" type="xsd:string"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Settings">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Setting" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Titles">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Title" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:simpleType name="typeVATType">
+		<xsd:restriction base="xsd:token">
+			<xsd:enumeration value="A"/>
+			<xsd:enumeration value="I"/>
+			<xsd:enumeration value="M"/>
+			<xsd:enumeration value="N"/>
+			<xsd:enumeration value="O"/>
+			<xsd:enumeration value="P"/>
+			<xsd:enumeration value="Q"/>
+			<xsd:enumeration value="R"/>
+			<xsd:enumeration value="S"/>
+			<xsd:enumeration value="V"/>
+			<xsd:enumeration value="W"/>
+			<xsd:enumeration value="X"/>
+			<xsd:enumeration value="Y"/>
+			<xsd:enumeration value="Z"/>
+		</xsd:restriction>
+	</xsd:simpleType>
+	<xsd:simpleType name="typeUse">
+		<xsd:restriction base="xsd:token">
+			<xsd:enumeration value="0"/>
+			<xsd:enumeration value="1"/>
+			<xsd:enumeration value="2"/>
+		</xsd:restriction>
+	</xsd:simpleType>
+	<!-- Asset module -->
+	<!-- Asset elements list -->
+	<xsd:element name="Assets">
+		<xsd:annotation>
+			<xsd:documentation>Assets elements list</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Asset" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- Asset group element list -->
+	<xsd:element name="AssetGroups">
+		<xsd:annotation>
+			<xsd:documentation>Asset groups elements list</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="AssetGroup" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- Asset depreciation method element list -->
+	<xsd:element name="DepreciationMethods">
+		<xsd:annotation>
+			<xsd:documentation>Asset depreciation methods elements list</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="DepreciationMethod" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- Asset element -->
+	<xsd:element name="Asset" type="typeAsset"/>
+	<xsd:element name="ParentAsset" type="typeAsset"/>
+	<!-- AssetGroup element -->
+	<xsd:element name="AssetGroup" type="typeAssetGroup"/>
+	<!-- AssetDepreciationMethod element -->
+	<xsd:element name="DepreciationMethod" type="typeDepreciationMethod"/>
+	<xsd:element name="DepreciationInterval">
+		<xsd:annotation>
+			<xsd:documentation>Values P - Period, Y - Year.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:simpleType>
+			<xsd:restriction base="xsd:token">
+				<xsd:enumeration value="P"/>
+				<xsd:enumeration value="Y"/>
+			</xsd:restriction>
+		</xsd:simpleType>
+	</xsd:element>
+	<!-- MatchSets -->
+	<xsd:element name="MatchSets">
+		<xsd:annotation>
+			<xsd:documentation>List of matching definition</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="MatchSet" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- MatchSet -->
+	<xsd:element name="MatchSet">
+		<xsd:annotation>
+			<xsd:documentation>One matching definition. If GLAccount is of type 20 - Accounts receivable or type = 22 - Accounts payable, the Account is mandatory.
+If GLAccount is not of type type 20 - Accounts receivable or type = 22 - Accounts payable, it should see Matching property set to true.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence minOccurs="0">
+				<xsd:element name="GLAccount" type="typeGLAccount"/>
+				<xsd:element name="Account" type="typeAccount" minOccurs="0"/>
+				<xsd:element name="MatchLines">
+					<xsd:annotation>
+						<xsd:documentation>Matching lines enumeration.</xsd:documentation>
+					</xsd:annotation>
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element ref="MatchLine" maxOccurs="unbounded"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="WriteOff" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- MatchLine -->
+	<xsd:element name="MatchLine">
+		<xsd:annotation>
+			<xsd:documentation>One matching line identification. (finyear=Financial year number; finperiod=Financial period number; journal=Journal code; entry=Entry number; amountdc=Amount of the transaction in division currency)</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:attribute name="finyear" type="xsd:integer" use="required"/>
+			<xsd:attribute name="finperiod" type="xsd:integer" use="required"/>
+			<xsd:attribute name="journal" type="xsd:string" use="required"/>
+			<xsd:attribute name="entry" type="xsd:integer" use="required"/>
+			<xsd:attribute name="amountdc" type="xsd:float" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- WriteOff -->
+	<xsd:element name="WriteOff">
+		<xsd:annotation>
+			<xsd:documentation>Action take by the application if the total amount differs from zero. You can specify one of the following types: 0 = None.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="GLAccount" type="typeGLAccount" minOccurs="0"/>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element ref="FinYear" minOccurs="0"/>
+				<xsd:element ref="FinPeriod" minOccurs="0"/>
+				<xsd:element ref="Date" minOccurs="0"/>
+				<xsd:element name="VATCorrection" type="xsd:boolean" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="type" use="required">
+				<xsd:annotation>
+					<xsd:documentation>0 = Balance; 1 = Discount; 3 = PaymentDifference; 4 = ExchangeRateDifference</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:integer">
+						<xsd:enumeration value="0"/>
+						<xsd:enumeration value="1"/>
+						<xsd:enumeration value="3"/>
+						<xsd:enumeration value="4"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- Marketing - Begin -->
+	<xsd:complexType name="ActivitySectorType">
+		<xsd:sequence>
+			<xsd:element ref="Description" minOccurs="0"/>
+			<xsd:element name="Parent" type="ActivitySectorType" minOccurs="0"/>
+		</xsd:sequence>
+		<xsd:attribute name="code" type="xsd:string" use="required"/>
+	</xsd:complexType>
+	<xsd:element name="ActivitySectors">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="ActivitySector" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="ActivitySector">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element name="Parent" type="ActivitySectorType" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" type="xsd:string" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="CompanySizes">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="CompanySize" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="CompanySize">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" type="xsd:string" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="BusinessTypes">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="BusinessType" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="BusinessType">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" type="xsd:string" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- Marketing - end -->
+	<!-- Sales Force Automation - begin -->
+	<xsd:element name="SalesTypes">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="SalesType" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="ReasonCodes">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="ReasonCode" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="LeadSources">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="LeadSource" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="OpportunityStages">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="OpportunityStage" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Opportunities">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Opportunity" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="SalesType">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Active" type="xsd:boolean" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" type="xsd:string" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="ReasonCode">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description"/>
+				<xsd:element name="Type" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Active" type="xsd:boolean" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" type="xsd:string" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="LeadSource">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Active" type="xsd:boolean" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" type="xsd:string" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="OpportunityStage">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="SortOrder" type="xsd:integer" minOccurs="0"/>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element name="Probability" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="ForecastType" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="OpportunityStatus" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="Active" type="xsd:boolean" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" type="xsd:string" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Opportunity">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="Name" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="SalesType" minOccurs="0"/>
+				<xsd:element ref="Account" minOccurs="0"/>
+				<xsd:element name="Owner" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element name="FullName" type="xsd:string" minOccurs="0"/>
+						</xsd:sequence>
+						<xsd:attribute name="username" type="xsd:string" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="Amount" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element name="DefaultCurrency" minOccurs="0">
+								<xsd:complexType>
+									<xsd:attribute name="code" type="xsd:string"/>
+									<xsd:attribute name="value" type="xsd:float" use="required"/>
+								</xsd:complexType>
+							</xsd:element>
+							<xsd:element name="ForeignCurrency" minOccurs="0">
+								<xsd:complexType>
+									<xsd:attribute name="code" type="xsd:string" use="required"/>
+									<xsd:attribute name="value" type="xsd:float" use="required"/>
+									<xsd:attribute name="exchangerate" type="xsd:float"/>
+								</xsd:complexType>
+							</xsd:element>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="OpportunityStage" minOccurs="0"/>
+				<xsd:element name="CloseDate" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="Probability" type="xsd:float" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="ActionDate" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="NextAction" type="xsd:string" minOccurs="0"/>
+				<xsd:element ref="LeadSource" minOccurs="0"/>
+				<xsd:element ref="ReasonCode" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="number" type="xsd:integer" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="LeadStages">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="LeadStage" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="LeadStage">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element name="SortOrder" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="LeadStatus" type="xsd:integer" minOccurs="0"/>
+				<xsd:element name="Active" type="xsd:boolean" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" type="xsd:string" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="LeadRatings">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="LeadRating" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="LeadRating">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Description" minOccurs="0"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Active" type="xsd:boolean" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="code" type="xsd:string" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Leads">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Lead" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="LeadContact">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="FirstName" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="MiddleName" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="LastName" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="FullName" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Initials" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Title" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Gender" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Nationality" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Language" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="BirthDate" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Phone" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="PhoneExtension" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="Mobile" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="E-mail" type="xsd:string" minOccurs="0"/>
+				<xsd:element name="JobTitleDescription" type="xsd:string" minOccurs="0"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Lead">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="LeadContact" minOccurs="0"/>
+				<xsd:element name="General" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element name="LeadStatus" minOccurs="0">
+								<xsd:complexType>
+									<xsd:sequence>
+										<xsd:element name="Description" type="xsd:string" minOccurs="0"/>
+									</xsd:sequence>
+									<xsd:attribute name="ID" type="xsd:integer" use="required"/>
+								</xsd:complexType>
+							</xsd:element>
+							<xsd:element ref="LeadStage" minOccurs="0"/>
+							<xsd:element name="Owner" minOccurs="0">
+								<xsd:complexType>
+									<xsd:sequence minOccurs="0">
+										<xsd:element name="FullName" type="xsd:string" minOccurs="0"/>
+									</xsd:sequence>
+									<xsd:attribute name="username" type="xsd:string" use="required"/>
+								</xsd:complexType>
+							</xsd:element>
+							<xsd:element ref="LeadRating" minOccurs="0"/>
+							<xsd:element ref="LeadSource" minOccurs="0"/>
+							<xsd:element name="Amount" minOccurs="0">
+								<xsd:complexType>
+									<xsd:sequence minOccurs="0">
+										<xsd:element name="DefaultCurrency" minOccurs="0">
+											<xsd:complexType>
+												<xsd:attribute name="code" type="xsd:string"/>
+												<xsd:attribute name="value" type="xsd:float" use="required"/>
+											</xsd:complexType>
+										</xsd:element>
+										<xsd:element name="ForeignCurrency" minOccurs="0">
+											<xsd:complexType>
+												<xsd:attribute name="code" type="xsd:string" use="required"/>
+												<xsd:attribute name="value" type="xsd:float" use="required"/>
+												<xsd:attribute name="exchangerate" type="xsd:float"/>
+											</xsd:complexType>
+										</xsd:element>
+									</xsd:sequence>
+								</xsd:complexType>
+							</xsd:element>
+							<xsd:element name="DueDate" type="xsd:date" minOccurs="0"/>
+							<xsd:element name="CloseDate" type="xsd:date" minOccurs="0"/>
+							<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="Company" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element name="Name" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="Fax" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="Website" type="xsd:string" minOccurs="0"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="VisitAddress" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element name="Line1" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="Line2" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="Line3" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="Postcode" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="City" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="State" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="Country" type="xsd:string" minOccurs="0"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="MailAddress" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element name="Line1" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="Line2" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="Line3" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="Postcode" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="City" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="State" type="xsd:string" minOccurs="0"/>
+							<xsd:element name="Country" type="xsd:string" minOccurs="0"/>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="Account" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element name="Name" type="xsd:string" minOccurs="0"/>
+						</xsd:sequence>
+						<xsd:attribute name="ID" type="xsd:string" use="required"/>
+						<xsd:attribute ref="code" use="optional"/>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element ref="Opportunity" minOccurs="0"/>
+				<xsd:element name="Contact" minOccurs="0">
+					<xsd:complexType>
+						<xsd:sequence minOccurs="0">
+							<xsd:element name="PersonID" type="xsd:string" minOccurs="0"/>
+						</xsd:sequence>
+						<xsd:attribute name="ID" type="xsd:string" use="required"/>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+			<xsd:attribute name="number" type="xsd:integer" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- Sales Force Automation - end -->
+	<!-- Currency - Start-->
+	<xsd:element name="ExchangeRates">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="ExchangeRate" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="ExchangeRate">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="AdministrationCurrency"/>
+				<xsd:element ref="ForeignCurrency"/>
+				<xsd:element ref="Date"/>
+				<xsd:element name="Rate" type="xsd:float"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="AdministrationCurrency" type="xsd:string">
+		<xsd:annotation>
+			<xsd:documentation>
+				This is the default currency of the Administration.
+				Rate will be calculated as (AdministrationCurrency) = (ExchangeRate) * (ForeignCurrency)
+			</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<xsd:element name="ForeignCurrency" type="xsd:string">
+		<xsd:annotation>
+			<xsd:documentation>
+				This is the currency whose value will be calculated in terms of the default currency of the Administration.
+				Rate will be calculated as (AdministrationCurrency) = (ExchangeRate) * (ForeignCurrency)
+			</xsd:documentation>
+		</xsd:annotation>
+	</xsd:element>
+	<!-- Currency - End -->
+	<!-- TimeEntry start-->
+	<xsd:element name="TimeTransaction">
+		<xsd:annotation>
+			<xsd:documentation>Time entries can be used when Project module is in the subscription</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Account" minOccurs="0"/>
+				<xsd:element ref="Date"/>
+				<xsd:element ref="Employee"/>
+				<xsd:element ref="Item"/>
+				<xsd:element ref="Note" minOccurs="0"/>
+				<xsd:element ref="Project" minOccurs="0"/>
+				<xsd:element ref="Quantity"/>
+				<xsd:element name="Price" type="typePrice" minOccurs="0"/>
+				<xsd:element ref="Attachment" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="number" type="xsd:integer" use="optional"/>
+			<xsd:attribute name="status" type="xsd:string" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="TimeTransactions">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="TimeTransaction" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- TimeEntry end-->
+	<!-- CostEntry start-->
+	<xsd:element name="CostTransaction">
+		<xsd:annotation>
+			<xsd:documentation>Time entries can be used when Project module is in the subscription</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Account" minOccurs="0"/>
+				<xsd:element ref="Date"/>
+				<xsd:element ref="Employee"/>
+				<xsd:element ref="Item"/>
+				<xsd:element ref="Note" minOccurs="0"/>
+				<xsd:element ref="Project" minOccurs="0"/>
+				<xsd:element ref="Quantity"/>
+				<xsd:element name="Price" type="typePrice" minOccurs="0"/>
+				<xsd:element ref="Attachment" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute name="number" use="optional">
+				<xsd:annotation>
+					<xsd:documentation>Unique number indentifying the entry</xsd:documentation>
+				</xsd:annotation>
+			</xsd:attribute>
+			<xsd:attribute name="status" type="xsd:string" use="optional"/>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="CostTransactions">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="CostTransaction" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!-- CostEntry end-->
+	<!--Project start -->
+	<xsd:element name="Project">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="Description" type="xsd:string"/>
+				<xsd:element ref="Account" minOccurs="0" maxOccurs="1"/>
+				<xsd:element name="StartDate" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="EndDate" type="xsd:date" minOccurs="0"/>
+				<xsd:element name="ProjectManager" type="typeUser" minOccurs="0" maxOccurs="1"/>
+				<xsd:element name="Notes" type="xsd:string" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required">
+				<xsd:annotation>
+					<xsd:documentation>Unique number indentifying the entry</xsd:documentation>
+				</xsd:annotation>
+			</xsd:attribute>
+			<xsd:attribute name="type" use="optional">
+				<xsd:annotation>
+					<xsd:documentation>1=Campaign, 2=Fixed price, 3=Time and Material, 4=Non billable</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="xsd:token">
+						<xsd:enumeration value="1"/>
+						<xsd:enumeration value="2"/>
+						<xsd:enumeration value="3"/>
+						<xsd:enumeration value="4"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="Projects">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Project" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!--Project end-->
+	<!--SubscriptionType start -->
+	<xsd:element name="SubscriptionTypes">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="SubscriptionType" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="SubscriptionType">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="Description" type="xsd:string"/>
+				<xsd:element name="Active" type="xsd:boolean"/>
+				<xsd:element name="AutomaticProlongation" type="xsd:boolean"/>
+				<xsd:element name="CancellationPeriod" type="TypeSubscriptionPeriod" minOccurs="1"/>
+				<xsd:element name="ExtCancellationPeriod" type="TypeSubscriptionPeriod" minOccurs="1"/>
+				<xsd:element name="SubscriptionPeriod" type="TypeSubscriptionPeriod" minOccurs="1"/>
+				<xsd:element name="ExtSubscriptionPeriod" type="TypeSubscriptionPeriod" minOccurs="1"/>
+				<xsd:element name="SendConfirmation" type="xsd:boolean"/>
+				<xsd:element ref="Note" minOccurs="0"/>
+				<xsd:element ref="SubscriptionLayout" minOccurs="0"/>
+				<xsd:element ref="CoveringLetterLayout" minOccurs="0"/>
+			</xsd:sequence>
+			<xsd:attribute ref="code" use="required">
+				<xsd:annotation>
+					<xsd:documentation>Unique number indentifying the entry</xsd:documentation>
+				</xsd:annotation>
+			</xsd:attribute>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:complexType name="TypeSubscriptionPeriod">
+		<xsd:sequence>
+			<xsd:element name="PeriodUnit" type="xsd:string"/>
+		</xsd:sequence>
+		<xsd:attribute name="period" use="required" type="xsd:integer"/>
+	</xsd:complexType>
+	<xsd:element name="SubscriptionLayout">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Document" maxOccurs="1"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="CoveringLetterLayout">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="Document" maxOccurs="1"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<!--Subscription Type end-->
+	<!--HRMSubscription start -->
+	<xsd:element name="HRMSubscriptions">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element ref="HRMSubscription" maxOccurs="unbounded"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="HRMSubscription">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="GeneralData" type="TypeGeneralData" minOccurs="1" maxOccurs="1"/>
+				<xsd:element name="ContractData" type="TypeContractData" minOccurs="1" maxOccurs="1"/>
+				<xsd:element name="CompanyData" type="TypeCompanyData" minOccurs="1" maxOccurs="1"/>
+				<xsd:element name="PersonalData" type="TypePersonalData" minOccurs="1" maxOccurs="1"/>
+				<xsd:element name="LoginData" type="TypeLoginData" minOccurs="1" maxOccurs="1"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:complexType name="TypeGeneralData">
+		<xsd:sequence>
+			<xsd:element name="PartnerKey" type="xsd:string"/>
+			<xsd:element name="Country" type="xsd:string"/>
+			<xsd:element name="Language" type="xsd:string"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TypeContractData">
+		<xsd:sequence>
+			<xsd:element name="Type" type="xsd:string"/>
+			<xsd:element name="FixedPackage" type="xsd:string"/>
+			<xsd:element name="FixedTerm" type="xsd:string"/>
+			<xsd:element name="ExtraModules" type="xsd:integer"/>
+			<xsd:element name="Template" type="xsd:string"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TypeCompanyData">
+		<xsd:sequence>
+			<xsd:element name="Accountant" type="xsd:string"/>
+			<xsd:element name="Reseller" type="xsd:string"/>
+			<xsd:element name="CompanyName" type="xsd:string"/>
+			<xsd:element name="Address" type="xsd:string"/>
+			<xsd:element name="PostalCode" type="xsd:string"/>
+			<xsd:element name="City" type="xsd:string"/>
+			<xsd:element name="ChamberOfCommerce" type="xsd:string"/>
+			<xsd:element name="PhoneNumber" type="xsd:string"/>
+			<xsd:element name="Website" type="xsd:string"/>
+			<xsd:element name="VATNumber" type="xsd:string"/>
+			<xsd:element name="Email" type="xsd:string"/>
+			<xsd:element name="Bank" type="xsd:string"/>
+			<xsd:element name="BankAccount" type="xsd:string"/>
+			<xsd:element name="BankAccountHolder" type="xsd:string"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TypePersonalData">
+		<xsd:sequence>
+			<xsd:element name="Title" type="xsd:string"/>
+			<xsd:element name="FirstName" type="xsd:string"/>
+			<xsd:element name="MiddleName" type="xsd:string"/>
+			<xsd:element name="LastName" type="xsd:string"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TypeLoginData">
+		<xsd:sequence>
+			<xsd:element name="UserName" type="xsd:string"/>
+			<xsd:element name="Password" type="xsd:string"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<!--HRMSubscription end -->
+</xsd:schema>

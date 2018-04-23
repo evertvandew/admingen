@@ -10,10 +10,11 @@ import json
 from io import StringIO
 from string import Template
 from inspect import signature
-
+import logging
+import logging.handlers
 
 theconfig = {}
-configdir = '.'
+configdir = os.environ.get('CONFDIR', '.')
 
 
 config_parsers = {'.ini': lambda s: ConfigObj(StringIO(s)), '.json': json.loads,
@@ -34,21 +35,32 @@ def set_configdir(p):
     load()
 
 
+def substituteContext(txt):
+    """ Substitute strings in the form $ENVVAR with the contents of this variable in the config """
+    d = os.environ.copy()
+    d.update({'CONFDIR': configdir,
+              'RUNDIR': rundir,
+              'OPSDIR': opsdir,
+              'LOGDIR': logdir})
+
+    j = Template(txt)
+    s = j.safe_substitute(d)
+    return s
+
+
 def parse(fname):
     parser = config_parsers[os.path.splitext(fname)[1]]
     with open(fname) as f:
         # Substitute global variables
         txt = f.read()
-        t = Template(txt)
-        d = os.environ.copy()
-        d['CONFDIR'] = configdir
-        s = t.safe_substitute(d)
+        s = substituteContext(txt)
         return parser(s)
 
 
 def load():
     global theconfig
     for fname in configfiles():
+        logging.info('Loading config file %s'%fname)
         path = os.path.splitext(fname)[0]
         path = os.path.relpath(path, configdir)
         parts = path.split(os.pathsep)
@@ -63,8 +75,10 @@ def load():
 
 
 def testmode():
-    """ We are still developing... """
-    return True
+    """ Test whether we are running deployed or not.
+        When deployed, several environment variables will be set.
+    """
+    return 'PROJECTNAME' not in os.environ
 
 
 def getConfig(path, default=None):
@@ -83,13 +97,30 @@ def fname():
     return n.config
 
 def configtype(cls):
-    """ Decorator that turns a projects specification into a getter for
+    """ Decorator that turns a config specification (dataclass) into a getter for
         accessing the configuration. The configuration is returned as
         an object of type cls.
         The configuration is a singleton. Instantiating it returns the
         one and only configuration object.
+        The config specification is a regular object, but also has the dictionary protocol
     """
+    def asdict(o):
+        if isinstance(o, dict):
+            return o
+        return o.__dict__
     def default_constructor(self, **kwargs):
+        # Include the default values and current values
+        d = cls.__dict__.copy()
+        # Delete any variables starting with __
+        for k in [k for k in d.keys() if k.startswith('__')]:
+            del d[k]
+        # Overwrite with the values given by the called
+        d.update(kwargs)
+        # Substitute values for environment variables
+        txt = json.dumps(d)
+        txt = substituteContext(txt)
+        kwargs = json.loads(txt)
+        # Apply the updated values
         self.__dict__.update(kwargs)
     def convert_types(d):
         """ Ensure the provided configuration set is of the right type """
@@ -103,13 +134,14 @@ def configtype(cls):
                 result[k] = type(original)(v)
         return result
 
+    @staticmethod
     def update(kwargs):
         """ Update the value of the configuration. """
         new_config = cls(**convert_types(kwargs))
         config.__dict__.update(new_config.__dict__)
 
     def factory():
-        """ The function called when a user tries to instantiate the config
+        """ The function called when a user tries to instantiate the tmp
             class. It returns the configuration singleton.
         """
         return config
@@ -124,56 +156,56 @@ def configtype(cls):
     path = cls.__name__.lower().replace('config', '')
     # There may already be values in the config: use them!
     init = theconfig.get(path, {})
-    config = cls(**convert_types(init))
-    # Overwrite any existing config, so it gets the correct type.
+    config = cls(**convert_types(asdict(init)))
+    # Overwrite any existing tmp, so it gets the correct type.
     theconfig[path] = config
 
-    config.update = update
+    cls.update = update
     return factory
 
+projectname = logdir = opsdir = rundir = downloaddir = projdir = rootdir = ''
+
+def load_context():
+    global projectname, logdir, opsdir, rundir, downloaddir, projdir, rootdir
+
+    # Define a number of variables for accessing the file system.
+    # These directories can be set by environment variables, and default to the cwd.
+    # LOGDIR: the directory where log files are to be stored, e.g. /var/log/<project>.
+    # OPSDIR: the directory where operational files are to be stored, such as databases and UNIX sockets
+    #         e.g. /var/lib/<project>
+    # RUNDIR: the context where a program lives, e.g. a HOME directory or /run/<project>.
+    # CONFDIR: the directory where config files live, e.g. /etc/project
+    projectname = os.environ.get('PROJECTNAME', os.path.basename(sys.argv[0]))
+    rootdir = os.environ.get('ROOTDIR') or os.path.abspath(os.path.dirname(__file__)+'/../..')
+    logdir = os.environ.get('LOGDIR') or os.getcwd()
+    opsdir = os.environ.get('OPSDIR') or os.getcwd()
+    rundir = os.environ.get('RUNDIR') or os.getcwd()
+    projdir = os.environ.get('PROJDIR') or rootdir + '/projects/' + projectname
+
+    downloaddir = os.path.join(rundir, 'downloads')
+
+    # TODO: Ensure reload of configuration files
 
 
-logdir = os.environ.get('LOGDIR', '') or os.getcwd()
-opsdir = os.environ.get('OPSDIR', '') or os.getcwd()
-rundir = os.environ.get('RUNDIR', '') or os.getcwd()
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
 
-downloaddir = os.path.join(rundir, 'downloads')
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
 
+    # add ch to logger
+    logger.addHandler(ch)
 
-def test():
-    s = '''# Automatically created by the clamav-freshclam postinst
-# Comments will get lost when you reconfigure the clamav-freshclam package
+    if not testmode():
+        # create file handler and set level to warning
+        logfile = os.path.join(logdir, projectname+'.log')
+        ch = logging.handlers.RotatingFileHandler(logfile, maxBytes=10e6, backupCount=5)
+        ch.setLevel(logging.WARNING)
+        formatter = logging.Formatter('%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+        ch.setFormatter(formatter)
 
-DatabaseOwner clamav
-UpdateLogFile /var/log/clamav/freshclam.log
-LogVerbose false
-LogSyslog false
-LogFacility LOG_LOCAL6
-LogFileMaxSize 0
-LogRotate true
-LogTime true
-Foreground false
-Debug false
-MaxAttempts 5
-DatabaseDirectory /var/lib/clamav
-DNSDatabaseInfo current.cvd.clamav.net
-AllowSupplementaryGroups false
-ConnectTimeout 30
-ReceiveTimeout 30
-TestDatabases yes
-ScriptedUpdates yes
-CompressLocalDatabase no
-SafeBrowsing false
-Bytecode true
-NotifyClamd /etc/clamav/clamd.conf
-# Check for new database 24 times a day
-Checks 24
-DatabaseMirror db.local.clamav.net
-DatabaseMirror database.clamav.net
-'''
-    d = confparser(s)
-    print (d)
+        # add ch to logger
+        logger.addHandler(ch)
 
-
-if __name__ == '__main__':
-    test()
+load_context()

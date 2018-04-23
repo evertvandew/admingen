@@ -2,7 +2,10 @@
 from contextlib import contextmanager
 import time
 import os
+import json
+import datetime
 
+from admingen.dataclasses import dataclass, asdict, is_dataclass
 
 @contextmanager
 def quitter(item):
@@ -40,3 +43,28 @@ def checkExists(dirname):
 
 class EmptyClass:
     pass
+
+
+def isoweekno2day(year:int, week:int, dow:int=0):
+    """ Return the datetime for a specific iso week """
+    # Use the (non-iso) strptime, then correct for the right week.
+    # The strptime week starts at sunday, ISO's at monday.
+    d = datetime.datetime.strptime('%i%i%i'%(year, week, dow+1), '%Y%W%w')
+    details = d.isocalendar()
+    err = week - details[1]
+    return d + datetime.timedelta(7*err, 0)
+
+
+
+class DataJsonEncoder(json.JSONEncoder):
+    def default(self, o):
+        if is_dataclass(o):
+            return asdict(o)
+        return json.JSONEncoder.default(self, o)
+
+
+def dumps(o):
+    return json.dumps(o, cls=DataJsonEncoder)
+
+def loads(s):
+    return json.loads(s)

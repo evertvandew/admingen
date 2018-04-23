@@ -92,6 +92,7 @@ table Urenregel
 week: Weekstaat
 opdracht: Opdracht
 werker: WerkerTarief
+facturen: Set(WeekFactuur)
 ma: float, default=0.0
 di: float, default=0.0
 wo: float, default=0.0
@@ -119,7 +120,13 @@ btw: money
 bruto: money
 nummer: str
 datum: datetime
+weken: Set(WeekFactuur)
 pdf: blob
+.
+
+table WeekFactuur
+week: Weekstaat
+factuur: Factuur
 .
 
 view FactuurDetails

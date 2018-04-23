@@ -2,7 +2,18 @@
 from unittest import TestCase
 
 import cherrypy
-from admingen.htmltools import AnnotationsForm
+from admingen.htmltools import *
+
+
+lorem = '''Lorem ipsum dolor sit amet, consectetur adipiscing elit, 
+sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris 
+nisi ut aliquip ex ea commodo consequat.<BR> 
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum 
+dolore eu fugiat nulla pariatur.<BR>
+Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia 
+deserunt mollit anim id est laborum.'''
+
 
 class HtmlTests(TestCase):
 
@@ -22,7 +33,7 @@ class HtmlTests(TestCase):
                 return 'OK'
 
         # Create the form
-        form = AnnotationsForm(TestClass, validator, success)
+        form = annotationsForm(TestClass, validator, success)
 
         # test the 'GET'
         html = form()
@@ -36,4 +47,8 @@ class HtmlTests(TestCase):
         html = form()
         self.assertEqual(html, 'OK')
 
+    def testCollapsible(self):
+        bodies = [(Title('Collapsible %i'%(i+1)) + lorem) for i in range(3)]
+        headers = [Title('Header %i'%(i+1), 'H4') for i, _ in enumerate(bodies)]
+        print (Page(Collapsibles(bodies, headers)()))
 

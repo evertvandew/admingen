@@ -1,0 +1,9 @@
+div.required label:before {
+  font-family: 'FontAwesome';
+  content: '\f069';
+  font-size: 9px;
+  padding-right: 5px;
+  font-weight: normal;
+  color: #f00;
+  line-height: 16px;
+}

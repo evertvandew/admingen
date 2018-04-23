@@ -1,0 +1,216 @@
+#!/usr/bin/env dslrunner
+
+
+
+fsm Opdracht
+[*] --> Aanvraag
+Aanvraag --> Offerte : send
+Offerte --> Aanvraag : reject
+Offerte --> Lopend : accept
+Lopend --> [*] : finish
+.
+
+fsm Factuur
+[*] --> Test
+Test --> Opgehouden : not FactuurReady
+Test --> Review : FactuurReady
+Opgehouden --> Review : FactuurReady
+Review --> Verstuurd : send
+Verstuurd --> Mislukt : senderror
+Mislukt --> Verstuurd : send
+Verstuurd, TeLaat, VeelTeLaat --> Voldaan : payed
+Verstuurd --> TeLaat : now - factuur.verstuurd > 30d
+TeLaat --> VeelTeLaat : now - factuur.verstuurd > 30d
+VeelTeLaat --> [*] : FactuurAfgeschreven
+Voldaan --> [*]  : FactuurOpruimen
+.
+
+fsm Weekstaat
+[*] --> Open
+Open --> Open : add Urenstaat
+Open --> Gesloten : close
+Gesloten --> Goedgekeurd : approve
+Gesloten --> Open : reject
+Goedgekeurd --> Gefactureerd : send
+Gefactureerd --> [*]
+.
+
+
+action Weekstaat.Goedgekeurd.entry:
+    for regel in self.uren:
+        template = regel.opdracht.weekstaat_template or regel.opdracht.opdrachtgever.weekstaat_template
+        regel.staat = render(template,
+                             'xls',
+                             staat=regel,
+                             total=sum([regel.ma, regel.di, regel.wo, regel.do, regel.vr, regel.za, regel.zo]))
+        mail = render(user.organisatie.weekstaatmail,
+                      to=[regel.opdracht.opdrachtgever.contactpersoon.email, regel.werker.werker.email],
+                      from=user.organisatie.email,
+                      subject='Urenstaat %s week %s'%(regel.werker.werker.naam, regel.week.weeknr),
+                      attachment=regel.staat)
+        send_email(mail)
+.
+
+action Factuur.Review.entry:
+    # Calculate the principal details for the factuur, from the hour sheets in the database
+    details = FactuurDetails(factuur=self)
+    self.set(uren=details.total_uren,
+             netto=total_uren*factuur.werker.tarief,
+             btw=Decimal('0.21')*total_uren*factuur.werker.tarief,
+             bruto=Decimal('1.21') * total_uren * factuur.werker.tarief,
+             datum=datetime.datetime.now())
+
+    # Generate the factuur and store it in the database
+    self.pdf = render(user.organisation.factuur_template,
+                      weeks=details.weeks,
+                      total_uren=details.total_uren,
+                      factuur=self,
+                      werker=self.werker.werker)
+.
+
+action Factuur.Verstuurd.entry:
+    # Send the factuur to both the opdrachtgever and the own organisation
+    mail = render(user.organisation.factuurmail,
+                  to=[regel.opdracht.opdrachtgever.contactpersoon.email, regel.werker.werker.email],
+                  from=user.organisatie.email,
+                  subject='Factuur periode %s'%(self.periode.strftime('%b %Y'),
+                  attachment=self.pdf)
+    send_email(mail)
+.
+
+
+table Persoon
+naam: str
+email: email
+telefoon: telefoonnr
+werkgevers: Klant
+.
+
+table Organisation
+    weekstaatmail: text
+    factuurmail: text
+    offertemail: text
+    factuur_template: blob
+    email: email
+.
+
+table Werker
+naam: str
+email: email
+standaardtarief: money
+sofinr: str
+inzet : Set(WerkerTarief)
+.
+
+
+table WerkerTarief
+werker: Werker
+opdracht: Opdracht
+tarief: money
+uren: Set(Urenregel)
+facturen: Set(Factuur)
+.
+
+table Adres
+straat_nummer: str
+postcode: str
+plaats: str
+land: str
+gevestigde: Klant
+.
+
+table Klant
+naam: str
+adres: Adres
+contactpersoon: Persoon
+projecten: Set(Opdracht)
+weekstaat_template: blob
+.
+
+table Opdracht
+naam: str
+omschrijving: str
+start: date
+end: date
+ref: str
+opdrachtgever: Klant
+state: StateVariable(Opdracht)
+werkers: Set(WerkerTarief)
+uren: Set(Urenregel)
+facturen: Set(Factuur)
+pdf: blob
+weekstaat_template: blob
+.
+
+table Urenregel
+week: Weekstaat
+opdracht: Opdracht
+werker: WerkerTarief
+facturen: Set(WeekFactuur)
+ma: float, default=0.0
+di: float, default=0.0
+wo: float, default=0.0
+do: float, default=0.0
+vr: float, default=0.0
+za: float, default=0.0
+zo: float, default=0.0
+staat: blob
+.
+
+table Weekstaat
+weeknr: int
+jaar: int
+start: datetime
+eind: datetime
+state: StateVariable(Weekstaat)
+uren: Set(Urenregel)
+facturen: Set(WeekFactuur)
+.
+
+table Factuur
+opdracht: Opdracht
+werker: WerkerTarief
+periode: datetime
+uren: float
+netto: money
+btw: money
+bruto: money
+nummer: str
+datum: datetime
+state: StateVariable(Factuur)
+weken: Set(WeekFactuur)
+pdf: blob
+.
+
+table WeekFactuur
+week: Weekstaat
+factuur: Factuur
+uren: Urenregel
+.
+
+view FactuurDetails
+factuur: Factuur
+nr_days: calendar.monthrange(factuur.periode.year(), factuur.periode.month())[1]
+start: factuur.periode
+end: start + timedelta(nr_days, 0)
+_weeks: [w for w in Weekstaat if (w.start+timedelta(4)) >= start and w.start < end)]
+_week_filter: {w.id:[(start <= d < end) for d in [w.start+timedelta(i) for i in range(7)]] for w in weeks}
+_lines: [(w.weeknr, l) for w in weeks for l in w.uren if l.werker==factuur.werker and l.opdracht==factuur.opdracht]
+_lines2: [(w, [getattr[l, d] for d in ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']]) for w, l in lines]
+_lines_filtered: [(w, [a*b for a,b in zip(l, week_filter[w])]) for w, l in lines2]
+weeks: [{'nr': w, 'days': d, 'all': sum(d)} for w, d in _lines_filtered]
+total_uren: sum(u for w,l in _lines_filtered for u in l)
+.
+
+rules Opdracht
+Offerte: Constant(opdrachtgever.contactpersoon.email, pdf)
+.
+
+rules Factuur
+Verstuurd, TeLaat, VeelTeLaat, Voldaan: Constant(*)
+Verstuurd, TeLaat, VeelTeLaat: Constant(opdracht.opdrachtgever.email)
+.
+
+rules Weekstaat
+Gesloten, Goedgekeurd, Gefactureerd : Constant(*)
+.

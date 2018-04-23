@@ -115,6 +115,9 @@ venv.bak/
 *.bak
 *.sock    # UNIX domain sockets
 
+# tmp directories, e.g. used to store test results
+tmp/
+
 # Temporarily ignore the paypal sdk
 src/paypalrestsdk
 /test/2017001101-Aanpassingen voor uitrol in station Neckerspoel.fodt
