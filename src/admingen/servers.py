@@ -17,6 +17,7 @@ from .appengine import ApplicationModel
 from .db_api import the_db, sessionScope, DbTable, select, delete, Required, Set, commit, orm
 
 
+
 # TODO: implement checking the parameters in a unix server message
 
 class UnknownMessage(RuntimeError): pass
@@ -69,6 +70,7 @@ def mkUnixServer(context, path, loop=None):
             except (SyntaxError, FormatError, json.decoder.JSONDecodeError):
                 reply = [400, 'Could not decode message']
             except Exception as e:
+                logging.exception('Server exception')
                 reply = [500, [e.__class__.__name__, str(e)]]
 
             logging.debug('Writing reply: %s'%reply)
@@ -90,8 +92,23 @@ def unixproxy(cls, path):
 
     class Proxy:
         def __init__(self):
-            sock = socket.socket(socket.AF_UNIX)
+            self.buf = b''
+            self.sock = None
+            self._connect
+
+        def __del__(self):
+            logging.debug('Closing proxy socket')
             self.connected = False
+            self.sock.close()
+
+        def _connect(self):
+            if self.sock is not None:
+                try:
+                    self.sock.close()
+                except:
+                    pass
+            self.connected = False
+            sock = socket.socket(socket.AF_UNIX)
             while not self.connected:
                 try:
                     sock.connect(path)
@@ -101,12 +118,7 @@ def unixproxy(cls, path):
                     time.sleep(0.1)
 
             self.sock = sock
-            self.buf = b''
 
-        def __del__(self):
-            logging.debug('Closing proxy socket')
-            self.connected = False
-            self.sock.close()
 
         def _read_line(self):
             assert self.connected
@@ -118,6 +130,9 @@ def unixproxy(cls, path):
                     return msg
                 d = self.sock.recv(1024)
                 logging.debug('Proxy received data: %s'%d)
+                if not d:
+                    self.sock.close()
+                    self.connect()
                 self.buf += d
 
         def _add_service(self, name):
@@ -267,3 +282,4 @@ def run_model(model: ApplicationModel):
         print ('Counts:', counts)
 
     html.runServer(ApplicationServer)
+

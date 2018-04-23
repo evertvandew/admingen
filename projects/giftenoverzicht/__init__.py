@@ -1,14 +1,4 @@
 #!/usr/local/bin/python3.6
-"""
-
-Security features:
-  * A valid exact token is required to download the overzicht PDF files.
-  * Exctracting financial information and generating reports requires a valid exact token
-    associated with this app.
-  * Sessions are stored on the server, and can not be modified directly by users.
-  * The session contains the administration the user has selected.
-
-"""
 import smtplib
 import markdown
 import shutil
@@ -43,7 +33,7 @@ from .model import SystemStates
 # FIXME: store financial details in encrypted files.
 # FIXME: store smtp login details in keychain, unlocked with in-process password
 # FIXME: add a delay to downloading an overview to defeat brute-force attacks
-# FIXME: set the allowed administrations in the user session, and check it has access to the one it chooses.
+# FIXME: require a login to download overzichten
 
 # FIXME: smtp host selectie in organisaties laat geen dropdown menu zien.
 

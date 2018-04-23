@@ -35,15 +35,25 @@ def set_configdir(p):
     load()
 
 
+def substituteContext(txt):
+    """ Substitute strings in the form $ENVVAR with the contents of this variable in the config """
+    d = os.environ.copy()
+    d.update({'CONFDIR': configdir,
+              'RUNDIR': rundir,
+              'OPSDIR': opsdir,
+              'LOGDIR': logdir})
+
+    j = Template(txt)
+    s = j.safe_substitute(d)
+    return s
+
+
 def parse(fname):
     parser = config_parsers[os.path.splitext(fname)[1]]
     with open(fname) as f:
         # Substitute global variables
         txt = f.read()
-        t = Template(txt)
-        d = os.environ.copy()
-        d['CONFDIR'] = configdir
-        s = t.safe_substitute(d)
+        s = substituteContext(txt)
         return parser(s)
 
 
@@ -99,6 +109,18 @@ def configtype(cls):
             return o
         return o.__dict__
     def default_constructor(self, **kwargs):
+        # Include the default values and current values
+        d = cls.__dict__.copy()
+        # Delete any variables starting with __
+        for k in [k for k in d.keys() if k.startswith('__')]:
+            del d[k]
+        # Overwrite with the values given by the called
+        d.update(kwargs)
+        # Substitute values for environment variables
+        txt = json.dumps(d)
+        txt = substituteContext(txt)
+        kwargs = json.loads(txt)
+        # Apply the updated values
         self.__dict__.update(kwargs)
     def convert_types(d):
         """ Ensure the provided configuration set is of the right type """
@@ -141,10 +163,10 @@ def configtype(cls):
     cls.update = update
     return factory
 
-projectname = logdir = opsdir = rundir = downloaddir = ''
+projectname = logdir = opsdir = rundir = downloaddir = projdir = rootdir = ''
 
 def load_context():
-    global projectname, logdir, opsdir, rundir, downloaddir
+    global projectname, logdir, opsdir, rundir, downloaddir, projdir, rootdir
 
     # Define a number of variables for accessing the file system.
     # These directories can be set by environment variables, and default to the cwd.
@@ -154,9 +176,11 @@ def load_context():
     # RUNDIR: the context where a program lives, e.g. a HOME directory or /run/<project>.
     # CONFDIR: the directory where config files live, e.g. /etc/project
     projectname = os.environ.get('PROJECTNAME', os.path.basename(sys.argv[0]))
-    logdir = os.environ.get('LOGDIR', '') or os.getcwd()
-    opsdir = os.environ.get('OPSDIR', '') or os.getcwd()
-    rundir = os.environ.get('RUNDIR', '') or os.getcwd()
+    rootdir = os.environ.get('ROOTDIR') or os.path.abspath(os.path.dirname(__file__)+'/../..')
+    logdir = os.environ.get('LOGDIR') or os.getcwd()
+    opsdir = os.environ.get('OPSDIR') or os.getcwd()
+    rundir = os.environ.get('RUNDIR') or os.getcwd()
+    projdir = os.environ.get('PROJDIR') or rootdir + '/projects/' + projectname
 
     downloaddir = os.path.join(rundir, 'downloads')
 

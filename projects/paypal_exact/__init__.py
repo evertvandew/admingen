@@ -25,9 +25,10 @@ from admingen.servers import unixproxy, ServerError
 from admingen import config
 from admingen.htmltools import *
 from admingen.keyring import DecodeError
-from admingen.db_api import fields, the_db
+from admingen.db_api import fields, the_db, openDb
 
-from paypal_exact.worker import Worker, PaypalExactTask, Task, TaskDetails, WorkerConfig, appconfig
+from paypal_exact.worker import PaypalExactTask, paypal_export_config
+from admingen.worker import Worker, Task, TaskDetails, appconfig
 
 
 def taskdetails_editor(base):
@@ -151,15 +152,16 @@ class TaskHandler:
 def production_worker():
     """ Runs the worker in a separate process """
     # We need to start the database directly
-    details = urlparse(appconfig.database)
-    the_db.bind(provider=details.scheme, filename=details.netloc, create_db=True)
-    the_db.generate_mapping(create_tables=True)
+    logging.debug('Opening application database %s'%appconfig.database)
+    openDb(appconfig.database, create=True)
 
     # Run the worker and create a proxy to it
-    home = os.path.dirname(__file__)
+    home = config.projdir
 
-    p = subprocess.Popen(['/usr/bin/env', 'python3.6', 'worker.py'], cwd=home)
-    worker = unixproxy(Worker, Worker.sockname())
+    logging.debug('starting worker in %s'%home)
+    #p = subprocess.Popen(['/usr/bin/env', 'python3.6', 'worker.py'], cwd=home)
+    WorkerCls = Worker(PaypalExactTask)
+    worker = unixproxy(WorkerCls, WorkerCls.sockname())
     TaskHandler.worker = worker
 
     # let the worker run
@@ -176,11 +178,11 @@ def production_worker():
             p.terminate()
         p.wait()
 
+
 @contextmanager
 def test_worker():
     # We need to start the database directly
-    the_db.bind(provider='sqlite', filename=':memory:', create_db=True)
-    the_db.generate_mapping(create_tables=True)
+    openDb('sqlite://:memory:', create=True)
 
     # Just make the worker proxy the actual worker
     worker = Worker()
@@ -191,6 +193,9 @@ def test_worker():
 @contextmanager
 def threaded_worker():
     """ Runs the worker in a separate thread, to test the server mechanisms """
+    # We need to start the database directly
+    openDb('sqlite://:memory:', create=True)
+
     th = threading.Thread(target=Worker.run)
     th.setDaemon(True)
     th.start()

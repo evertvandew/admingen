@@ -18,20 +18,19 @@ from typing import List, Tuple, Dict, Any
 import re
 import threading
 
-import paypalrestsdk
-from paypalrestsdk.payments import Payment
 from admingen.servers import mkUnixServer, Message, expose, serialize, deserialize, update
-from admingen.keyring import KeyRing
-from admingen.email import sendmail
 from admingen import config
 from admingen.logging import log_exceptions
-from admingen.clients.rest import OAuth2
-from admingen.clients.paypal import downloadTransactions, pp_reader, PPTransactionDetails, PaypalSecrets
+from admingen.clients.paypal import (downloadTransactions, pp_reader, PPTransactionDetails,
+                                     PaypalSecrets, DataRanges)
 from admingen.clients import zeke
+from admingen.clients.rest import refreshToken, loginOAuth, OAuthError
+from admingen.clients.exact_xml import uploadTransactions
 from admingen import logging
-from admingen.db_api import the_db, sessionScope, DbTable, select, delete, Required, Set, commit
+from admingen.db_api import the_db, sessionScope, DbTable, select, Required, Set, openDb, orm
 from admingen.international import SalesType, PP_EU_COUNTRY_CODES
 from admingen.dataclasses import dataclass, fields, asdict
+from admingen.worker import Worker
 
 
 @Message
@@ -47,29 +46,8 @@ class ExactSecrets:
     administration: int
     client_id: str
     client_secret: str
-    client_token: str
-
-@config.configtype
-class paypal_export_config:
-    adminmail='evert.vandewaal@xs4all.nl'
-    appname='Paypal Exporter'
-    keyring='paypalreaderring.enc'
-    readersock='paypalreader.sock'
-    database='sqlite://$OPSDIR/transaction_cache.db'
-
-
-
-appconfig = paypal_export_config()
-
-bootmail = '''I have restarted, and need my keyring unlocked!
-
-Your faithful servant, {appconfig.appname}'''
-
-if False:
-    # First let the maintainer know we are WAITING!
-    sendmail(config['adminmail'], config['selfmail'],
-             'Waiting for action',
-             bootmail % config['appname'])
+    username: str
+    password: str
 
 @dataclass
 class ExactTransactionLine:
@@ -77,6 +55,7 @@ class ExactTransactionLine:
     GLType: int
     Description: str
     Amount: Decimal
+    Currency: str
     ForeignAmount: Decimal
     ForeignCurrency: str
     ConversionRate: Decimal
@@ -90,7 +69,7 @@ class ExactTransaction:
     closingbalance: Decimal
 
 @dataclass
-class WorkerConfig:
+class paypal_export_config:
     ledger: str
     costs_account: str
     pp_account: str
@@ -104,6 +83,7 @@ class WorkerConfig:
     purchase_account_world: str
     pp_kruispost: str
     vat_account: str
+    currency: str
 
 
 # Create a cache for storing the details of earlier transactions
@@ -114,6 +94,12 @@ class TransactionLog:
     vat_percent : Decimal
     pp_username : Required(str, index=True)
     account: int
+
+# Keep track of when transactions were last retrieved from PayPal
+@DbTable
+class PaypalExchangeLog:
+    task_id: int
+    timestamp: datetime.datetime
 
 
 # TODO: Periodically clean up the cache
@@ -177,13 +163,21 @@ LineTemplate = '''            <GLTransactionLine type="40" line="{linenr}" statu
                 {additional}
                 <Description>{Description}</Description>
                 <Amount>
-                    <Currency code="EUR" />
+                    <Currency code="{Currency}" />
                     <Value>{Amount}</Value>
                 </Amount>
+            </GLTransactionLine>'''
+
+ForeignLineTemplate = '''            <GLTransactionLine type="40" line="{linenr}" status="20">
+                <Date>{date}</Date>
+                <FinYear number="{year}" />
+                <FinPeriod number="{period}" />
+                <GLAccount code="{GLAccount}" type="{GLType}" />
+                {additional}
+                <Description>{Description}</Description>
                 <ForeignAmount>
-                    <Currency code="EUR" />
+                    <Currency code="{Currency}" />
                     <Value>{Amount}</Value>
-                    <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>'''
 
@@ -194,6 +188,8 @@ def generateExactLine(transaction: ExactTransaction, line: ExactTransactionLine,
     date = transaction.date.strftime('%Y-%m-%d')
     year = transaction.date.strftime('%Y')
     period = transaction.date.strftime('%m')
+    if line.ForeignCurrency != 'EUR' or line.Currency != 'EUR':
+        return ForeignLineTemplate.format(**locals(), **asdict(line))
     return LineTemplate.format(**locals(), **asdict(line))
 
 
@@ -218,8 +214,8 @@ def generateExactTransaction(transaction: ExactTransaction):
 
 
 def generateExactTransactionsFile(transactions: List[ExactTransaction]):
-    transactions = [generateExactTransaction(t) for t in transactions]
-    return FileTemplate.format(transactions = '\n'.join(transactions))
+    transactions_xml = [generateExactTransaction(t) for t in transactions]
+    return FileTemplate.format(transactions = '\n'.join(transactions_xml))
 
 
 # In PayPal, the order_nr has a strange string prepended ('papa xxxx')
@@ -237,11 +233,27 @@ def zeke_classifier(transaction: PPTransactionDetails):
 
 class PaypalExactTask:
     """ Produce exact transactions based on the PayPal transactions """
-    config: [WorkerConfig, zeke.ZekeDetails]
-    secrets: [ExactSecrets, PaypalSecrets, zeke.ZekeSecrets]
+    config: [paypal_export_config]
+    optional_config: [zeke.ZekeDetails]
+    secrets: [ExactSecrets, PaypalSecrets]
+    optional_secrets: [zeke.ZekeSecrets]
 
-    def __init__(self, config, secrets):
-        self.pp_login, self.config, self.exact_token = pp_login, config, exact_token
+    def __init__(self, task_id, config_details, secrets):
+        self.task_id = task_id
+        self.exact_secrets: ExactSecrets = secrets[0]
+        self.pp_login: paypallogin = secrets[1]
+        self.token = None
+        # TODO: Handle the optional secrets
+        self.config: paypal_export_config = config_details if isinstance(config_details, paypal_export_config) \
+            else config_details[0]
+
+        self.classifier = None
+        if isinstance(config_details, list) and len(config_details) > 1:
+            for option in config_details[1:]:
+                if isinstance(option, zeke.ZekeDetails):
+                    self.classifier = zeke.classifySale
+
+        # TODO: Handle the optional configuration
         self.sale_accounts = {SalesType.Local: self.config.sale_account_nl,
                               SalesType.EU_private: self.config.sale_account_eu_vat,
                               SalesType.EU_ICP: self.config.sale_account_eu_no_vat,
@@ -257,8 +269,17 @@ class PaypalExactTask:
                                 SalesType.EU_ICP: Decimal('0.00'),
                                 SalesType.Other: Decimal('0.00'),
                                 SalesType.Unknown: Decimal('0.21')}
-        self.classifier = classifier
-        self.pp_username = pp_login[0]
+
+        self.pp_username = self.pp_login.username
+
+        with sessionScope():
+            q = select(t.timestamp for t in PaypalExchangeLog if t.task_id==task_id).order_by(lambda: orm.desc(t.timestamp))
+            self.last_run = q.first()
+
+        # Ensure the download directory exists
+        if not os.path.exists(config.downloaddir):
+            os.mkdir(config.downloaddir)
+
 
     def classifyTransaction(self, transaction: PPTransactionDetails):
         """ Classify a transaction to determine account and VAT percentage """
@@ -283,18 +304,22 @@ class PaypalExactTask:
     def determineAccountVat(self, transaction: PPTransactionDetails):
         """ Determine the grootboeken to be used for a specific transaction """
 
-        if transaction.Type == 'Algemene opname':
+        if transaction.Type == 'Algemene opname' or 'withdrawl' in transaction.Type:
             # A bank withdrawl goes directly to the kruispost
             return self.config.pp_kruispost, Decimal('0.00')
 
         # Determine if the transaction is within the Netherlands, the EU or the world.
         region = self.classifyTransaction(transaction)
-
-        # Sales with an unknown region are parked on the kruispost
-        if region == SalesType.Unknown and transaction.Net > 0:
-            return self.config.pp_kruispost, Decimal('0.00')
-
         accounts = self.sale_accounts if transaction.Net > 0 else self.purchase_accounts
+
+        if region == SalesType.Unknown:
+            if transaction.Valuta != 'EUR':
+                # non-euro transactions are assumed to be outside the EU
+                return accounts[SalesType.Other], self.vat_percentages[SalesType.Other]
+            if transaction.Net > 0:
+                # Sales with an unknown region are parked on the kruispost
+                return self.config.pp_kruispost, Decimal('0.00')
+
         if transaction.ReferenceTxnID:
             # This is related to another payment, in almost all cases a return of a previous payment
             # If available, use the details from the previous transaction
@@ -324,7 +349,7 @@ class PaypalExactTask:
                  ]
         return ' '.join(parts)
 
-    def make_transaction(self, transaction: PPTransactionDetails, rate=1):
+    def make_transaction(self, transaction: PPTransactionDetails, rate=1) -> ExactTransaction:
         """ Translate a PayPal transaction into a set of Exact bookings
             :param rate: euro_amount / foreign_amount
 
@@ -364,21 +389,21 @@ class PaypalExactTask:
                 comment = 'BTW kosten ' + base_comment
                 lines.append((self.config.vat_account, GLAccountTypes.General,
                              comment,
-                             -vat_costs_euro, -vat_costs, foreign_valuta, rate,
+                             -vat_costs_euro, self.config.currency, -vat_costs, foreign_valuta, rate,
                              '<GLOffset code="%s" />'%self.config.pp_account))
                 lines.append((self.config.pp_account, GLAccountTypes.Bank,
                               comment,
-                              vat_costs_euro, vat_costs, foreign_valuta, rate,
+                              vat_costs_euro, self.config.currency, vat_costs, foreign_valuta, rate,
                               ''))
             # The actual fee
             comment = 'Kosten ' + base_comment
             lines.append((self.config.costs_account, GLAccountTypes.SalesMarketingGeneralExpenses,
                          comment,
-                          -net_costs_euro, -net_costs, foreign_valuta, rate,
+                          -net_costs_euro, self.config.currency, -net_costs, foreign_valuta, rate,
                          '<GLOffset code="%s" />'%self.config.pp_account))
             lines.append((self.config.pp_account, GLAccountTypes.Bank,
                           comment,
-                          net_costs_euro, net_costs, foreign_valuta, rate,
+                          net_costs_euro, self.config.currency, net_costs, foreign_valuta, rate,
                           ''))
 
         # Here, the difference between Net and Gross is the taxes to be deducted.
@@ -405,11 +430,11 @@ class PaypalExactTask:
         comment = base_comment
         lines.append((gb_sales, GLAccountTypes.Revenue,
                          comment,
-                      -net_euro, -net, foreign_valuta, rate,
+                      -net_euro, self.config.currency, -net, foreign_valuta, rate,
                          '<GLOffset code="%s" />'%self.config.pp_account))
         lines.append((self.config.pp_account, GLAccountTypes.Bank,
                          comment,
-                      net_euro, net, foreign_valuta, rate,
+                      net_euro, self.config.currency, net, foreign_valuta, rate,
                          ''))
 
         # The VAT over the sale
@@ -417,11 +442,11 @@ class PaypalExactTask:
             comment = 'BTW ' + base_comment
             lines.append((self.config.vat_account, GLAccountTypes.General,
                           comment,
-                          -vat_euro, -vat, foreign_valuta, rate,
+                          -vat_euro, self.config.currency, -vat, foreign_valuta, rate,
                              '<GLOffset code="%s" />'%self.config.pp_account))
             lines.append((self.config.pp_account, GLAccountTypes.Bank,
                           comment,
-                          vat_euro, vat, foreign_valuta, rate,
+                          vat_euro, self.config.currency, vat, foreign_valuta, rate,
                              ''))
 
         lines = [ExactTransactionLine(*l) for l in lines]
@@ -433,20 +458,20 @@ class PaypalExactTask:
     def make_foreign_transaction(self, transactions: List[PPTransactionDetails]):
         # Get the details from the original transaction
         sale:PPTransactionDetails = next(t for t in transactions if
-                    t.Type != 'Algemeen valutaomrekening' and t.Valuta != 'EUR')
-        euro_details:PPTransactionDetails = next(t for t in transactions if
-                            t.Type == 'Algemeen valutaomrekening' and t.Valuta == 'EUR')
+                    t.Type != 'Algemeen valutaomrekening' and t.Valuta != self.config.currency)
+        valuta_details:PPTransactionDetails = next(t for t in transactions if
+                            t.Type == 'Algemeen valutaomrekening' and t.Valuta == self.config.currency)
         foreign_details:PPTransactionDetails = next(t for t in transactions if
-                               t.Type == 'Algemeen valutaomrekening' and t.Valuta != 'EUR')
+                               t.Type == 'Algemeen valutaomrekening' and t.Valuta != self.config.currency)
         # Check the right transactions were found
-        assert euro_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
+        assert valuta_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
         assert foreign_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
 
         # Paypal converts the net amount of foreign money into the gross amount of local money
-        rate = (euro_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
+        rate = (valuta_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
 
         exact_transaction = self.make_transaction(sale, rate)
-        exact_transaction.closingbalance = euro_details.Saldo
+        exact_transaction.closingbalance = valuta_details.Saldo
 
         # Check if an extra line is necessary to handle any left-over foreign species
         # This happens (very rarly), probably due to bugs at PayPal.
@@ -457,11 +482,11 @@ class PaypalExactTask:
             foreign_valuta = sale.Valuta
             lines = [(self.config.pp_kruispost, GLAccountTypes.General,
                          comment,
-                      diff_euros, diff, foreign_valuta, rate,
+                      diff_euros, self.config.currency, diff, foreign_valuta, rate,
                          '<GLOffset code="%s" />'%self.config.pp_account),
                      (self.config.pp_account, GLAccountTypes.Bank,
                       comment,
-                      -diff_euros, -diff, foreign_valuta, rate,
+                      -diff_euros, self.config.currency, -diff, foreign_valuta, rate,
                       '')
                      ]
             exact_transaction.lines.extend([ExactTransactionLine(*l) for l in lines])
@@ -470,6 +495,7 @@ class PaypalExactTask:
         return exact_transaction
 
     def detailsGenerator(self, fname):
+        """ Generator that reads a list of PayPal transactions, and yields ExactTransactions """
         conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
         try:
             # Download the PayPal Transactions
@@ -479,9 +505,15 @@ class PaypalExactTask:
                 # Skip memo transactions.
                 if transaction.Effectopsaldo.lower() == 'memo':
                     continue
-                if transaction.Type == 'Algemeen valutaomrekening' or transaction.Valuta != 'EUR':
+                if transaction.Type == 'Algemeen valutaomrekening' or \
+                   transaction.Valuta != self.config.currency:
                     # We need to compress the next three transactions into a single, foreign valuta one.
-                    ref = transaction.ReferenceTxnID or transaction.Transactiereferentie
+                    # The actual transaction is NOT a conversion and is in foreign valuta.
+                    # The two conversions refer to this transaction
+                    if transaction.Type != 'Algemeen valutaomrekening':
+                        ref = transaction.Transactiereferentie
+                    else:
+                        ref = transaction.ReferenceTxnID
                     txs = conversions_stack.setdefault(ref, [])
                     txs.append(transaction)
                     if len(txs) == 3:
@@ -496,149 +528,53 @@ class PaypalExactTask:
             raise
 
     @log_exceptions
-    def run(self):
+    def run(self, period: DataRanges=DataRanges.Yesterday):
         """ The actual worker. Loads the transactions for yesterday and processes them """
-        # First retrieve all necessary passwords from the keychain
-        self.pp_login.password
-        pp_details = downloadTransactions(*self.pp_login)
-        zeke_details = zeke.loadTransactions()
-        xml_lines = [generateExactTransaction(details) for details in self.detailsGenerator(fname)]
+        print ('RUNNING')
+
+        # Load the transaction from PayPal
+        fname = '/home/ehwaal/admingen/downloads/Download (1).CSV'
+        #fname = downloadTransactions(self.pp_login, period)
+        logging.info('Processing transactions from %s'%os.path.abspath(fname))
+        #zeke_details = zeke.loadTransactions()
+        transactions: List[ExactTransaction] = list(self.detailsGenerator(fname))
+        xml = generateExactTransactionsFile(transactions)
+        fname = 'exact_transactions.xml'
+        with open(fname, 'w') as of:
+            of.write(xml)
+
+        total = sum(sum(l.Amount for l in t.lines if l.GLAccount==self.config.pp_account)
+                    for t in transactions)
+        logging.info('Written exact transactions to %s: %s\t%s'%(os.path.abspath(fname), len(transactions), total))
 
         # Upload the XML to Exact
+        # First get a fresh token
+        try:
+            if self.token:
+                # Do we need a new token?
+                if time.time() - self.token['birth'] + 30 > int(self.token['expires_in']):
+                    self.token = refreshToken(self.token,
+                                              self.exact_secrets.client_id,
+                                              self.exact_secrets.client_secret,
+                                              'http://localhost:13957')
+        except OAuthError:
+            self.token = None
 
+        if not self.token:
+            self.token = loginOAuth(self.exact_secrets.username,
+                                    self.exact_secrets.password,
+                                    self.exact_secrets.client_id,
+                                    self.exact_secrets.client_secret,
+                                    'http://localhost:13957')
+        uploadTransactions(self.token, self.exact_secrets.administration, self.fname)
 
-@DbTable
-class Task:
-    name: str
-    schedule: str
-    details: Set('TaskDetails')
-
-
-@DbTable
-class TaskDetails:
-    task : Task
-    component: str
-    settings: str
-
-
-class Worker:
-    keyring = None
-    exact_token = None
-    oauth = None
-
-    @staticmethod
-    def sockname():
-        return os.path.join(config.opsdir, appconfig.readersock)
-
-    @staticmethod
-    def keyringname():
-        return os.path.join(config.opsdir, appconfig.keyring)
-
-    @staticmethod
-    def secret_key(task_id, secret_cls):
-        return 'task{}_{}'.format(task_id, secret_cls.__name__)
-
-    def __init__(self, cls=PaypalExactTask):
-        self.cls = cls
-        self.keyring = None
-        self.tasks = {}
-        self.errors = {}
-        self.runs = {}
-
-    @expose
-    def unlock(self, password):
-        """ Supply the keychain password to the application.
-            This allows the tasks to be instantiated.
-        """
-        self.keyring = KeyRing(self.keyringname(), password)
-        self.reload()
-
-    @expose
-    def reload(self):
+        # Log the exchange
         with sessionScope():
-            task_names = {t.id: t.name for t in list(Task.select())}
-            task_config = {}
-            for d in select(t for t in TaskDetails):
-                task_config.setdefault(d.task.id, {})[d.component] = d.settings
-
-            for id, details in task_config.items():
-                config = [deserialize(t, details[t.__name__])
-                          for t in self.cls.__annotations__['config']]
-                keys = [(t, self.secret_key(id, t))
-                        for t in self.cls.__annotations__['secrets']]
-                secrets = [t(**self.keyring[k]) for t, k in keys]
-                # Test if all settings are set...
-                if not all([*config, *secrets]):
-                    self.errors[task_names[id]] = 'Some configuration is missing'
-                    logging.error('Task %s missing some configuration'%task_names[id])
-                else:
-                    self.tasks[task_names[id]] = self.cls(config, secrets)
-
-    @expose
-    def status(self):
-        return dict(keyring='unlocked' if self.keyring else 'locked',
-                    tasks=[t for t in self.tasks],
-                    errors=self.errors,
-                    exact_online='authenticated' if self.exact_token else 'locked')
-
-    @expose
-    def setauthorizationcode(self, code):
-        """ The authorization is used to get the access token """
-        if self.exact_token:
-            raise RuntimeError('The system is already authorized')
-        token = self.oauth.getAccessToken(code)
-        self.exact_token = token
-
-        # Set a timer to refresh the token
-        loop = asyncio.get_event_loop()
-        loop.call_later(int(token['expires_in']) - 550, self.refreshtoken)
-
-    def refreshtoken(self):
-        """ Refresh the current access token """
-        token = self.oauth.getAccessToken()
-        self.exact_token = token
-
-        # Set a timer to refresh the token again
-        loop = asyncio.get_event_loop()
-        loop.call_later(int(token['expires_in']) - 550, self.refreshtoken)
-
-    async def scheduler(self):
-        while True:
-            # Wait one second
-            await asyncio.wait(1)
-
-            try:
-                # Test if we need to activate a task
-                for name, t in self.tasks.items():
-                    logging.debug('Starting task %s'%name)
-                    t.run()
-            except:
-                logging.exception('Exception in task scheduler')
-
-    @expose
-    def exit(self):
-        logging.warning('Terminating worker process')
-        sys.exit(0)
-
-    @staticmethod
-    @logging.log_exceptions
-    def run(cls=PaypalExactTask):
-        # In test mode, we need to create our own event loop
-        the_db.bind(provider='sqlite', filename='transaction_cache.db', create_db=True)
-        the_db.generate_mapping(create_tables=True)
-
-        print('Starting worker')
-        if threading.current_thread() != threading.main_thread():
-            # Only the main thread has an event loop. If necessary, start a new one.
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        server = mkUnixServer(Worker(cls), Worker.sockname())
-        loop = asyncio.get_event_loop()
-        loop.create_task(server)
-        loop.create_task(server.scheduler)
-        loop.run_forever()
+            _ = PaypalExchangeLog(task_id=self.task_id, timestamp=datetime.datetime.now())
 
 
 if __name__ == '__main__':
+    config.load_context()
+    worker = Worker(PaypalExactTask)
     print('Worker starting')
-    Worker.run()
+    worker.run()

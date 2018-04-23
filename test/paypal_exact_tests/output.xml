@@ -8,457 +8,135 @@
                 <Date>2017-12-06</Date>
                 <FinYear number="2017" />
                 <FinPeriod number="12" />
-                <GLAccount code="5561" type="121" />
-                <GLOffset code="1101" />
-                <Description>Kosten USD 123.46 Fact: papa 8344  ref:1A207897G9979282J</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>5.00</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>5.00</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="1" status="20">
-                <Date>2017-12-06</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1101" type="12" />
-                
-                <Description>Kosten USD 123.46 Fact: papa 8344  ref:1A207897G9979282J</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>-5.00</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>-5.00</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="2" status="20">
-                <Date>2017-12-06</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="2100" type="110" />
-                <GLOffset code="1101" />
-                <Description>USD 123.46 Fact: papa 8344  ref:1A207897G9979282J</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>-100.00</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>-100.00</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="2" status="20">
-                <Date>2017-12-06</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1101" type="12" />
-                
-                <Description>USD 123.46 Fact: papa 8344  ref:1A207897G9979282J</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>100.00</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>100.00</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-        </GLTransaction>
-        <GLTransaction>
-            <TransactionType number="40" />
-            <Journal code="21" type="12" />
-            <GLTransactionLine type="40" line="1" status="20">
-                <Date>2017-12-02</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="2100" type="110" />
-                <GLOffset code="1101" />
-                <Description> Fact:   ref:2L588208NH679605T</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>1940.00</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>1940.00</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="1" status="20">
-                <Date>2017-12-02</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1101" type="12" />
-                
-                <Description> Fact:   ref:2L588208NH679605T</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>-1940.00</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>-1940.00</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-        </GLTransaction>
-        <GLTransaction>
-            <TransactionType number="40" />
-            <Journal code="21" type="12" />
-            <GLTransactionLine type="40" line="1" status="20">
-                <Date>2017-12-06</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="7100" type="110" />
-                <GLOffset code="1101" />
-                <Description>p.puk@sesamstraat.nl USD -677.15 Fact:   ref:6A756367J4927764X</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>545.25</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>545.25</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="1" status="20">
-                <Date>2017-12-06</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1101" type="12" />
-                
-                <Description>p.puk@sesamstraat.nl USD -677.15 Fact:   ref:6A756367J4927764X</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>-545.25</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>-545.25</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="2" status="20">
-                <Date>2017-12-06</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
                 <GLAccount code="1514" type="90" />
                 <GLOffset code="1101" />
-                <Description>BTW p.puk@sesamstraat.nl USD -677.15 Fact:   ref:6A756367J4927764X</Description>
+                <Description>BTW kosten Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>114.51</Value>
+                    <Value>0.86</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>114.51</Value>
+                    <Value>0.86</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
-            <GLTransactionLine type="40" line="2" status="20">
+            <GLTransactionLine type="40" line="1" status="20">
                 <Date>2017-12-06</Date>
                 <FinYear number="2017" />
                 <FinPeriod number="12" />
                 <GLAccount code="1101" type="12" />
                 
-                <Description>BTW p.puk@sesamstraat.nl USD -677.15 Fact:   ref:6A756367J4927764X</Description>
+                <Description>BTW kosten Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>-114.51</Value>
+                    <Value>-0.86</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>-114.51</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-        </GLTransaction>
-        <GLTransaction>
-            <TransactionType number="40" />
-            <Journal code="21" type="12" />
-            <GLTransactionLine type="40" line="1" status="20">
-                <Date>2017-12-02</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1514" type="90" />
-                <GLOffset code="1101" />
-                <Description>BTW kosten Fact: papa 9293  ref:94Y71337XM919902F</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>0.95</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>0.95</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="1" status="20">
-                <Date>2017-12-02</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1101" type="12" />
-                
-                <Description>BTW kosten Fact: papa 9293  ref:94Y71337XM919902F</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>-0.95</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>-0.95</Value>
+                    <Value>-0.86</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
             <GLTransactionLine type="40" line="2" status="20">
-                <Date>2017-12-02</Date>
+                <Date>2017-12-06</Date>
                 <FinYear number="2017" />
                 <FinPeriod number="12" />
                 <GLAccount code="5561" type="121" />
                 <GLOffset code="1101" />
-                <Description>Kosten Fact: papa 9293  ref:94Y71337XM919902F</Description>
+                <Description>Kosten Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>4.53</Value>
+                    <Value>4.14</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>4.53</Value>
+                    <Value>4.14</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
             <GLTransactionLine type="40" line="2" status="20">
-                <Date>2017-12-02</Date>
+                <Date>2017-12-06</Date>
                 <FinYear number="2017" />
                 <FinPeriod number="12" />
                 <GLAccount code="1101" type="12" />
                 
-                <Description>Kosten Fact: papa 9293  ref:94Y71337XM919902F</Description>
+                <Description>Kosten Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>-4.53</Value>
+                    <Value>-4.14</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>-4.53</Value>
+                    <Value>-4.14</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
             <GLTransactionLine type="40" line="3" status="20">
-                <Date>2017-12-02</Date>
+                <Date>2017-12-06</Date>
                 <FinYear number="2017" />
                 <FinPeriod number="12" />
                 <GLAccount code="8000" type="110" />
                 <GLOffset code="1101" />
-                <Description>Fact: papa 9293  ref:94Y71337XM919902F</Description>
+                <Description>Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>-132.56</Value>
+                    <Value>-82.64</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>-132.56</Value>
+                    <Value>-82.64</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
             <GLTransactionLine type="40" line="3" status="20">
-                <Date>2017-12-02</Date>
+                <Date>2017-12-06</Date>
                 <FinYear number="2017" />
                 <FinPeriod number="12" />
                 <GLAccount code="1101" type="12" />
                 
-                <Description>Fact: papa 9293  ref:94Y71337XM919902F</Description>
+                <Description>Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>132.56</Value>
+                    <Value>82.64</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>132.56</Value>
+                    <Value>82.64</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
             <GLTransactionLine type="40" line="4" status="20">
-                <Date>2017-12-02</Date>
+                <Date>2017-12-06</Date>
                 <FinYear number="2017" />
                 <FinPeriod number="12" />
                 <GLAccount code="1514" type="90" />
                 <GLOffset code="1101" />
-                <Description>BTW Fact: papa 9293  ref:94Y71337XM919902F</Description>
+                <Description>BTW Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>-27.84</Value>
+                    <Value>-17.36</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>-27.84</Value>
+                    <Value>-17.36</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>
             <GLTransactionLine type="40" line="4" status="20">
-                <Date>2017-12-02</Date>
+                <Date>2017-12-06</Date>
                 <FinYear number="2017" />
                 <FinPeriod number="12" />
                 <GLAccount code="1101" type="12" />
                 
-                <Description>BTW Fact: papa 9293  ref:94Y71337XM919902F</Description>
+                <Description>BTW Fact: papa 8344  ref:1A207897G9979282J</Description>
                 <Amount>
                     <Currency code="EUR" />
-                    <Value>27.84</Value>
+                    <Value>17.36</Value>
                 </Amount>
                 <ForeignAmount>
                     <Currency code="EUR" />
-                    <Value>27.84</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-        </GLTransaction>
-        <GLTransaction>
-            <TransactionType number="40" />
-            <Journal code="21" type="12" />
-            <GLTransactionLine type="40" line="1" status="20">
-                <Date>2017-12-30</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1514" type="90" />
-                <GLOffset code="1101" />
-                <Description>BTW kosten Fact: papa 9293  ref:97R07110EC540663X</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>-0.71</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>-0.71</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="1" status="20">
-                <Date>2017-12-30</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1101" type="12" />
-                
-                <Description>BTW kosten Fact: papa 9293  ref:97R07110EC540663X</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>0.71</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>0.71</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="2" status="20">
-                <Date>2017-12-30</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="5561" type="121" />
-                <GLOffset code="1101" />
-                <Description>Kosten Fact: papa 9293  ref:97R07110EC540663X</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>-3.40</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>-3.40</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="2" status="20">
-                <Date>2017-12-30</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1101" type="12" />
-                
-                <Description>Kosten Fact: papa 9293  ref:97R07110EC540663X</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>3.40</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>3.40</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="3" status="20">
-                <Date>2017-12-30</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="8000" type="110" />
-                <GLOffset code="1101" />
-                <Description>Fact: papa 9293  ref:97R07110EC540663X</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>106.15</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>106.15</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="3" status="20">
-                <Date>2017-12-30</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1101" type="12" />
-                
-                <Description>Fact: papa 9293  ref:97R07110EC540663X</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>-106.15</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>-106.15</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="4" status="20">
-                <Date>2017-12-30</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1514" type="90" />
-                <GLOffset code="1101" />
-                <Description>BTW Fact: papa 9293  ref:97R07110EC540663X</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>22.30</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>22.30</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-            <GLTransactionLine type="40" line="4" status="20">
-                <Date>2017-12-30</Date>
-                <FinYear number="2017" />
-                <FinPeriod number="12" />
-                <GLAccount code="1101" type="12" />
-                
-                <Description>BTW Fact: papa 9293  ref:97R07110EC540663X</Description>
-                <Amount>
-                    <Currency code="EUR" />
-                    <Value>-22.30</Value>
-                </Amount>
-                <ForeignAmount>
-                    <Currency code="EUR" />
-                    <Value>-22.30</Value>
+                    <Value>17.36</Value>
                     <Rate>1</Rate>
                 </ForeignAmount>
             </GLTransactionLine>

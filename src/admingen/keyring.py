@@ -8,9 +8,12 @@ import base64
 import shutil
 from Crypto.Cipher import AES
 import json
+import logging
 
 from admingen.util import loads, dumps
 
+
+VERSION = 1
 
 class DecodeError(RuntimeError): pass
 
@@ -25,11 +28,13 @@ def writeFile(fname, password, data):
     """ Write (update) the encrypted file. Simply overwrite the whole file.
         A new salt is created for each write, so the complete file will change.
     """
+    # TODO: investigate if it would be better to keep the same salt
     salt = secrets.token_bytes(32)
     key = mkKey(password, salt)
     cypher = AES.new(key, AES.MODE_CFB, IV='\x00'*16)
     darktext = cypher.encrypt(dumps(data))
     with open(fname, 'wb') as f:
+        f.write(b'%i\n'%VERSION)
         f.write(base64.b64encode(salt))
         f.write(b'\n')
         f.write(darktext)
@@ -38,19 +43,23 @@ def writeFile(fname, password, data):
 def readFile(fname, password):
     """ Read the encrypted file.
     """
+    logging.debug('Reading keyring %s'%fname)
     with open(fname, 'rb') as f:
-        data = f.read().split(b'\n', 1)
-    salt = base64.b64decode(data[0])
+        data = f.read().split(b'\n', 2)
+    version = int(data[0])
+    salt = base64.b64decode(data[1])
     key = mkKey(password, salt)
     cypher = AES.new(key, AES.MODE_CFB, IV='\x00'*16)
     try:
-        return loads(cypher.decrypt(data[1]))
+        txt = cypher.decrypt(data[2])
+        return loads(txt)
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise DecodeError('Could not decrypt keyring: probably wrong password.')
 
 
 class KeyRing:
-    """ File format: the first line contains a base64 encoded salt.
+    """ File format: the first line contains a version number.
+        The second line contains a base64 encoded salt.
         Then follows the encrypted data: JSON data with key:value pairs.
     """
     theKeyring = None
@@ -79,10 +88,13 @@ class KeyRing:
         self.data[key] = value
         if self.fname:
             # Make a backup to protect against file corruption due to crashes
+            logging.debug('Writing to keyring %s'%self.fname)
             writeFile(self.fname+'.new', self.passwd, self.data)
             shutil.move(self.fname, self.fname+'.bak')
             shutil.move(self.fname+'.new', self.fname)
 
+    def __iter__(self):
+        return iter(self.keys())
 
     def items(self):
         return self.data.items()

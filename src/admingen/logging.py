@@ -3,6 +3,7 @@
 """
 
 from logging import *
+import traceback
 
 
 
@@ -12,4 +13,5 @@ def log_exceptions(func):
             return func(*args, **kwargs)
         except:
             exception('')
+            traceback.print_exc()
     return doIt
