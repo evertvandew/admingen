@@ -7,6 +7,7 @@ import logging
 import json
 import re
 import os.path
+from urllib.parse import urlparse
 from typing import Union, Callable, Any, Iterable
 import bcrypt
 from .db_api import sessionScope, commit, getHmiDetails, TableDetails, ColumnDetails
@@ -96,6 +97,21 @@ def IsEmailaddress(a):
         if len(email.split()) > 1:
             return 'An email address must not contain spaces'
 
+    return check
+
+
+def IsUrl(a, host=True, scheme=True):
+    """ if host and/or scheme is True, a host and/or scheme is required
+    """
+    def check(params):
+        try:
+            parts = urlparse(params[a])
+            if host and not parts.netloc:
+                return 'A host is required in the URL: <scheme>://<host>/<path>'
+            if scheme and not parts.scheme:
+                return 'A scheme is required in the URL'
+        except:
+            return 'Not a correct URL'
     return check
 
 

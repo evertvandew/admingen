@@ -5,7 +5,8 @@ import asyncio
 import json
 import os, os.path
 import logging
-from inspect import getmembers, Signature, Parameter
+import sys
+from inspect import getmembers, signature, Parameter
 from urllib.parse import urlparse
 from collections import Mapping
 import socket
@@ -17,6 +18,9 @@ from .appengine import ApplicationModel
 from .db_api import the_db, sessionScope, DbTable, select, delete, Required, Set, commit, orm
 
 
+
+if 'win' in sys.platform:
+    logging.error('This software is not intended to be run on amature platforms')
 
 # TODO: implement checking the parameters in a unix server message
 
@@ -47,13 +51,61 @@ def expose(func):
     func.exposed = True
     return func
 
+welcome = b'''Welcome to %s
+protocol 1.0
+Type "help" for useful information'''
+
+
+class aioStdinReader:
+    def __init__(self, loop):
+        self.th = threading.Thread(target=self._run)
+        self.th.daemon = True
+        self.th.start()
+        self.q = asyncio.Queue()
+        self.buf = b''
+        self._loop = loop
+    def _run(self):
+        fd = sys.stdin.fileno()
+        try:
+            # Let lines also end when the ESC key is pressed
+            flags = termios.tcgetattr(fd)
+            flags[tty.CC][termios.VEOL] = 0x1b
+            termios.tcsetattr(fd, termios.TCSANOW, flags)
+        except termios.error:
+            pass
+        while True:
+            # Do blocking reads at os level to avoid built-in buffering
+            d = os.read(0, 4100)
+            self._loop.call_soon_threadsafe(self.q.put_nowait, d)
+    async def readline(self, seperator=b'\n'):
+        while seperator not in self.buf:
+            data = await self.q.get()
+            self.buf += data
+        result, self.buf = self.buf.split(b'\n', 1)
+        return result
+
+
+class aioStdoutWriter:
+    def write(self, m):
+        sys.stdout.write(m.decode('utf8'))
+        sys.stdout.flush()
+
+
 
 def mkUnixServer(context, path, loop=None):
-    async def handler(reader, writer):
-        logging.debug('Server got a connection')
+    exports = [name for name, f in getmembers(context) if getattr(f, 'exposed', False)]
+
+    def printHelp(context, writer):
+        writer.write(b'The following functions are provided:\n')
+        for f in exports:
+            msg = (f + ': ' + getattr(context, f).__doc__ + '\n').encode('utf8')
+            writer.write(msg)
+
+    def json_command_handler(reader, writer):
+        """ Generator for parsing data """
         while True:
-            data = await reader.readline()
-            logging.debug('Server read data: %s'%data)
+            data = yield None
+            logging.debug('Server read data: %s' % data)
             try:
                 msg = decodeUnixMsg(data)
                 if not isinstance(msg, list) or len(msg) != 3:
@@ -73,14 +125,80 @@ def mkUnixServer(context, path, loop=None):
                 logging.exception('Server exception')
                 reply = [500, [e.__class__.__name__, str(e)]]
 
-            logging.debug('Writing reply: %s'%reply)
+            logging.debug('Writing reply: %s' % reply)
             writer.write(encodeUnixMsg(reply) + b'\n')
+
+    def cli_command_handler(reader, writer):
+        writer.write(welcome % context.__class__.__name__.encode('utf8'))
+        while True:
+            writer.write(b'\n> ')
+            # Read a command
+            data = yield None
+            cmnd = data.strip().lower().decode('utf8')
+            if cmnd == 'help':
+                printHelp(context, writer)
+                continue
+            if cmnd == 'json':
+                # Switch to the JSON protocol
+                writer.write(b'OK\n')
+                yield json_command_handler(reader, writer)
+            func = getattr(context, cmnd, False)
+            if func and getattr(func, 'exposed', False):
+                sig = signature(func)
+            else:
+                writer.write(b'Unknown command %s\n'%cmnd)
+                continue
+
+            # Read the arguments for the command
+            # The escape key will break
+            escape = False
+            kwargs = {}
+            for name, p in sig.parameters.items():
+                writer.write(b'%s: '%name.encode('utf8'))
+                value = yield None
+                if b'\x1b' in value:
+                    escape = True
+                    break
+                # Cast the value to the proper type (if given)
+                if value:
+                    if p.annotation != p.empty and p.annotation != str:
+                        value = p.annotation(value.strip())
+                    kwargs[name] = value
+
+            if escape:
+                continue
+
+            # The parameters have been given, now call the function
+            result = func(**kwargs)
+            if result is None:
+                result = b'OK'
+            elif isinstance(result, str):
+                result = result.encode('utf8')
+
+            writer.write(bytes(result) + b'\n')
+
+    async def handler(reader, writer):
+        print ('CONNECTION')
+        logging.debug('Server got a connection')
+        # Write the welcome message
+        writer.write(welcome % context.__class__.__name__.encode('utf8'))
+        protocol = cli_command_handler(reader, writer)
+        protocol.send(None)
+        while True:
+            while True:
+                data = await reader.readline()
+                print ('DATA', data)
+                logging.debug('server read data: %s'%data)
+                switch = protocol.send(data)
+                if switch is not None:
+                    protocol = switch
+                    protocol.send(None)
 
     logging.info('Starting server on %s'%os.path.abspath(path))
     return asyncio.start_unix_server(handler, path)
 
 
-
+# Fool the idea's to think this function returns the cls itself, not some mystery object
 def unixproxy(cls, path):
     exports = [name for name, f in getmembers(cls) if getattr(f, 'exposed', False)]
 
@@ -94,7 +212,8 @@ def unixproxy(cls, path):
         def __init__(self):
             self.buf = b''
             self.sock = None
-            self._connect
+            self.connected = False
+            self._connect()
 
         def __del__(self):
             logging.debug('Closing proxy socket')
@@ -119,6 +238,13 @@ def unixproxy(cls, path):
 
             self.sock = sock
 
+            # Set the protocol to JSON mode
+            sock.send(b'json\n')
+            # Read the rubbish intended for humans...
+            while True:
+                msg = sock.recv(4096)
+                if b'OK\n' in msg:
+                    break
 
         def _read_line(self):
             assert self.connected

@@ -22,6 +22,7 @@ Server:
 * Implement multi-site frontend
 * Implement DNS on server for multiple sites
 * Implement check_mk
+* Handle CAMT.053 bank statements
 
 
 Report Generator

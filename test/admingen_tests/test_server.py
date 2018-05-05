@@ -9,7 +9,7 @@ import threading
 
 import requests
 
-from admingen.dbengine import readconfig
+from admingen.appengine import readconfig
 from admingen.htmltools import simpleCrudServer, runServer, Page
 from admingen.servers import *
 
@@ -28,7 +28,8 @@ class ServerTests(TestCase):
         """ Test the simple CRUD server generated on the tables of uren_crm """
         # Parse the uren_crm details
         with open('uren_crm.txt') as f:
-            transitions, db, dbmodel = readconfig(f)
+            model = readconfig(f)
+        transitions, db, dbmodel = model.fsmodel, model.db, model.dbmodel
         # Instantiate the database
         db.bind(provider='sqlite', filename=TESTDB, create_db=True)
         db.generate_mapping(create_tables=True)
@@ -190,4 +191,50 @@ class ServerTests(TestCase):
 
         loop.run_forever()
 
+    def testCliInterface(self):
+        path = '/home/ehwaal/tmp/testsock'
+        loop = asyncio.get_event_loop()
 
+        @Message
+        class Details:
+            a: str
+            b: int
+
+        class Worker:
+            @expose
+            def hi(self, i:int):
+                print ('Hi ', i)
+            @expose
+            def ho(self, s:str):
+                print ('Ho', s)
+            @expose
+            def it(self):
+                return 'Dit is', 1, 'test'
+            @expose
+            def hit(self, details:Details):
+                print ('HIT', details)
+
+        server = mkUnixServer(Worker(), path)
+        loop.create_task(server)
+
+
+        # Open the UNIX socket
+        with socket.socket(socket.AF_UNIX) as sock:
+            while True:
+                loop.run_until_complete(asyncio.sleep(0.1))
+                sock.connect(path)
+                break
+
+            loop.run_until_complete(asyncio.sleep(0.1))
+            print (sock.recv(4096))
+
+            # Send a command
+            sock.send(b'hi\n345\n')
+            # Let the server handle it
+            loop.run_until_complete(asyncio.sleep(0.1))
+            # TODO: Add check
+
+            # Send another command
+            sock.send(b'hit\nHallo\n777\n')
+            loop.run_until_complete(asyncio.sleep(0.1))
+            # FIXME: this fails!

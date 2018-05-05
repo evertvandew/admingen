@@ -51,8 +51,8 @@ db = the_db
 class SmtpDetails(db.Entity):
     name = orm.Required(str)
     smtphost=orm.Required(str)
-    user=orm.Required(str)
-    password=orm.Required(str)
+    user=orm.Optional(str)
+    password=orm.Optional(str)
     organisations=orm.Set(lambda: Organisation)
 
 

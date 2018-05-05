@@ -23,6 +23,7 @@ from admingen.clients.exact_rest import (authenticateExact, getUsers, getTransac
                                          getAccounts, config)
 from admingen.htmltools import *
 from admingen import config
+from admingen.clients import smtp
 from .giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
                     odataDate2Datetime, generate_pdfs, pdfName, PDF_DIR)
 from . import model
@@ -88,7 +89,7 @@ def periode_validator():
 
 def verstuur_validator():
     return Verify(IsEmailaddress('mailfrom'),
-                  IsServer('smtphost'),
+                  IsUrl('smtphost'),
                   IsSingleWord('user')
                   )
 
@@ -126,8 +127,7 @@ def verstuur_overzicht(**extra):
     org_id = cherrypy.session['org_id']
     with model.sessionScope():
         msg_template = model.Organisation[org_id].mail_body
-    smtp_c = smtplib.SMTP_SSL(host)
-    smtp_c.login(user, password)
+    smtp_c = smtp.mkclient(host, user, password)
     mailfrom = extra['mailfrom']
     start = extra['period_start'].strftime('%d-%m-%Y')
     end = extra['period_end'].strftime('%d-%m-%Y')
@@ -301,9 +301,12 @@ class Worker(threading.Thread):
                     # Load the users
                     if config.testmode():
                         time.sleep(5)
-                        users = json.load(open(self.ufname))
-                        transactions = json.load(open(self.tfname))
-                        accounts = json.load(open(self.afname))
+                        with open(self.ufname) as f:
+                            users = json.load(f)
+                        with open(self.tfname) as f:
+                            transactions = json.load(f)
+                        with open(self.afname) as f:
+                            accounts = json.load()
                     else:
                         logging.info('Reading data from exact')
                         users = getUsers(exact_division, self.access_token)
