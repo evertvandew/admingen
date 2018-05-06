@@ -237,4 +237,10 @@ class ServerTests(TestCase):
             # Send another command
             sock.send(b'hit\nHallo\n777\n')
             loop.run_until_complete(asyncio.sleep(0.1))
-            # FIXME: this fails!
+            # TODO: Add check
+
+            # Send an unknown command
+            sock.send(b'hallodaar\n')
+            loop.run_until_complete(asyncio.sleep(0.1))
+            # FIXME: This fails!
+

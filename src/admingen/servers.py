@@ -13,7 +13,7 @@ import socket
 import cherrypy
 from .keyring import KeyRing, DecodeError
 import admingen.htmltools as html
-from .dataclasses import dataclass, asdict
+from .dataclasses import dataclass, asdict, fields, is_dataclass
 from .appengine import ApplicationModel
 from .db_api import the_db, sessionScope, DbTable, select, delete, Required, Set, commit, orm
 
@@ -90,6 +90,46 @@ class aioStdoutWriter:
         sys.stdout.write(m.decode('utf8'))
         sys.stdout.flush()
 
+def arguments(parameters):
+    """ Generator for the arguments given to a function """
+    def recurse(prefix, dclass):
+        for field in fields(dclass):
+            name = '.'.join([prefix, field.name])
+            if is_dataclass(field.type):
+                yield from recurse(name, field.type)
+            yield name, field.type
+
+    for name, p in parameters.items():
+        a = p.annotation
+        if a == p.empty or a == str:
+            yield (name, None)
+        elif is_dataclass(a):
+            yield from recurse(name, a)
+        else:
+            yield name, a
+
+
+def castArguments(kwargs, parameters):
+    """ Handle arguments given through the CLI interface and cast
+        them to the proper types and objects
+    """
+    result = {}
+    for name, p in parameters.items():
+        a = p.annotation
+        if is_dataclass(a):
+            r = {}
+            for f in fields(a):
+                if f.type == str:
+                    r[f.name] = kwargs['%s.%s' % (name, f.name)].decode('utf8')
+                else:
+                    r[f.name] = f.type(kwargs['%s.%s'%(name, f.name)])
+            result[name] = a(**r)
+        else:
+            if name not in kwargs:
+                continue
+            result[name] = a(kwargs[name])
+    return result
+
 
 
 def mkUnixServer(context, path, loop=None):
@@ -98,7 +138,8 @@ def mkUnixServer(context, path, loop=None):
     def printHelp(context, writer):
         writer.write(b'The following functions are provided:\n')
         for f in exports:
-            msg = (f + ': ' + getattr(context, f).__doc__ + '\n').encode('utf8')
+            doc = getattr(context, f).__doc__ or ''
+            msg = (f + ': ' + doc + '\n').encode('utf8')
             writer.write(msg)
 
     def json_command_handler(reader, writer):
@@ -135,6 +176,7 @@ def mkUnixServer(context, path, loop=None):
             # Read a command
             data = yield None
             cmnd = data.strip().lower().decode('utf8')
+            # Handle the built-in command (help, json)
             if cmnd == 'help':
                 printHelp(context, writer)
                 continue
@@ -146,27 +188,27 @@ def mkUnixServer(context, path, loop=None):
             if func and getattr(func, 'exposed', False):
                 sig = signature(func)
             else:
-                writer.write(b'Unknown command %s\n'%cmnd)
+                writer.write(b'ERR: Unknown command %s\n'%cmnd)
                 continue
 
             # Read the arguments for the command
             # The escape key will break
             escape = False
             kwargs = {}
-            for name, p in sig.parameters.items():
+            for name, paramtype in arguments(sig.parameters):
                 writer.write(b'%s: '%name.encode('utf8'))
                 value = yield None
+                # Handle the escape key
                 if b'\x1b' in value:
                     escape = True
                     break
-                # Cast the value to the proper type (if given)
                 if value:
-                    if p.annotation != p.empty and p.annotation != str:
-                        value = p.annotation(value.strip())
-                    kwargs[name] = value
+                    kwargs[name] = value.rstrip(b'\n')
 
             if escape:
                 continue
+
+            kwargs = castArguments(kwargs, sig.parameters)
 
             # The parameters have been given, now call the function
             result = func(**kwargs)
