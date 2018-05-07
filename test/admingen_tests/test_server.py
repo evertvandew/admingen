@@ -218,7 +218,6 @@ class ServerTests(TestCase):
             def hit(self, details:Details):
                 self.calls.append(('hit', details))
                 print ('HIT', details)
-
             @expose
             def error(self):
                 raise RuntimeError('Dit gaat fout!')

@@ -1,4 +1,3 @@
-
 import urllib
 import time
 import asyncio
@@ -6,6 +5,8 @@ import json
 import os, os.path
 import logging
 import sys
+import threading
+import tty, termios
 from inspect import getmembers, signature, Parameter
 from urllib.parse import urlparse
 from collections import Mapping
@@ -17,25 +18,30 @@ from .dataclasses import dataclass, asdict, fields, is_dataclass
 from .appengine import ApplicationModel
 from .db_api import the_db, sessionScope, DbTable, select, delete, Required, Set, commit, orm
 
-
-
 if 'win' in sys.platform:
     logging.error('This software is not intended to be run on amature platforms')
 
-# TODO: implement checking the parameters in a unix server message
+
+# TODO: implement checking the parameters in a json unix server message
 
 class UnknownMessage(RuntimeError): pass
+
+
 class FormatError(RuntimeError): pass
+
+
 class RemoteError(RuntimeError): pass
+
+
 class ServerError(RuntimeError):
     def __init__(self, name, msg):
         self.name = name
         RuntimeError.__init__(self, msg)
 
+
 class MessageEncoder(json.JSONEncoder):
     def default(self, o):
         return o.__dict__
-
 
 
 def decodeUnixMsg(m):
@@ -43,13 +49,16 @@ def decodeUnixMsg(m):
     decoded = m.decode("unicode_escape")
     return json.loads(decoded)
 
+
 def encodeUnixMsg(m):
     decoded = json.dumps(m, cls=MessageEncoder)
     return decoded.encode("unicode_escape")
 
+
 def expose(func):
     func.exposed = True
     return func
+
 
 welcome = b'''Welcome to %s
 protocol 1.0
@@ -64,6 +73,7 @@ class aioStdinReader:
         self.q = asyncio.Queue()
         self.buf = b''
         self._loop = loop
+
     def _run(self):
         fd = sys.stdin.fileno()
         try:
@@ -77,6 +87,7 @@ class aioStdinReader:
             # Do blocking reads at os level to avoid built-in buffering
             d = os.read(0, 4100)
             self._loop.call_soon_threadsafe(self.q.put_nowait, d)
+
     async def readline(self, seperator=b'\n'):
         while seperator not in self.buf:
             data = await self.q.get()
@@ -90,10 +101,12 @@ class aioStdoutWriter:
         sys.stdout.write(m.decode('utf8'))
         sys.stdout.flush()
 
+
 def arguments(parameters):
     """ Generator for the arguments given to a function.
         Recursively descends into dataclasses.
     """
+
     def recurse(prefix, dclass):
         for field in fields(dclass):
             name = '.'.join([prefix, field.name])
@@ -128,7 +141,8 @@ def castArguments(kwargs, parameters):
                     else:
                         r[f.name] = f.type(value)
                 except Exception as e:
-                    raise FormatError('Could not cast value %s to type %s'%(value, f.type.__name__))
+                    raise FormatError(
+                        'Could not cast value %s to type %s' % (value, f.type.__name__))
             result[name] = a(**r)
         else:
             value = kwargs[name]
@@ -139,7 +153,6 @@ def castArguments(kwargs, parameters):
             except Exception as e:
                 raise FormatError('Could not cast value %s to type %s' % (value, a.__name__))
     return result
-
 
 
 def mkUnixServer(context, path, loop=None):
@@ -198,7 +211,7 @@ def mkUnixServer(context, path, loop=None):
             if func and getattr(func, 'exposed', False):
                 sig = signature(func)
             else:
-                writer.write(b'ERR: Unknown command %s\n'%cmnd.encode('utf8'))
+                writer.write(b'ERR: Unknown command %s\n' % cmnd.encode('utf8'))
                 continue
 
             # Read the arguments for the command
@@ -206,7 +219,7 @@ def mkUnixServer(context, path, loop=None):
             escape = False
             kwargs = {}
             for name, paramtype in arguments(sig.parameters):
-                writer.write(b'%s: '%name.encode('utf8'))
+                writer.write(b'%s: ' % name.encode('utf8'))
                 value = yield None
                 # Handle the escape key
                 if b'\x1b' in value:
@@ -222,7 +235,7 @@ def mkUnixServer(context, path, loop=None):
             try:
                 kwargs = castArguments(kwargs, sig.parameters)
             except FormatError as e:
-                writer.write(b'ERR: %s'%str(e).encode('utf8'))
+                writer.write(b'ERR: %s' % str(e).encode('utf8'))
                 continue
 
             # The parameters have been given, now call the function
@@ -241,7 +254,7 @@ def mkUnixServer(context, path, loop=None):
             writer.write(bytes(result) + b'\n')
 
     async def handler(reader, writer):
-        print ('CONNECTION')
+        print('CONNECTION')
         logging.debug('Server got a connection')
         # Write the welcome message
         writer.write(welcome % context.__class__.__name__.encode('utf8'))
@@ -250,14 +263,14 @@ def mkUnixServer(context, path, loop=None):
         while True:
             while True:
                 data = await reader.readline()
-                print ('DATA', data)
-                logging.debug('server read data: %s'%data)
+                print('DATA', data)
+                logging.debug('server read data: %s' % data)
                 switch = protocol.send(data)
                 if switch is not None:
                     protocol = switch
                     protocol.send(None)
 
-    logging.info('Starting server on %s'%os.path.abspath(path))
+    logging.info('Starting server on %s' % os.path.abspath(path))
     return asyncio.start_unix_server(handler, path)
 
 
@@ -266,7 +279,7 @@ def unixproxy(cls, path):
     exports = [name for name, f in getmembers(cls) if getattr(f, 'exposed', False)]
 
     # Wait until the server is in the air
-    logging.info('Proxy listening on %s'%os.path.abspath(path))
+    logging.info('Proxy listening on %s' % os.path.abspath(path))
     while not os.path.exists(path):
         time.sleep(0.1)
     logging.info('Socket file exists')
@@ -314,11 +327,11 @@ def unixproxy(cls, path):
             while True:
                 if b'\n' in self.buf:
                     i = self.buf.index(b'\n')
-                    msg = self.buf[:i+1]
-                    self.buf = self.buf[i+1:] if len(self.buf) > i else b''
+                    msg = self.buf[:i + 1]
+                    self.buf = self.buf[i + 1:] if len(self.buf) > i else b''
                     return msg
                 d = self.sock.recv(1024)
-                logging.debug('Proxy received data: %s'%d)
+                logging.debug('Proxy received data: %s' % d)
                 if not d:
                     self.sock.close()
                     self.connect()
@@ -331,8 +344,8 @@ def unixproxy(cls, path):
                 data = [name, args, kwargs]
                 msg = encodeUnixMsg(data)
                 # Send the message and return the results
-                logging.debug('Proxy sending message: %s'%msg)
-                self.sock.send(msg+b'\n')
+                logging.debug('Proxy sending message: %s' % msg)
+                self.sock.send(msg + b'\n')
                 reply = self._read_line()
                 reply = decodeUnixMsg(reply)
                 if reply[0] == 200:
@@ -340,7 +353,8 @@ def unixproxy(cls, path):
                 elif reply[0] == 500:
                     # Raise something the application can handle
                     raise ServerError(*reply[1])
-                raise RemoteError('Error when calling server: %s'%reply)
+                raise RemoteError('Error when calling server: %s' % reply)
+
             setattr(self, name, service)
 
     p = Proxy()
@@ -351,9 +365,11 @@ def unixproxy(cls, path):
 
 Message = dataclass
 
+
 def serialize(obj):
     """ Serialize a dataclass, as a JSON dictionary """
     return json.dumps(asdict(obj))
+
 
 def deserialize(cls, msg):
     """ Deserialize a message into a dataclass """
@@ -362,10 +378,12 @@ def deserialize(cls, msg):
     data = json.loads(msg)
     return cls(**data)
 
+
 def update(obj, new_data: Mapping):
     """ Update the elements in a data class """
     for k, v in new_data.items():
         setattr(obj, k, v)
+
 
 def wraphandlers(cls, decorator):
     """ Decorate all exposed request handlers in a class """
@@ -381,24 +399,28 @@ def keychain_unlocker(fname):
         Functions in the server can be reached only after the keychain is unlocked.
         A function 'unlock' is added to the server.
     """
+
     def decorator(cls):
         """ Decorate the server class """
         cls.keyring = None
 
         def check_keyring(func):
             """ Decorator for checking if the keychain is unlocked """
+
             def doIt(*args, **kwargs):
                 """ Check if the keychain is unlocked before handling the request """
                 # whenever a user posts a form we verify that the csrf token is valid.
                 if cls.keyring is None:
                     raise cherrypy.HTTPError(503, 'Service unavailable')
                 return func(*args, **kwargs)
+
             return doIt
 
         def unlock(self, password=None):
             """ Let the user unlock the keychain """
             if cls.keyring:
                 return cls.Page('The keyring is already unlocked')
+
             def submit():
                 """ Called when the user submits data """
                 try:
@@ -408,14 +430,16 @@ def keychain_unlocker(fname):
                 except DecodeError:
                     time.sleep(3)
                     raise cherrypy.HTTPError(401, 'No Access')
+
             return cls.Page(html.Title('Unlock Keyring'),
                             html.SimpleForm(html.form_input('password', 'password', 'password'),
-                                       success=submit))
+                                            success=submit))
 
         wraphandlers(cls, check_keyring)
 
         cls.unlock = cherrypy.expose(unlock)
         return cls
+
     return decorator
 
 
@@ -425,6 +449,7 @@ def run_model(model: ApplicationModel):
         A simple cherrypy server with pure HTML client is created.
     """
     state_variables = model.fsmmodel.state_variables
+
     def createFsmHandler(name):
         # Create handlers for each FSM
         varpath = state_variables[name]
@@ -445,13 +470,14 @@ def run_model(model: ApplicationModel):
                     tbl = html.PaginatedTable(None,
                                               counts,
                                               ['Toestand', 'Aantal'],
-                                              lambda data: 'index_state?state=%s'%data[0])
+                                              lambda data: 'index_state?state=%s' % data[0])
                     return html.Page(html.Title(name),
                                      tbl,
-                                     html.Button('Begin een nieuwe %s'%name, 'add'))
+                                     html.Button('Begin een nieuwe %s' % name, 'add'))
+
             @expose
             def index_state(self, state):
-                return baseclass.index(self, query='%s="%s"'%(column_name, state), add=False)
+                return baseclass.index(self, query='%s="%s"' % (column_name, state), add=False)
 
         return FsmHandler()
 
@@ -468,7 +494,6 @@ def run_model(model: ApplicationModel):
 
     with sessionScope():
         counts = select((o.state, orm.count(o)) for o in the_db.Opdracht)
-        print ('Counts:', counts)
+        print('Counts:', counts)
 
     html.runServer(ApplicationServer)
-
