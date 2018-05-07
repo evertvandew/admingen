@@ -91,7 +91,9 @@ class aioStdoutWriter:
         sys.stdout.flush()
 
 def arguments(parameters):
-    """ Generator for the arguments given to a function """
+    """ Generator for the arguments given to a function.
+        Recursively descends into dataclasses.
+    """
     def recurse(prefix, dclass):
         for field in fields(dclass):
             name = '.'.join([prefix, field.name])
@@ -111,7 +113,7 @@ def arguments(parameters):
 
 def castArguments(kwargs, parameters):
     """ Handle arguments given through the CLI interface and cast
-        them to the proper types and objects
+        them to the proper types and objects.
     """
     result = {}
     for name, p in parameters.items():
@@ -119,15 +121,23 @@ def castArguments(kwargs, parameters):
         if is_dataclass(a):
             r = {}
             for f in fields(a):
-                if f.type == str:
-                    r[f.name] = kwargs['%s.%s' % (name, f.name)].decode('utf8')
-                else:
-                    r[f.name] = f.type(kwargs['%s.%s'%(name, f.name)])
+                value = kwargs['%s.%s' % (name, f.name)]
+                try:
+                    if f.type == str:
+                        r[f.name] = value.decode('utf8')
+                    else:
+                        r[f.name] = f.type(value)
+                except Exception as e:
+                    raise FormatError('Could not cast value %s to type %s'%(value, f.type.__name__))
             result[name] = a(**r)
         else:
+            value = kwargs[name]
             if name not in kwargs:
                 continue
-            result[name] = a(kwargs[name])
+            try:
+                result[name] = a(value)
+            except Exception as e:
+                raise FormatError('Could not cast value %s to type %s' % (value, a.__name__))
     return result
 
 
@@ -188,7 +198,7 @@ def mkUnixServer(context, path, loop=None):
             if func and getattr(func, 'exposed', False):
                 sig = signature(func)
             else:
-                writer.write(b'ERR: Unknown command %s\n'%cmnd)
+                writer.write(b'ERR: Unknown command %s\n'%cmnd.encode('utf8'))
                 continue
 
             # Read the arguments for the command
@@ -205,13 +215,24 @@ def mkUnixServer(context, path, loop=None):
                 if value:
                     kwargs[name] = value.rstrip(b'\n')
 
+            # Check if the escape key was pressed.
             if escape:
                 continue
 
-            kwargs = castArguments(kwargs, sig.parameters)
+            try:
+                kwargs = castArguments(kwargs, sig.parameters)
+            except FormatError as e:
+                writer.write(b'ERR: %s'%str(e).encode('utf8'))
+                continue
 
             # The parameters have been given, now call the function
-            result = func(**kwargs)
+            try:
+                result = func(**kwargs)
+            except:
+                logging.exception('exception occured in the server')
+                writer.write(b'ERR error occured in the server')
+                continue
+
             if result is None:
                 result = b'OK'
             elif isinstance(result, str):
