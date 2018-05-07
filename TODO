@@ -25,6 +25,7 @@ Server:
 * Handle CAMT.053 bank statements
 
 
+
 Report Generator
 * Decide on technology
 * Implement frontend
