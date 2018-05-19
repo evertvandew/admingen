@@ -18,7 +18,7 @@ def as_csv(l):
     return ','.join(str(i) for i in l)
 
 
-config = paypal_export_config(ledger=21,
+config_eur = paypal_export_config(ledger=21,
                               costs_account=5561,
                               pp_account=1101,
                               sale_account_nl=8000,
@@ -33,6 +33,21 @@ config = paypal_export_config(ledger=21,
                               vat_account=1514,
                               currency='EUR')
 
+config_usd = paypal_export_config(ledger=21,
+                              costs_account=5561,
+                              pp_account=1101,
+                              sale_account_nl=8000,
+                              sale_account_eu_no_vat=8100,
+                              sale_account_world=8101,
+                              sale_account_eu_vat=8102,
+                              purchase_account_nl=7100,
+                              purchase_account_eu_no_vat=7101,
+                              purchase_account_world=7102,
+                              purchase_account_eu_vat=7103,
+                              pp_kruispost=2100,
+                              vat_account=1514,
+                              currency='USD')
+
 
 # In PayPal, the order_nr has a strange string prepended ('papa xxxx')
 # Define an RE to strip it.
@@ -45,13 +60,11 @@ class TestPayPalExport(TestCase):
         the_db.generate_mapping(create_tables=True)
 
     def testConversion(self):
-        #fname = os.path.join(os.path.dirname(__file__), 'pp_testdata.csv')
-        fname = os.path.join('/home/ehwaal/admingen/downloads/Download (1).CSV')
-        config.currency='USD'
-        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
+        fname = os.path.join(os.path.dirname(__file__), 'pp_testdata.csv')
+        converter = PaypalExactTask(1, config_eur, [ExactSecrets(None, None, None, '', ''), PaypalSecrets('pietje_puk', 'mijn_password')])
 
         # Check that the transactions are consistent
-        saldo = Decimal('12217.84') - Decimal('16.12')
+        saldo = Decimal('1875.88') - Decimal('49.87')
         for details in converter.detailsGenerator(fname):
             print (details)
             print (saldo)
@@ -83,13 +96,13 @@ class TestPayPalExport(TestCase):
                 self.assertLess(abs(diff), 0.02)
 
         # Check the final saldo
-        self.assertEqual(saldo, Decimal('14746.34'))
+        self.assertEqual(saldo, Decimal('1201.28'))
 
 
     def testXmlGeneration(self):
 
         fname = os.path.join(os.path.dirname(__file__), 'pp_testdata.csv')
-        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
+        converter = PaypalExactTask(1, config_eur, [ExactSecrets(None, None, None, '', ''), PaypalSecrets('pietje_puk', 'mijn_password')])
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
 
         # Check that the result is valid XML
@@ -117,7 +130,7 @@ class TestPayPalExport(TestCase):
 06-12-2017,17:47:00,CEST,Pietje Puk,Express Checkout betaling,Voltooid,EUR,"100,00","-5,00","95,00",p.puk@sesamstraat.nl,iniminie@sesamstraat.nl,1A207897G9979282J,"Pietje Puk, sesamstraat 1234, Hilversum, 1234AB, NL",Bevestigd,,,"0,00",,"0,00",,,,,,papa 8344,,1,,"1.875,88",sesamstraat 1234,,Hilversum,Noord Holland,1234AB,Nederland,,,,NL,Bij
 """)
 
-        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
+        converter = PaypalExactTask(1, config_eur, [ExactSecrets(None, None, None, '', ''), PaypalSecrets('pietje_puk', 'mijn_password')])
         xml = generateExactTransactionsFile(converter.detailsGenerator(f))
 
         with open('output.xml', 'w') as f:
@@ -148,7 +161,7 @@ class TestPayPalExport(TestCase):
 2-12-2017,05:23:35,CEST,Pietje Puk,Express Checkout betaling,Voltooid,EUR,"160,40","-5,48","154,92",p.puk@sesamstraat.nl,iniminie@sesamstraat.nl,94Y71337XM919902F,"Pietje Puk, sesamstraat 1234, Hilversum, 1234AB, NL",Bevestigd,,,"0,00",,"0,00",,,,,,papa 9293,,1,,"1.331,90",sesamstraat 1234,,Hilversum,Noord Holland,1234AB,Nederland,,,,NL,Bij
 30-12-2017,01:33:18,CEST,Pietje Puk,Terugbetaling,Voltooid,EUR,"-128,45","4,11","-124,34",iniminie@sesamstraat.nl,p.puk@sesamstraat.nl,97R07110EC540663X,"Pietje Puk, sesamstraat 1234, Hilversum, 1234AB, NL",Niet-bevestigd,,,"0,00",,"0,00",,,,,94Y71337XM919902F,papa 9293,,,,"391,25",,,,,,,,,,,Af
 """)
-        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
+        converter = PaypalExactTask(1, config_eur, [ExactSecrets(None, None, None, '', ''), PaypalSecrets('pietje_puk', 'mijn_password')])
         xml = generateExactTransactionsFile(converter.detailsGenerator(f))
 
         with open('output.xml', 'w') as f:
@@ -158,17 +171,17 @@ class TestPayPalExport(TestCase):
     def testRealFile(self):
         # Test converting a real file.
         fname = 'pp_testdata.csv'
-        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
+        converter = PaypalExactTask(1, config_eur, [ExactSecrets(None, None, None, '', ''), PaypalSecrets('pietje_puk', 'mijn_password')])
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
         with open('tmp/pp_testdata.xml', 'w') as f:
             f.write(xml)
 
     def testEnglishLanguage(self):
-        fname = 'pp_testdata2.csv'
-        converter = PaypalExactTask(1, config, [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
+        fname = '/tmp/Download.CSV' #'testdata_usd.csv'
+        converter = PaypalExactTask(1, config_usd, [ExactSecrets(None, None, None, '', ''), PaypalSecrets('pietje_puk', 'mijn_password')])
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
         self.assertTrue(xml)
-        with open('tmp/pp_testdata2.xml', 'w') as f:
+        with open('tmp/testdata_usd.xml', 'w') as f:
             f.write(xml)
 
     def testWithZekeData(self):
@@ -207,12 +220,52 @@ class TestPayPalExport(TestCase):
 
         # Now process the paypal transactions
         fname = os.path.join('pp_testdata.csv')
-        converter = PaypalExactTask(1, [config, zeke_classifier], [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
+        converter = PaypalExactTask(1, [config_eur, zeke_classifier], [ExactSecrets(None, None, None, None), PaypalSecrets('pietje_puk', 'mijn_password')])
         #PaypalExactTask(('pietje_puk', 'mijn_password'), config, None, zeke_classifier)
         transactions = list(converter.detailsGenerator(fname))
         xml = generateExactTransactionsFile(converter.detailsGenerator(fname))
         with open('pp_testdata.xml', 'w') as f:
             f.write(xml)
+
+    def testUSD(self):
+        """ Test a set of paypal transactions for a USD account """
+        fname = os.path.join('testdata_usd.csv')
+        converter = PaypalExactTask(1, config_usd, [ExactSecrets(None, None, None, '', ''), PaypalSecrets('pietje_puk', 'mijn_password')])
+
+        # Check that the transactions are consistent
+        saldo = Decimal('12217.84') - Decimal('16.12')
+        for details in converter.detailsGenerator(fname):
+            print (details)
+            print (saldo)
+            # Check the transaction connects to the previous saldo
+            for l in details.lines:
+                saldo = saldo + l.Amount if  l.GLAccount==1101 else saldo
+            print ('Expected saldo:', details.closingbalance)
+            self.assertEqual(saldo, details.closingbalance)
+
+            # Check the sum of all transaction lines is zero
+            self.assertEqual(sum(l.Amount for l in details.lines), Decimal('0.00'))
+
+            # Check the foreign amount times rate equals the euro amount
+            # As not all amounts are rounded in the same direction, allow an error of 2 cents.
+            for l in details.lines:
+                self.assertLess(abs(l.Amount - (l.ForeignAmount * l.ConversionRate)), 0.02)
+
+            # Check the BTW amounts, depending on the number of lines returned.
+            pairs = []
+            if len(details.lines) == 8:
+                # VAT and costs, so two checks
+                pairs = [[0, 2], [6, 4]]
+            if len(details.lines) == 4 and details.lines[0].GLAccount!=5561:
+                # Only VAT, no costs, one check.
+                pairs = [[2, 0]]
+            for a, b in pairs:
+                diff = details.lines[a].Amount - details.lines[b].Amount * Decimal('0.21')
+                # Allow 2 cents difference, due to rouding effects
+                self.assertLess(abs(diff), 0.02)
+
+        # Check the final saldo
+        self.assertEqual(saldo, Decimal('14746.34'))
 
 
 

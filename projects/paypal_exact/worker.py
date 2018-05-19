@@ -340,7 +340,7 @@ class PaypalExactTask:
         parts = []
         if transaction.Bruto < 0 and transaction.ReferenceTxnID == '':
             parts.append(transaction.Naaremailadres)
-        if transaction.Valuta != 'EUR':
+        if transaction.Valuta != self.config.currency:
             parts.append(str(transaction.Valuta))
             parts.append(str(transaction.Bruto))
         parts += ['Fact: %s'%transaction.Factuurnummer,
@@ -510,7 +510,7 @@ class PaypalExactTask:
                     # We need to compress the next three transactions into a single, foreign valuta one.
                     # The actual transaction is NOT a conversion and is in foreign valuta.
                     # The two conversions refer to this transaction
-                    if transaction.Type != 'Algemeen valutaomrekening':
+                    if transaction.Type not in ['Algemeen valutaomrekening', 'Terugbetaling']:
                         ref = transaction.Transactiereferentie
                     else:
                         ref = transaction.ReferenceTxnID
