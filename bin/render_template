@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+# Script that reads data (in JSON form) from stdin or a file, reads a template, and
+# generate an output file.
+# The template is intended to be in jinja format.
+
+import json
+from jinja2 import Environment
+from babel.numbers import format_currency
+import typing
+import sys
+import argparse
+
+def moneyformat(input):
+    return format_currency(input, 'EUR', locale='nl_NL.utf8')
+
+
+env = Environment(autoescape=True)
+
+env.filters['moneyformat'] = moneyformat
+
+def run(instream: typing.TextIO, tmplstream: typing.TextIO, outstream: typing.TextIO):
+    data = json.load(instream)
+    assert isinstance(data, dict)
+
+    template = tmplstream.read()
+
+    # Evaluate the template
+    t = env.from_string(template)
+    s = t.render(data)
+
+    outstream.write(s)
+
+
+
+if __name__ == '__main__':
+    parse = argparse.ArgumentParser()
+    parse.add_argument('template')
+    args = parse.parse_args()
+    run(sys.stdin, args.template, sys.stdout)
