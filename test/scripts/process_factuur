@@ -1,8 +1,6 @@
 # The user must supply the period as a command-line argument, using e.g. period=201804
-period = '201804'
 # Also the opdracht must be supplied
-opdracht = 2
-
+opdracht = int(opdracht)
 
 # Calculate the begin and end days of weeks
 for u in Uren:
@@ -21,11 +19,11 @@ factuur = dataline()
 o = Opdracht[opdracht]
 factuur.werker = WerkerTarief[o.werker]
 opdracht_uren = [u for u in uren if u.opdracht == o.id]
-_lines = [(u.weeknr, [getattr(u, d, 0) for d in ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']]) for u
+lines = [(u.weeknr, [getattr(u, d, 0) for d in ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']]) for u
            in opdracht_uren]
-_lines_filtered = [(w, [a * b for a, b in zip(l, uren_masks[w])]) for w, l in _lines]
-weeks = [{'nr': w, 'days': d, 'all': sum(d)} for w, d in _lines_filtered]
-total_uren = Decimal(sum(u for w, l in _lines_filtered for u in l))
+lines_filtered = [(w, [a * b for a, b in zip(l, uren_masks[w])]) for w, l in lines]
+weeks = [{'nr': w, 'days': d, 'all': sum(d)} for w, d in lines_filtered]
+total_uren = Decimal(sum(u for w, l in lines_filtered for u in l))
 
 factuur.uren=total_uren
 factuur.netto=total_uren * factuur.werker.tarief
@@ -38,4 +36,4 @@ factuur.periode = period_start
 factuur.weeks = weeks
 o.opdrachtgever = Klant[o.opdrachtgever]
 
-produce(facturen)
+produce(factuur)

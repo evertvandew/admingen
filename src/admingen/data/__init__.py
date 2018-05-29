@@ -85,12 +85,22 @@ def CsvReader(stream: typing.TextIO, delimiter=';'):
     return collection
 
 
-def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO):
+def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defines:dict):
     data = CsvReader(instream)
+    data.update(defines)
+    result = None
 
     if isinstance(script, str):
-        result = exec(script, globals(), data)
+        def produce(o):
+            nonlocal result
+            result = o
+        data.update(globals())
+        data['produce'] = produce
+        exec(script, data)
     elif callable(script):
         result = script(**data)
+
+    if type(result) not in [dict, str, list]:
+        result = result.__dict__
 
     dump(result, outstream)
