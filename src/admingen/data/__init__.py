@@ -36,13 +36,14 @@ supported_types = {'str': str,
 def read_tablename(stream):
     for line in stream:
         name = line.strip()
-        if name:
+        if name and not name.startswith('#'):
             yield name
     return
 
 def read_header(stream, delimiter):
     for line in stream:
-        if line:
+        line = line.strip()
+        if line and not line.startswith('#'):
             parts = line.strip().split(delimiter)
             header_types = [p.split(':') for p in parts]
             headers = [p[0] for p in header_types]
