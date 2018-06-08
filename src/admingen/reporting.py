@@ -3,10 +3,16 @@ import sys
 from urllib.parse import urlparse
 from tempfile import NamedTemporaryFile
 from subprocess import call
+import typing
 from jinja2 import Environment
 from babel.numbers import format_currency
 from .parsers import fsm_model
 from .dbengine import createDbModel
+from yaml import load, dump
+try:
+    from yaml import CLoader as Loader, CDumper as Dumper
+except ImportError:
+    from yaml import Loader, Dumper
 
 
 
@@ -64,3 +70,14 @@ def run(db_url, model_url, query, template_url, output_url):
     # Substitute the query element
     # Write to the output
 
+def render_stream(instream: typing.TextIO, tmplstream: typing.TextIO, outstream: typing.TextIO):
+    data = load(instream)
+    assert isinstance(data, dict)
+
+    template = tmplstream.read()
+
+    # Evaluate the template
+    t = env.from_string(template)
+    s = t.render(data)
+
+    outstream.write(s)

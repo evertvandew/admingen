@@ -1,10 +1,14 @@
 
 
 from unittest import TestCase
+from io import StringIO
+from admingen.reporting import render_stream
 
 class tests(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        print (mkdata())
     def testFactuur(self):
-        pass
+        out = StringIO()
+        render_stream(open('urendata.yaml'),
+                      open('../templates/factuur.fodt'),
+                      out)
+        with open('test.fods', 'w') as outf:
+            outf.write(out.getvalue())

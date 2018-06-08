@@ -14,9 +14,13 @@ class tests(TestCase):
                {'period' : '201804',
                 'opdracht' : 2})
         output = out.getvalue()
-        output_lines = [l for l in output.split('\n') if not l.startswith('datum')]
+        #print (output)
+        #with open('urendata.yaml', 'w') as out:
+        #    out.write(output)
+        to_filter = '  datum:'
+        output_lines = [l for l in output.split('\n') if not l.startswith(to_filter)]
         reference = open('urendata.yaml').read()
-        ref_lines = [l for l in reference.split('\n') if not l.startswith('datum')]
+        ref_lines = [l for l in reference.split('\n') if not l.startswith(to_filter)]
 
         self.assertEqual(output_lines, ref_lines)
 

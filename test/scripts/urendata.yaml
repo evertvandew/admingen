@@ -1,17 +1,18 @@
-bruto: !!python/object/apply:decimal.Decimal ['4404.40']
-btw: !!python/object/apply:decimal.Decimal ['764.40']
-datum: 2018-05-29 10:03:22.922206
-netto: !!python/object/apply:decimal.Decimal ['3640']
-nummer: '2018002041'
-opdracht: !!python/object:admingen.data.dataline
-  id: 2
-  naam: 323 Dynamic Inclino
-  opdrachtgever: !!python/object:admingen.data.dataline {adres: 'Oostergracht 40,
-      3763 LZ, Soest', contactpersoon: Ronald Need, email: rneed@dis-sensors.nl, id: 2,
-    naam: DIS Sensors b.v.}
-  werker: 1
-periode: 2018-04-01 00:00:00
-uren: !!python/object/apply:decimal.Decimal ['52']
+factuur: !!python/object:admingen.data.dataline
+  bruto: !!python/object/apply:decimal.Decimal ['4404.40']
+  btw: !!python/object/apply:decimal.Decimal ['764.40']
+  datum: 2018-05-29 11:00:36.571522
+  netto: !!python/object/apply:decimal.Decimal ['3640']
+  nummer: '2018002041'
+  opdracht: !!python/object:admingen.data.dataline
+    id: 2
+    naam: 323 Dynamic Inclino
+    opdrachtgever: !!python/object:admingen.data.dataline {adres: 'Oostergracht 40,
+        3763 LZ, Soest', contactpersoon: Ronald Need, email: rneed@dis-sensors.nl,
+      id: 2, naam: DIS Sensors b.v.}
+    werker: 1
+  periode: 2018-04-01 00:00:00
+  uren: !!python/object/apply:decimal.Decimal ['52']
 weeks:
 - all: !!python/object/apply:decimal.Decimal ['0']
   days:

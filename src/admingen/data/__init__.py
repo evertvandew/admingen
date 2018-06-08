@@ -10,7 +10,7 @@ try:
 except ImportError:
     from yaml import Loader, Dumper
 
-def mkDecimal(s):
+def mkDecimal(s='0'):
     return Decimal(s)
 
 
@@ -37,6 +37,7 @@ def read_tablename(stream):
     for line in stream:
         name = line.strip()
         if name and not name.startswith('#'):
+            supported_types[name] = int
             yield name
     return
 
@@ -75,14 +76,22 @@ def read_lines_id(stream, headers, types, delimiter):
     return {d.id:d for d in read_lines(stream, headers, types, delimiter)}
 
 
+class AnnotatedDict(dict):
+    def __init__(self, *args, **kwargs):
+        self.__annotations__ = {}
+        dict.__init__(self, *args, **kwargs)
+
+
+
 def CsvReader(stream: typing.TextIO, delimiter=';'):
-    collection = {}
+    collection = AnnotatedDict()
     for table in read_tablename(stream):
-        headers, types = read_header(stream, delimiter)
-        if 'id' in headers:
-            collection[table] = read_lines_id(stream, headers, types, delimiter)
+        names, types = read_header(stream, delimiter)
+        collection.__annotations__[table] = [names, types]
+        if 'id' in names:
+            collection[table] = read_lines_id(stream, names, types, delimiter)
         else:
-            collection[table] = list(read_lines(stream, headers, types, delimiter))
+            collection[table] = list(read_lines(stream, names, types, delimiter))
     return collection
 
 
@@ -92,16 +101,13 @@ def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defin
     result = None
 
     if isinstance(script, str):
-        def produce(o):
+        def produce(**kwargs):
             nonlocal result
-            result = o
+            result = kwargs
         data.update(globals())
         data['produce'] = produce
         exec(script, data)
     elif callable(script):
         result = script(**data)
-
-    if type(result) not in [dict, str, list]:
-        result = result.__dict__
 
     dump(result, outstream)

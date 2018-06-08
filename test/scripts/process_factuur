@@ -17,7 +17,7 @@ uren_masks = {u.weeknr: [(period_start <= d < period_eind)
 
 factuur = dataline()
 o = Opdracht[opdracht]
-factuur.werker = WerkerTarief[o.werker]
+werker=WerkerTarief[o.werker]
 opdracht_uren = [u for u in uren if u.opdracht == o.id]
 lines = [(u.weeknr, [getattr(u, d, 0) for d in ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']]) for u
            in opdracht_uren]
@@ -26,14 +26,13 @@ weeks = [{'nr': w, 'days': d, 'all': sum(d)} for w, d in lines_filtered]
 total_uren = Decimal(sum(u for w, l in lines_filtered for u in l))
 
 factuur.uren=total_uren
-factuur.netto=total_uren * factuur.werker.tarief
-factuur.btw=Decimal('0.21') * total_uren * factuur.werker.tarief
-factuur.bruto=Decimal('1.21') * total_uren * factuur.werker.tarief
+factuur.netto=total_uren * werker.tarief
+factuur.btw=Decimal('0.21') * total_uren * werker.tarief
+factuur.bruto=Decimal('1.21') * total_uren * werker.tarief
 factuur.datum=datetime.now()
 factuur.nummer = '%s%03i%02i1'%(period_start.year, o.id, period_start.month)
 factuur.opdracht = o
 factuur.periode = period_start
-factuur.weeks = weeks
 o.opdrachtgever = Klant[o.opdrachtgever]
 
-produce(factuur)
+produce(factuur=factuur, werker=werker, weeks=weeks)
