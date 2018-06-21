@@ -14,6 +14,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 
 
+from admingen.dataclasses import dataclass
+from admingen.keyring import KeyRing
+
 def restapi(cls):
     """ Decorator that turns a class taxonomy into a REST api """
     return cls
@@ -34,41 +37,14 @@ class OAuthError(RuntimeError):
     pass
 
 
-class OAuth2:
-    def __init__(self, token_url, client_id, client_secret, redirect_uri):
-        # Copy all elements blindly into the internal dict
-        self.token_url, self.client_id, self.client_secret, self.redirect_uri = \
-            token_url, client_id, client_secret, redirect_uri
-        self.token = None
-
-    def getAccessToken(self, code=None):
-        """ Get a new access token from an authorization code, or refresh the current token """
-        params = {'client_id': binquote(self.client_id),
-                  'client_secret': binquote(self.client_secret),
-                  'redirect_uri': binquote(self.redirect_uri)}
-        if code:
-            params['code'] = code
-            params['grant_type'] = 'authorization_code'
-        else:
-            assert self.token, 'Need a valid token before refreshing'
-            params['refresh_token'] = self.token['refresh_token']
-            params['grant_type'] = 'refresh_token'
-
-        data = '&'.join(['%s=%s'%it for it in params.items()])
-        response = requests.post(self.token_url, data=data.encode('utf8'),
-                                 headers={'Content-Type': 'application/x-www-form-urlencoded'})
-        assert response.status_code == 200, 'get Access Token failed'
-        self.token = response.json()
-        self.token['birth'] = time.time()
-        return self.token
-
-    def headers(self):
-        return {'Authorization': 'Bearer ' + self.token['access_token']}
+@dataclass
+class OAuthDetails:
+    token_url: str
+    client_id: str
+    client_secret: str
 
 
-
-
-def loginOAuth(username, password, client_id, client_secret, redirect_uri):
+def loginOAuth(username, password, details: OAuthDetails):
     """ Get the initial token necessary for oauth2 authentication """
     # First experiments with the exact online login
     PORT = 13957
@@ -93,8 +69,8 @@ def loginOAuth(username, password, client_id, client_secret, redirect_uri):
 
     # Get a webclient for going through the login process
     browser = webdriver.Chrome()
-    params = dict(client_id=client_id,
-                  redirect_uri=redirect_uri,
+    params = dict(client_id=details.client_id,
+                  redirect_uri=details.token_url,
                   response_type='code',
                   force_login='1')
     url = auth_url + '?' + '&'.join('='.join(i) for i in params.items())
@@ -121,10 +97,10 @@ def loginOAuth(username, password, client_id, client_secret, redirect_uri):
 
     # Now use the code to get a token and return it
     params = {'code': the_code,
-              'client_id': binquote(client_id),
+              'client_id': binquote(details.client_id),
               'grant_type': 'authorization_code',
-              'client_secret': binquote(client_secret),
-              'redirect_uri': binquote(redirect_uri)}
+              'client_secret': binquote(details.client_secret),
+              'redirect_uri': binquote(details.token_url)}
     data = '&'.join(['%s=%s' % it for it in params.items()])
     response = requests.post(token_url, data=data.encode('utf8'),
                              headers={'Content-Type': 'application/x-www-form-urlencoded'})
@@ -135,15 +111,15 @@ def loginOAuth(username, password, client_id, client_secret, redirect_uri):
     return token
 
 
-def refreshToken(token, client_id, client_secret, redirect_uri):
+def refreshToken(token, details: OAuthDetails):
     """ Simply refresh an existing token. """
     base = 'https://start.exactonline.nl/api'
     auth_url = base + '/oauth2/auth'
     token_url = base + '/oauth2/token'
 
-    params = {'client_id': binquote(client_id),
-              'client_secret': binquote(client_secret),
-              'redirect_uri': binquote(redirect_uri),
+    params = {'client_id': binquote(details.client_id),
+              'client_secret': binquote(details.client_secret),
+              'redirect_uri': binquote(details.token_url),
               'refresh_token': token['refresh_token'],
               'grant_type': 'refresh_token'}
 
@@ -155,3 +131,55 @@ def refreshToken(token, client_id, client_secret, redirect_uri):
     token = response.json()
     token['birth'] = time.time()
     return token
+
+
+class TokenStoreApi:
+    def get(self)->bytes:
+        raise NotImplementedError
+    def set(self, token:bytes):
+        raise NotImplementedError
+
+
+class FileTokenStore(TokenStoreApi):
+    def __init__(self, path):
+        self.path = path
+        self.token = self.get()
+    def get(self):
+        try:
+            with open(self.path, 'r') as f:
+                return json.load(f)
+        except:
+            return None
+    def set(self, token):
+        with open(self.path, 'w') as f:
+            json.dump(token, f)
+
+
+def OAuth2(tokenstore: TokenStoreApi, details: OAuthDetails, getInput=input):
+    def headers():
+        token = tokenstore.token
+
+        # If necessary, get the initial token
+        if not token:
+            print ('We have no current token! Please supply the necessary details')
+            username = getInput('Username')
+            password = getInput('Password')
+            token = loginOAuth(username, password, details)
+            tokenstore.set(token)
+
+        # Check if we need to refresh the token
+        if time.time() - token['birth'] > int(token['expires_in']):
+            token = refreshToken(token, details)
+            tokenstore.set(token)
+
+        return {'Authorization': 'Bearer ' + token['access_token']}
+    return headers
+
+
+if __name__ == '__main__':
+    pw = input('Please give password for oauth keyring')
+    ring = KeyRing('oauthring.enc', pw)
+    details = ring['oauthdetails']
+    details = OAuthDetails(**details)
+    oa = OAuth2(FileTokenStore('temptoken.json'), details, ring.__getitem__)
+    print (oa())
