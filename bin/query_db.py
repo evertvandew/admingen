@@ -8,7 +8,7 @@ import os, os.path
 from decimal import Decimal
 from datetime import datetime, date
 from urllib.parse import urlparse
-from admingen.data import CsvReader, mkDecimal, mkdate, mkdatetime
+from admingen.data import CsvReader, CsvWriter, mkDecimal, mkdate, mkdatetime
 from pony import orm
 
 
@@ -28,7 +28,6 @@ def create_db(url, scheme, create):
     # OK to use ponyorm.
     db = orm.Database()
     details= urlparse(url)
-    print ('Create:', create)
     assert details.scheme in ['sqlite']
     if details.scheme == 'sqlite':
         path = os.path.join(os.getcwd(), details.netloc) or details.path
@@ -50,6 +49,7 @@ if __name__ == '__main__':
     parse.add_argument('--insert', help='Insert the data from stdin into the database', action='store_true')
     parse.add_argument('--scheme', help='File defining the database scheme')
     parse.add_argument('--create', help='Create the database tables', action='store_true')
+    parse.add_argument('--query', help='Provide a script with queries that are performed')
     
     args = parse.parse_args()
     
@@ -67,3 +67,11 @@ if __name__ == '__main__':
             if isinstance(table_data, dict):
                 table_data = table_data.values()
             objects.extend([t(**d.__dict__) for d in table_data])
+
+    if args.query:
+        s = open(args.query).read()
+        existing_keys = tables.keys()
+        with orm.db_session():
+            exec(s, tables)
+            results = {k:d for k, d in tables.items() if k not in existing_keys}
+            CsvWriter(sys.stdout, results)

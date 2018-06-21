@@ -95,6 +95,17 @@ def CsvReader(stream: typing.TextIO, delimiter=';'):
     return collection
 
 
+def CsvWriter(stream: typing.TextIO, collection, delimiter=';'):
+    for table, columns in collection.items():
+        stream.write('%s\n'%table)
+
+        parts = [delimiter.join(d) for d in zip(*collection.__annotations__[table])]
+        stream.write('%s\n'%','.join(parts))
+
+        for line in columns:
+            stream.write('%s\n'%delimiter.join(line.values()))
+
+
 def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defines:dict):
     data = CsvReader(instream)
     data.update(defines)
