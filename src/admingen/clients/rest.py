@@ -5,6 +5,7 @@ import requests
 import json
 import time
 import threading
+import logging
 
 import cherrypy
 from selenium import webdriver
@@ -161,7 +162,8 @@ def OAuth2(tokenstore: TokenStoreApi, details: OAuthDetails, getInput=input):
 
         # If necessary, get the initial token
         if not token:
-            print ('We have no current token! Please supply the necessary details')
+            logging.info('Getting an initial oauth token')
+            print ('We have no starting token! Please supply the necessary details')
             username = getInput('Username')
             password = getInput('Password')
             token = loginOAuth(username, password, details)
@@ -169,6 +171,7 @@ def OAuth2(tokenstore: TokenStoreApi, details: OAuthDetails, getInput=input):
 
         # Check if we need to refresh the token
         if time.time() - token['birth'] > int(token['expires_in']):
+            logging.info('Refreshing oauth token')
             token = refreshToken(token, details)
             tokenstore.set(token)
 
