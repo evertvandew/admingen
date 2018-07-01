@@ -2,13 +2,78 @@
 import datetime
 import requests
 import xml.etree.ElementTree as ET
+from decimal import Decimal
 
 from admingen.keyring import KeyRing
 from admingen.clients.rest import OAuth2, OAuthDetails, FileTokenStore
 from admingen.dataclasses import dataclass
 
 
-TOPICS = ['GLTransactions', 'GLAccounts', ]
+TOPICS = ["Accounts",
+        "ActivitySectors",
+        "Administrations",
+        "Agencies",
+        "AllocationRules",
+        "APs",
+        "ARs",
+        "AssetGroups",
+        "Assets",
+        "Balances",
+        "BankLinks",
+        "Budgets",
+        "BudgetScenarios",
+        "BusinessTypes",
+        "CompanySizes",
+        "Costcenters",
+        "Costunits",
+        "DDMandates",
+        "Departments",
+        "DepreciationMethods",
+        "Documents",
+        "Employees",
+        "Employments",
+        "EntryTemplates",
+        "EntryTemplateTransactions",
+        "ExchangeRates",
+        "FinYears",
+        "GLAccountCategories",
+        "GLAccountClassifications",
+        "GLAccounts",
+        "GLTransactions",
+        "HRMSubscriptions",
+        "Indicators",
+        "Invoices",
+        "Items",
+        "JobGroups",
+        "JobTitles",
+        "Journals",
+        "Layouts",
+        "LeadPurposes",
+        "LeadRatings",
+        "Leads",
+        "LeadSources",
+        "LeadStages",
+        "ManufacturedBillofMaterials",
+        "MatchSets",
+        "Opportunities",
+        "OpportunityStages",
+        "PaymentConditions",
+        "PayrollComponentGroups",
+        "PayrollComponents",
+        "PayrollEntries",
+        "PayrollGLLinks",
+        "PayrollYears",
+        "PeriodProcessReports",
+        "Quotations",
+        "ReasonCodes",
+        "SalesTypes",
+        "Settings",
+        "ShippingMethods",
+        "Templates",
+        "Titles",
+        "UserAdministrations",
+        "Users",
+        "VATs"]
 
 
 @dataclass
@@ -17,21 +82,31 @@ class TransactionLine:
     AccountCode: str
     AccountName: str
     Date: datetime.datetime
-    AmountDC: float
-    EntryNumber: int
+    Amount: Decimal
+    Currency: str
+    ForeignAmount: Decimal
+    ForeignCurrency: str
     GLAccountCode: str
     Description: str
     CostUnit: str
     CostCenter: str
     AssetCode: str
-    FinancialPeriod: int
-    FinancialYear: int
+    FinPeriod: int
+    FinYear: int
     InvoiceNumber: int
     JournalCode: str
     ProjectCode: str
-    Type: int
     VATCode: str
     YourRef: str
+    Description: str
+
+
+@dataclass
+class Transaction:
+    TransactionType: int
+    Journal: int
+    Lines: TransactionLine
+
 
 @dataclass
 class Division:
@@ -58,12 +133,21 @@ class XML:
     def __init__(self, oauth : OAuth2):
         self.oauth_headers = oauth
 
-    def get(self, topic, **kwargs):
+    def get(self, topic, division, **kwargs):
+        if topic not in TOPICS:
+            return None
+
         headers = self.oauth_headers()
 
         params = kwargs.copy()
         params['PageNumber'] = 1
+        params['Topic'] = topic
+        params['_Division_'] = division
         r = requests.get(self.download_url, params=params, headers=headers)
+        if r.status_code != 200:
+            return None
+        root = ET.fromstring(r.content.decode('utf-8'))
+        return root
 
     def getDivisions(self):
         headers = self.oauth_headers()
@@ -76,6 +160,12 @@ class XML:
                                  Description=div[0].text)
                 for div in root]
         return divs
+
+    def getTransactions(self, division, **kwargs):
+        def args(node):
+            pass
+        root = self.get('GLTransactions', division, **kwargs)
+        trans = [TransactionLine(**args(t)) for t in root[0]]
 
 
 def uploadTransactions(token, administration, fname):
@@ -90,4 +180,5 @@ if __name__ == '__main__':
     oa = OAuth2(FileTokenStore('temptoken.json'), details, ring.__getitem__)
 
     xml = XML(oa)
-    print (xml.getDivisions())
+    print (xml.getTransactions(15972))
+
