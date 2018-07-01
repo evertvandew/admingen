@@ -1,0 +1,55 @@
+
+# generate factuur e.g. using:
+#   cat urendata.csv | ~/admingen/bin/filter_data -d period=201804 -d opdracht=2 process_factuur
+
+Klant
+id:int;naam;adres;contactpersoon;email
+1;Axians ICT b.v.;Rivium Boulevard41, 2909 LK, Capelle aan den Ĳssel;Genio van Hoof;genio.vanhoof@axians.com
+2;DIS Sensors b.v.;Oostergracht 40, 3763 LZ, Soest;Ronald Need;rneed@dis-sensors.nl
+
+
+WerkerTarief
+id:int;naam;sofinr;tarief:decimal
+1;Evert van de Waal;1705.43.304;70
+
+
+Opdracht
+id:int;naam;opdrachtgever:int;werker:int
+1;DYNNIQ: 43889 NECKERSPOEL;1;1
+2;323 Dynamic Inclino;2;1
+
+
+Uren
+weeknr;opdracht:int;ma:decimal;di:decimal;wo:decimal;do:decimal;vr:decimal
+201740;1;0;0;8;0;7.5
+201741;1;0;0;8;0;8
+201742;1;0;0;8;0;8
+201743;1;0;0;8;0;8
+201744;1;0;0;8
+201745;1;0;0;4
+201746;1;0;0;6
+201748;1;0;0;8
+201750;1;0;0;8
+201751;1;0;0;8
+201802;1;0;0;8
+201803;1;0;0;0;0;8
+201805;1;0;0;0;0;8
+201805;2;0;0;7;6
+201806;2;0;0;8;5.5;8
+201807;2;0;0;8;4
+201808;2;0;0;8;5
+201810;2;0;0;8;5
+201811;1;0;0;0;0;8
+201811;2;0;0;8;5
+201812;2;0;0;8;5;6.5
+201813;1;0;6;0;0;0
+201813;2;0;0;8;5
+201814;2;0;0;8;5
+201815;1;0;0;0;0;8
+201815;2;0;0;8;5
+201816;1;0;0;0;0;8
+201816;2;0;0;8;5
+201817;2;0;0;8;5
+201820;2;0;0;8;5
+201821;1;0;5;0;0;1
+201821;2;0;0;8;5

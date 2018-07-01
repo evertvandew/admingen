@@ -21898,7 +21898,7 @@
       <text:p text:style-name="P9">Uurtarief</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="Table2.A1" office:value-type="string">
-      <text:p text:style-name="P9">{{factuur.werker.tarief|moneyformat}} <text:s/><text:span text:style-name="T1">(</text:span>exc<text:span text:style-name="T1">l.</text:span> BTW<text:span text:style-name="T1">)</text:span></text:p>
+      <text:p text:style-name="P9">{{werker.tarief|moneyformat}} <text:s/><text:span text:style-name="T1">(</text:span>exc<text:span text:style-name="T1">l.</text:span> BTW<text:span text:style-name="T1">)</text:span></text:p>
      </table:table-cell>
     </table:table-row>
    </table:table>

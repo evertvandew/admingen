@@ -94,7 +94,9 @@ class Test(TestCase):
                            201803 0 0 0 0 8
                            201805 0 0 0 0 8
                            201811 0 0 0 0 8
-                           201813 0 6 0 0 0'''
+                           201813 0 6 0 0 0
+                           201815 0 0 0 0 8
+                           201816 0 0 0 0 8'''
 
             uren_dis = '''201805 0 0 7 6
                           201806 0 0 8 5.5 8
@@ -103,7 +105,11 @@ class Test(TestCase):
                           201810 0 0 8 5
                           201811 0 0 8 5
                           201812 0 0 8 5 6.5
-                          201813 0 0 8 5'''
+                          201813 0 0 8 5
+                          201814 0 0 8 5
+                          201815 0 0 8 5
+                          201816 0 0 8 5
+                          201817 0 0 8 5'''
 
             weekstates = {}
 
@@ -139,8 +145,8 @@ class Test(TestCase):
             orm.commit()
 
             # Generate the factuur objecten (but without accounting details)
-            for periods, opdr in [[['201710', '201711', '201712', '201801', '201802', '201803'], neck],
-                                  [['201801', '201802', '201803'], inclino]]:
+            for periods, opdr in [[['201710', '201711', '201712', '201801', '201802', '201803', '201804'], neck],
+                                  [['201801', '201802', '201803', '201804'], inclino]]:
                 for period in periods:
                     p = datetime.datetime.strptime(period, '%Y%m')
                     factnr = '%s%03i%02i1'%(p.year, opdr.id, p.month)
@@ -156,11 +162,15 @@ class Test(TestCase):
         with sessionScope():
             facturen = orm.select(f for f in Factuur)[:]
             for factuur in facturen:
+                if factuur.periode.month != 4:
+                    continue
                 # Process the urenstaten to calculate the facturen
                 nr_days = calendar.monthrange(factuur.periode.year, factuur.periode.month)[1]
                 start = factuur.periode
                 end = start + datetime.timedelta(nr_days, 0)
                 _weeks = orm.select(w for w in Weekstaat if (w.start + datetime.timedelta(4)) >= start and w.start < end).order_by(Weekstaat.weeknr)[:]
+                if not _weeks:
+                    raise RuntimeError('No weeks for factuur')
                 _week_filter = {w.weeknr: [(start <= d < end)
                                        for d in [w.start + datetime.timedelta(i) for i in range(7)]]
                                 for w in _weeks}
@@ -197,17 +207,23 @@ class Test(TestCase):
 
     def testDynniqUrenstaat(self):
         Urenregel = self.model.dbmodel['Urenregel']
+        Weekstaat = self.model.dbmodel['Weekstaat']
         with sessionScope():
-            regel = orm.select(u for u in Urenregel if u.week.weeknr==11 and u.opdracht.naam=='DYNNIQ: 43889 NECKERSPOEL').first()
-            with open('../templates/dynniq-weekstaat.fods') as f:
-                templ = f.read()
+            for week in orm.select(w for w in Weekstaat):
+                regel = orm.select(u for u in Urenregel if u.week == week and u.opdracht.naam=='DYNNIQ: 43889 NECKERSPOEL').first()
 
-            render(templ,
-                   'tmp/test.fods',
-                   'xls',
-                   staat=regel,
-                   total=sum([regel.ma, regel.di, regel.wo, regel.do, regel.vr, regel.za, regel.zo])
-                   )
+                if not regel:
+                    continue
+
+                with open('../templates/dynniq-weekstaat.fods') as f:
+                    templ = f.read()
+
+                render(templ,
+                       'tmp/dynniq_ehwaal.%s-%s.fods'%(week.weeknr, week.jaar),
+                       'xls',
+                       staat=regel,
+                       total=sum([regel.ma, regel.di, regel.wo, regel.do, regel.vr, regel.za, regel.zo])
+                       )
 
 
     def testUrenstaat(self):

@@ -206,7 +206,8 @@ def generate_pdfs(org, users, transactions):
     if not os.path.exists(pdfdir):
         os.mkdir(pdfdir)
     for code, name, email, total, rst in generate_overviews(org, users, transactions):
-        open(temp_file, 'w').write(rst)
+        with open(temp_file, 'w') as f:
+            f.write(rst)
         fname = pdfName(org['id'], name, code)
         subprocess.call([RST2PDF, temp_file, '-o', fname, '-s', 'stylesheet.txt'])
 

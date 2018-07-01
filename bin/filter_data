@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+
+import sys
+import argparse
+from admingen.data import filter
+
+
+
+if __name__ == '__main__':
+    parse = argparse.ArgumentParser()
+    parse.add_argument('script')
+    parse.add_argument('-d', dest='defines', action='append', default=[])
+    args = parse.parse_args()
+    script = open(args.script).read()
+    defines_parts = [d.split('=') for d in args.defines]
+    defines = {k:v for k, v in defines_parts}
+    filter(sys.stdin, script, sys.stdout, defines)

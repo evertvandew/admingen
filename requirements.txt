@@ -13,3 +13,5 @@ rst2pdf
 Babel
 caldav
 python-dateutil
+aiosmtpd
+pyyaml
