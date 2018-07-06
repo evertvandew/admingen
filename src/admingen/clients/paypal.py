@@ -162,19 +162,22 @@ def downloadTransactions(secrets: PaypalSecrets, range_value: DataRanges=DataRan
         # Wait until the report is available
         start = time.time()
         while True:
-            elem = browser.find_element_by_class_name('dlogRefreshList')
-            if elem:
-                time.sleep(0.5)
-                elem.click()
+            try:
+                elem = browser.find_element_by_class_name('dlogRefreshList')
+                if elem:
+                    time.sleep(0.5)
+                    elem.click()
 
-            time.sleep(5)
-            wait_till_loaded(browser)
-            # Wait 10 minutes for the correct line
-            if time.time() - start > 10 * 60:
-                raise RuntimeError('Report did not arrive in time')
-            e = checkReportAvailable(browser, daterange)
-            if e:
-                break
+                time.sleep(5)
+                wait_till_loaded(browser)
+                # Wait 10 minutes for the correct line
+                if time.time() - start > 10 * 60:
+                    raise RuntimeError('Report did not arrive in time')
+                e = checkReportAvailable(browser, daterange)
+                if e:
+                    break
+            except:
+                time.sleep(1)
 
         # First make a snapshot of the files in the download directory
         files = os.listdir(downloaddir)

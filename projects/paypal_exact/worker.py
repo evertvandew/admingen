@@ -24,7 +24,7 @@ from admingen.logging import log_exceptions
 from admingen.clients.paypal import (downloadTransactions, pp_reader, PPTransactionDetails,
                                      PaypalSecrets, DataRanges)
 from admingen.clients import zeke
-from admingen.clients.rest import refreshToken, loginOAuth, OAuthError
+from admingen.clients.rest import OAuthDetails
 from admingen.clients.exact_xml import uploadTransactions
 from admingen import logging
 from admingen.db_api import the_db, sessionScope, DbTable, select, Required, Set, openDb, orm
@@ -32,22 +32,6 @@ from admingen.international import SalesType, PP_EU_COUNTRY_CODES
 from admingen.dataclasses import dataclass, fields, asdict
 from admingen.worker import Worker
 
-
-@Message
-class paypallogin:
-    administration: int
-    paypal_client_id: str
-    client_password: str
-    client_cert: bytes
-
-
-@Message
-class ExactSecrets:
-    administration: int
-    client_id: str
-    client_secret: str
-    username: str
-    password: str
 
 @dataclass
 class ExactTransactionLine:
@@ -235,13 +219,13 @@ class PaypalExactTask:
     """ Produce exact transactions based on the PayPal transactions """
     config: [paypal_export_config]
     optional_config: [zeke.ZekeDetails]
-    secrets: [ExactSecrets, PaypalSecrets]
+    secrets: [OAuthDetails, PaypalSecrets]
     optional_secrets: [zeke.ZekeSecrets]
 
     def __init__(self, task_id, config_details, secrets):
         self.task_id = task_id
-        self.exact_secrets: ExactSecrets = secrets[0]
-        self.pp_login: paypallogin = secrets[1]
+        self.exact_secrets: OAuthDetails = secrets[0]
+        self.pp_login: PaypalSecrets = secrets[1]
         self.token = None
         # TODO: Handle the optional secrets
         self.config: paypal_export_config = config_details if isinstance(config_details, paypal_export_config) \
@@ -271,10 +255,6 @@ class PaypalExactTask:
                                 SalesType.Unknown: Decimal('0.21')}
 
         self.pp_username = self.pp_login.username
-
-        with sessionScope():
-            q = select(t.timestamp for t in PaypalExchangeLog if t.task_id==task_id).order_by(lambda: orm.desc(t.timestamp))
-            self.last_run = q.first()
 
         # Ensure the download directory exists
         if not os.path.exists(config.downloaddir):
@@ -368,12 +348,13 @@ class PaypalExactTask:
         foreign_valuta = transaction.Valuta
 
         # Cache the results
-        with sessionScope():
-            c = TransactionLog(timestamp=transaction.Datum,
-                               pp_tx=transaction.ReferenceTxnID,
-                               vat_percent=vat_percentage,
-                               pp_username=self.pp_username,
-                               account=gb_sales)
+        if False:
+            with sessionScope():
+                c = TransactionLog(timestamp=transaction.Datum,
+                                   pp_tx=transaction.ReferenceTxnID,
+                                   vat_percent=vat_percentage,
+                                   pp_username=self.pp_username,
+                                   account=gb_sales)
 
         lines = []
         net_costs_euro = vat_costs_euro = Decimal('0.00')
@@ -533,7 +514,8 @@ class PaypalExactTask:
         print ('RUNNING')
 
         # Load the transaction from PayPal
-        fname = '/home/ehwaal/admingen/downloads/Download (1).CSV'
+        #fname = '/home/ehwaal/admingen/downloads/Download (1).CSV'
+        fname = downloadTransactions(self.pp_login)
         #fname = downloadTransactions(self.pp_login, period)
         logging.info('Processing transactions from %s'%os.path.abspath(fname))
         #zeke_details = zeke.loadTransactions()
@@ -548,24 +530,7 @@ class PaypalExactTask:
         logging.info('Written exact transactions to %s: %s\t%s'%(os.path.abspath(fname), len(transactions), total))
 
         # Upload the XML to Exact
-        # First get a fresh token
-        try:
-            if self.token:
-                # Do we need a new token?
-                if time.time() - self.token['birth'] + 30 > int(self.token['expires_in']):
-                    self.token = refreshToken(self.token,
-                                              self.exact_secrets.client_id,
-                                              self.exact_secrets.client_secret,
-                                              'http://localhost:13957')
-        except OAuthError:
-            self.token = None
-
-        if not self.token:
-            self.token = loginOAuth(self.exact_secrets.username,
-                                    self.exact_secrets.password,
-                                    self.exact_secrets.client_id,
-                                    self.exact_secrets.client_secret,
-                                    'http://localhost:13957')
+        return
         uploadTransactions(self.token, self.exact_secrets.administration, self.fname)
 
         # Log the exchange

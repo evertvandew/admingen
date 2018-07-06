@@ -1,5 +1,6 @@
 
-
+import sys
+from urllib.parse import urlparse
 import typing
 from decimal import Decimal
 from datetime import date, datetime, timedelta
@@ -47,8 +48,8 @@ def read_header(stream, delimiter):
         if line and not line.startswith('#'):
             parts = line.strip().split(delimiter)
             header_types = [p.split(':') for p in parts]
-            headers = [p[0] for p in header_types]
-            types = [p[1] if len(p)==2 else 'str' for p in header_types]
+            headers = [p[0].strip() for p in header_types]
+            types = [p[1].strip() if len(p)==2 else 'str' for p in header_types]
             types = [supported_types[t] for t in types]
             return headers, types
 
@@ -104,6 +105,16 @@ def CsvWriter(stream: typing.TextIO, collection, delimiter=';'):
 
         for line in columns:
             stream.write('%s\n'%delimiter.join(line.values()))
+
+
+def DataReader(url):
+    parts = urlparse(url)
+    if parts.scheme in ['', 'stream'] and parts.path=='stdin':
+        return CsvReader(sys.stdin)
+    if parts.scheme == 'file':
+        with open(parts.path) as stream:
+            return CsvReader(stream)
+
 
 
 def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defines:dict):
