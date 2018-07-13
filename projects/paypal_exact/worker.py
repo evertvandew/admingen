@@ -24,14 +24,17 @@ from admingen.logging import log_exceptions
 from admingen.clients.paypal import (downloadTransactions, pp_reader, PPTransactionDetails,
                                      PaypalSecrets, DataRanges)
 from admingen.clients import zeke
-from admingen.clients.rest import OAuthDetails
-from admingen.clients.exact_xml import uploadTransactions
+from admingen.clients.exact_xml import uploadTransactions, OAuthDetails, OAuth2, FileTokenStore
 from admingen import logging
 from admingen.db_api import the_db, sessionScope, DbTable, select, Required, Set, openDb, orm
 from admingen.international import SalesType, PP_EU_COUNTRY_CODES
 from admingen.dataclasses import dataclass, fields, asdict
 from admingen.worker import Worker
 
+
+
+illegal_xml_re = re.compile(
+            u'[&\x00-\x08\x0b-\x1f\x7f-\x84\x86-\x9f\ud800-\udfff\ufdd0-\ufddf\ufffe-\uffff]')
 
 @dataclass
 class ExactTransactionLine:
@@ -54,6 +57,9 @@ class ExactTransaction:
 
 @dataclass
 class paypal_export_config:
+    taskid:int
+    customerid:int
+    administration_hid:int
     ledger: str
     costs_account: str
     pp_account: str
@@ -72,18 +78,33 @@ class paypal_export_config:
 
 # Create a cache for storing the details of earlier transactions
 @DbTable
-class TransactionLog:
-    timestamp : datetime.datetime
-    pp_tx : str
+class PaypalTransactionLog:
+    ref: Required(str, index=True)
+    xref: str
+    timestamp: datetime.datetime
+    exact_transaction: Required('ExchangeTransactionLog')
+
+@DbTable
+class ExchangeTransactionLog:
+    pp_transactions : Set(PaypalTransactionLog)
+    amount: Decimal
     vat_percent : Decimal
-    pp_username : Required(str, index=True)
     account: int
+    batch: Required('PaypalExchangeBatch')
 
 # Keep track of when transactions were last retrieved from PayPal
 @DbTable
-class PaypalExchangeLog:
+class PaypalExchangeBatch:
     task_id: int
     timestamp: datetime.datetime
+    period_start: datetime.datetime
+    period_end: datetime.datetime
+    closing_balance: Decimal
+    fatals: int
+    errors: int
+    warnings: int
+    success: int
+    transactions: Set(ExchangeTransactionLog)
 
 
 # TODO: Periodically clean up the cache
@@ -162,19 +183,10 @@ ForeignLineTemplate = '''            <GLTransactionLine type="40" line="{linenr}
                 <ForeignAmount>
                     <Currency code="{Currency}" />
                     <Value>{Amount}</Value>
+                    <Rate>{ConversionRate}</Rate>
                 </ForeignAmount>
             </GLTransactionLine>'''
 
-
-def generateExactLine(transaction: ExactTransaction, line: ExactTransactionLine, linenr):
-    index = transaction.lines.index(line)
-    nr_lines = len(transaction.lines)
-    date = transaction.date.strftime('%Y-%m-%d')
-    year = transaction.date.strftime('%Y')
-    period = transaction.date.strftime('%m')
-    if line.ForeignCurrency != 'EUR' or line.Currency != 'EUR':
-        return ForeignLineTemplate.format(**locals(), **asdict(line))
-    return LineTemplate.format(**locals(), **asdict(line))
 
 
 TransactionTemplate = '''        <GLTransaction>
@@ -190,17 +202,6 @@ FileTemplate = '''<?xml version="1.0" encoding="utf-8"?>
     </GLTransactions>
 </eExact>
 '''
-
-def generateExactTransaction(transaction: ExactTransaction):
-    transactionlines = '\n'.join([generateExactLine(transaction, line, int((count+2)/2)) \
-                                  for count, line in enumerate(transaction.lines)])
-    return TransactionTemplate.format(**locals(), **asdict(transaction))
-
-
-def generateExactTransactionsFile(transactions: List[ExactTransaction]):
-    transactions_xml = [generateExactTransaction(t) for t in transactions]
-    return FileTemplate.format(transactions = '\n'.join(transactions_xml))
-
 
 # In PayPal, the order_nr has a strange string prepended ('papa xxxx')
 # Define an RE to strip it.
@@ -219,14 +220,12 @@ class PaypalExactTask:
     """ Produce exact transactions based on the PayPal transactions """
     config: [paypal_export_config]
     optional_config: [zeke.ZekeDetails]
-    secrets: [OAuthDetails, PaypalSecrets]
     optional_secrets: [zeke.ZekeSecrets]
 
-    def __init__(self, task_id, config_details, secrets):
+    def __init__(self, task_id, config_details, exact_secrets: OAuthDetails, pp_login: PaypalSecrets):
         self.task_id = task_id
-        self.exact_secrets: OAuthDetails = secrets[0]
-        self.pp_login: PaypalSecrets = secrets[1]
-        self.token = None
+        self.exact_secrets = exact_secrets
+        self.pp_login = pp_login
         # TODO: Handle the optional secrets
         self.config: paypal_export_config = config_details if isinstance(config_details, paypal_export_config) \
             else config_details[0]
@@ -324,12 +323,34 @@ class PaypalExactTask:
             parts.append(str(transaction.Valuta))
             parts.append(str(transaction.Bruto))
         parts += ['Fact: %s'%transaction.Factuurnummer,
-                  transaction.Note,
+                  transaction.Note[:20],
                   'ref:%s' % transaction.Transactiereferentie
                  ]
-        return ' '.join(parts)
+        dirty = ' '.join(parts)
 
-    def make_transaction(self, transaction: PPTransactionDetails, rate=1) -> ExactTransaction:
+        clean = illegal_xml_re.sub('', dirty)
+        return clean
+
+    def generateExactLine(self, transaction: ExactTransaction, line: ExactTransactionLine, linenr):
+        index = transaction.lines.index(line)
+        nr_lines = len(transaction.lines)
+        date = transaction.date.strftime('%Y-%m-%d')
+        year = transaction.date.strftime('%Y')
+        period = transaction.date.strftime('%m')
+        if line.ForeignCurrency != self.config.currency or line.Currency != 'EUR':
+            return ForeignLineTemplate.format(**locals(), **asdict(line))
+        return LineTemplate.format(**locals(), **asdict(line))
+
+    def generateExactTransaction(self, transaction: ExactTransaction):
+        transactionlines = '\n'.join([self.generateExactLine(transaction, line, int((count + 2) / 2)) \
+                                      for count, line in enumerate(transaction.lines)])
+        return TransactionTemplate.format(**locals(), **asdict(transaction))
+
+    def generateExactTransactionsFile(self, transactions: List[ExactTransaction]):
+        transactions_xml = [self.generateExactTransaction(t) for t in transactions]
+        return FileTemplate.format(transactions='\n'.join(transactions_xml))
+
+    def make_transaction(self, transaction: PPTransactionDetails, rate=1, batch=None) -> ExactTransaction:
         """ Translate a PayPal transaction into a set of Exact bookings
             :param rate: euro_amount / foreign_amount
 
@@ -348,13 +369,17 @@ class PaypalExactTask:
         foreign_valuta = transaction.Valuta
 
         # Cache the results
-        if False:
-            with sessionScope():
-                c = TransactionLog(timestamp=transaction.Datum,
-                                   pp_tx=transaction.ReferenceTxnID,
-                                   vat_percent=vat_percentage,
-                                   pp_username=self.pp_username,
-                                   account=gb_sales)
+        exact_log = None
+        if batch is not None:
+            exact_log = ExchangeTransactionLog(batch=batch,
+                                       vat_percent=vat_percentage,
+                                       account=gb_sales,
+                                       amount=transaction.Bruto)
+
+            _ = PaypalTransactionLog(ref=transaction.Transactiereferentie,
+                                     xref=transaction.ReferenceTxnID,
+                                     timestamp=transaction.Datum,
+                                     exact_transaction = exact_log)
 
         lines = []
         net_costs_euro = vat_costs_euro = Decimal('0.00')
@@ -434,7 +459,7 @@ class PaypalExactTask:
 
         exact_transaction = ExactTransaction(transaction.Datum, self.config.ledger, lines,
                                        transaction.Saldo)
-        return exact_transaction
+        return exact_transaction, exact_log
 
     def make_foreign_transaction(self, transactions: List[PPTransactionDetails]):
         # Get the details from the original transaction
@@ -451,8 +476,13 @@ class PaypalExactTask:
         # Paypal converts the net amount of foreign money into the gross amount of local money
         rate = (valuta_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
 
-        exact_transaction = self.make_transaction(sale, rate)
+        exact_transaction, log = self.make_transaction(sale, rate)
         exact_transaction.closingbalance = valuta_details.Saldo
+        for tx in [valuta_details, foreign_details]:
+            _ = PaypalTransactionLog(ref=tx.Transactiereferentie,
+                                     xref=tx.ReferenceTxnID,
+                                     timestamp=tx.Datum,
+                                     exact_transaction=log)
 
         # Check if an extra line is necessary to handle any left-over foreign species
         # This happens (very rarly), probably due to bugs at PayPal.
@@ -475,7 +505,7 @@ class PaypalExactTask:
 
         return exact_transaction
 
-    def detailsGenerator(self, fname):
+    def detailsGenerator(self, fname, batch):
         """ Generator that reads a list of PayPal transactions, and yields ExactTransactions """
         conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
         try:
@@ -491,17 +521,17 @@ class PaypalExactTask:
                     # We need to compress the next three transactions into a single, foreign valuta one.
                     # The actual transaction is NOT a conversion and is in foreign valuta.
                     # The two conversions refer to this transaction
-                    if transaction.Type not in ['Algemeen valutaomrekening', 'Terugbetaling']:
+                    if transaction.Type.strip() not in ['Algemeen valutaomrekening', 'Terugbetaling', 'Bank Deposit to PP Account']:
                         ref = transaction.Transactiereferentie
                     else:
                         ref = transaction.ReferenceTxnID
                     txs = conversions_stack.setdefault(ref, [])
                     txs.append(transaction)
                     if len(txs) == 3:
-                        yield self.make_foreign_transaction(txs)
+                        yield self.make_foreign_transaction(txs, batch)
                         del conversions_stack[ref]
                 else:
-                    yield self.make_transaction(transaction)
+                    yield self.make_transaction(transaction, batch)
         except StopIteration:
             return
         except Exception as e:
@@ -509,33 +539,55 @@ class PaypalExactTask:
             raise
 
     @log_exceptions
-    def run(self, period: DataRanges=DataRanges.Yesterday):
+    def run(self, period: DataRanges=DataRanges.Yesterday, fname=None, start_balance:Decimal=None):
         """ The actual worker. Loads the transactions for yesterday and processes them """
         print ('RUNNING')
 
         # Load the transaction from PayPal
         #fname = '/home/ehwaal/admingen/downloads/Download (1).CSV'
-        fname = downloadTransactions(self.pp_login)
+        if not fname:
+            fname, period_start, period_end = downloadTransactions(self.pp_login)
         #fname = downloadTransactions(self.pp_login, period)
         logging.info('Processing transactions from %s'%os.path.abspath(fname))
         #zeke_details = zeke.loadTransactions()
-        transactions: List[ExactTransaction] = list(self.detailsGenerator(fname))
-        xml = generateExactTransactionsFile(transactions)
-        fname = 'exact_transactions.xml'
-        with open(fname, 'w') as of:
-            of.write(xml)
-
-        total = sum(sum(l.Amount for l in t.lines if l.GLAccount==self.config.pp_account)
-                    for t in transactions)
-        logging.info('Written exact transactions to %s: %s\t%s'%(os.path.abspath(fname), len(transactions), total))
-
-        # Upload the XML to Exact
-        return
-        uploadTransactions(self.token, self.exact_secrets.administration, self.fname)
-
-        # Log the exchange
         with sessionScope():
-            _ = PaypalExchangeLog(task_id=self.task_id, timestamp=datetime.datetime.now())
+            batch = PaypalExchangeBatch(task_id=self.task_id,
+                                        timestamp=datetime.datetime.now(),
+                                        period_start=period_start,
+                                        period_end = period_end)
+
+            transactions: List[ExactTransaction] = list(self.detailsGenerator(fname, batch))
+
+            # Check the transactions...
+            if start_balance is None:
+                sum_first = sum(l.Amount for l in transactions[0].lines
+                                if l.GLAccount==self.config.pp_account)
+                start_balance = transactions[0].closingbalance - sum_first
+            for t in transactions:
+                s = sum(l.Amount for l in t.lines
+                                if l.GLAccount==self.config.pp_account)
+                start_balance += s
+                assert start_balance == t.closingbalance, 'No connection for transaction %s'%t
+            # Start_balance now contains the closing balance...
+
+            # Generate the accompanying XML
+            batch.closing_balance = start_balance
+            xml = self.generateExactTransactionsFile(transactions, batch)
+            fname = 'exact_transactions.xml'
+            with open(fname, 'w') as of:
+                of.write(xml)
+            total = sum(sum(l.Amount for l in t.lines if l.GLAccount==self.config.pp_account)
+                        for t in transactions)
+            logging.info('Written exact transactions to %s: %s\t%s'%(os.path.abspath(fname), len(transactions), total))
+
+            # Upload the XML to Exact
+            batch.success, batch.warnings, batch.errors, batch.fatals = [1, 2, 3, 4]
+            return
+            store = FileTokenStore('exacttoken_%s.json'%self.config.customerid)
+            oa = OAuth2(store, self.exact_secrets)
+            counts = uploadTransactions(oa, self.config.administration_hid, fname)
+            logging.info('Uploaded transactions to exact division %s: %s'%(self.config.administration_hid, counts))
+            batch.success, batch.warnings, batch.errors, batch.fatals = counts
 
 
 if __name__ == '__main__':

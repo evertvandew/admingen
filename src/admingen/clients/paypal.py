@@ -251,6 +251,9 @@ class PPTransactionDetails:
     Effectopsaldo: str
 
 
+type_translations = {'General Currency Conversion': 'Algemeen valutaomrekening',
+                     'Payment Refund': 'Terugbetaling'}
+
 def pp_reader(fname):
     """ Generator that yields paypal transactions """
     # check if fname is a string or a file-like object
@@ -288,11 +291,12 @@ def pp_reader(fname):
             if '-' in line['Datum']:
                 line['Datum'] = datetime.datetime.strptime(line['Datum'], '%d-%m-%Y')
             elif '/' in line['Datum']:
-                line['Datum'] = datetime.datetime.strptime(line['Datum'], '%m/%d/%Y')
+                line['Datum'] = datetime.datetime.strptime(line['Datum'], '%d/%m/%Y')
 
-            if line['Type'] in ['Algemeen valutaomrekening', 'General Currency Conversion']:
-                line['Type'] = 'Algemeen valutaomrekening'
+            line['Type'] = type_translations.get(line['Type'], line['Type'])
             # Strip keys from illegal element characters and unused elements
             line = {k1:line[k2] for k1, k2 in keys}
 
-            yield PPTransactionDetails(**line)
+            transaction = PPTransactionDetails(**line)
+
+            yield transaction

@@ -6,10 +6,18 @@
 
 
 from argparse import ArgumentParser
-from paypal_exact.worker import PaypalExactTask
 from admingen.keyring import KeyRing
 from admingen.data import DataReader
+from admingen.logging import logging
+from admingen.db_api import openDb
 
+try:
+    from paypal_exact.worker import PaypalExactTask, OAuthDetails, PaypalSecrets
+except ModuleNotFoundError:
+    import sys
+    import os.path
+    sys.path.append(os.path.dirname(__file__)+'/..')
+    from paypal_exact.worker import PaypalExactTask
 
 
 if __name__ == '__main__':
@@ -17,16 +25,24 @@ if __name__ == '__main__':
                                         'This program stores secrets in a keyring file.'
                                         'The password to this keyring is received on stdin.'
                             )
-    parser.add_argument('task_id', help='ID for the current task, '
-                                        'used to retrieve its configuration',
-                        default='1')
+    parser.add_argument('taskids', help='ID(s) for the task(s) to be run.'
+                                        'By default, all tasks are run.', nargs='*')
     parser.add_argument('-k', '--keyring', help='Path to the keyring file.',
                       default='oauthring.enc')
-    parser.add_argument('-d', '--database',
+    parser.add_argument('-c', '--config',
                       help='Url to the database containing the task configuration.'
                            'Defaults to a CSV data file on stdin.',
                       default='stdin')
-
+    parser.add_argument('-t', '--transactionlog',
+                      help='Url to the database containing the transaction log.'
+                           'Defaults to "sqlite:///transactionlog.db".',
+                      default='sqlite:///transactionlog.db')
+    parser.add_argument('-r', '--range',
+                        help='The range for the batch in the form yyyy/mm/ss-yyyy/mm/ss',
+                        default= 'yesterday')
+    parser.add_argument('-f', '--file',
+                        help='File containing the paypal transactions',
+                        default=None)
     args = parser.parse_args()
     task_id = int(args.task_id)
 
@@ -34,18 +50,35 @@ if __name__ == '__main__':
     pw = input('Please provide the keyring password:')
     keyring = KeyRing(args.keyring, pw)
 
+    # Connect to the transaction log, generate it if necessary
+    openDb(args.transactionlog)
+
+
     # Read the database and extract the paypal_export_config for the required task_id
     data = DataReader(args.database)
     #index the configuration by task_id
-    config = {d.taskid:d for d in data['ExactConfig']}
+    taskconfig = {d.taskid:d for d in data['TaskConfig']}
+    userconfig = {d.customerid:d for d in data['CustomerConfig']}
 
-    details = config[task_id]
+    # If no task ids are specified, run all tasks
+    taskids = args.taskids or taskconfig.keys()
 
-    secrets = keyring[args.task_id]
-    # The keyring only stores basic Python types.
-    # Cast the secrets to the expected complex types.
-    secrets_types = PaypalExactTask.__annotations__['secrets']
-    secrets = [t(**d) for t, d in zip(secrets_types, secrets)]
+    for task_id in taskids:
+        try:
+            task_details = taskconfig[task_id]
+            customer_id = task_details['customerid']
+            customer_details = userconfig[customer_id]
 
-    worker = PaypalExactTask(task_id, [details], secrets)
-    worker.run()
+            pp_secrets = keyring['ppsecrets_%s'%task_id]
+            # We assume that the customer uses one exact account for all its clients
+            exact_secrets = keyring['exact_secrets_%s'%customer_id]
+
+            # The keyring only stores basic Python types.
+            # Cast the secrets to the expected complex types.
+            pp_secrets = PaypalSecrets(**pp_secrets)
+            exact_secrets = OAuthDetails(**exact_secrets)
+
+            worker = PaypalExactTask(task_id, task_details, exact_secrets, pp_secrets)
+            worker.run(fname=args.file)
+        except:
+            logging.exception('Failed to run task %s'%task_id)

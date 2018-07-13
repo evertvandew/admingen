@@ -4,6 +4,7 @@ import requests
 import xml.etree.ElementTree as ET
 from decimal import Decimal
 
+from admingen.logging import log_limited, logging
 from admingen.keyring import KeyRing
 from admingen.clients.rest import OAuth2, OAuthDetails, FileTokenStore
 from admingen.dataclasses import dataclass
@@ -120,10 +121,19 @@ class Accounts:
     """ CRM accounts, i.e. the customers / debtors """
 
 
+@dataclass
+class Message:
+    """ Response message for a post to Exact """
+    type: str
+    topic: str
+    key: str
+    reason: str
 
-class XML:
+
+class XMLapi:
     base_url = 'https://start.exactonline.nl/docs/'
     download_url = base_url + 'XMLDownload.aspx'
+    upload_url = base_url + 'XMLUpload.aspx'
     divisions_url = base_url + 'XMLDivisions.aspx'
     topics = ['GLTransactions', 'Administrations']
     '?Mode=1&Params%24YearRange%24To=2017&Topic=GLTransactions&Params%24EntryDate%24From=++-++-++++&BeginModalCallStack=1&Backwards=0&_Division_=15972&Params%24Status=20%2c50&Params%24YearRange%24From=2017&PagedFromUI=1&IsModal=1&Params%24Period%24From=1&Params%24EntryDate%24To=++-++-++++&Params%24Period%24To=12&PageNumber=4&TSPaging=0x000000019E3E63EF'
@@ -149,6 +159,24 @@ class XML:
         root = ET.fromstring(r.content.decode('utf-8'))
         return root
 
+    def post(self, topic, division, data, **kwargs):
+        if topic not in TOPICS:
+            return None
+
+        headers = self.oauth_headers()
+
+        params = kwargs.copy()
+        params['PageNumber'] = 1
+        params['Topic'] = topic
+        params['_Division_'] = division
+        r = requests.post(self.download_url, data, params=params, headers=headers)
+        if r.status_code != 200:
+            return None
+        root = ET.fromstring(r.content.decode('utf-8'))
+        msgs = [Message(m.attrib['type'], m[0].attrib['code'], m[0][0].attrib['key'], m[2].text)
+                for m in root[0]]
+        return msgs
+
     def getDivisions(self):
         headers = self.oauth_headers()
         r = requests.get(self.divisions_url, headers=headers)
@@ -166,10 +194,42 @@ class XML:
             pass
         root = self.get('GLTransactions', division, **kwargs)
         trans = [TransactionLine(**args(t)) for t in root[0]]
+        return trans
+
+    def uploadTransactions(self, division, data):
+        msgs = self.post('GLTransactions', division, data)
+        errors = [m for m in msgs if m.type == '0']
+        warnings = [m for m in msgs if m.type == '1']
+        successes = [m for m in msgs if m.type == '2']
+        fatals = [m for m in msgs if m.type == '3']
+
+        for e in errors + fatals:
+            logging.error('Error when uploading transaction: %s'%e)
+        for w in warnings:
+            logging.warning('Error when uploading transaction: %s'%e)
+
+        return len(successes), len(warnings), len(errors), len(fatals)
 
 
-def uploadTransactions(token, administration, fname):
-    raise NotImplementedError()
+
+@log_limited
+def uploadTransactions(oauth_details: OAuth2, hid, fname):
+    # Open the API
+    api = XMLapi(oauth_details)
+
+    # First translate the HID to the actual administration code
+    divs = api.getDivisions()
+    d = [d for d in divs if d.HID == hid]
+    if len(d) != 1:
+        raise RuntimeError('Could not find administration %s!'%hid)
+    administration = d[0].Code
+
+    # Now upload the transactions
+    with open(fname, 'r') as f:
+        data = f.read()
+    if api.uploadTransactions(administration, data) / 100 != 2:
+        msg = 'An error occurred when uploading %s to %s'%(fname, hid)
+        raise RuntimeError(msg)
 
 
 if __name__ == '__main__':
@@ -179,6 +239,6 @@ if __name__ == '__main__':
     details = OAuthDetails(**details)
     oa = OAuth2(FileTokenStore('temptoken.json'), details, ring.__getitem__)
 
-    xml = XML(oa)
+    xml = XMLapi(oa)
     print (xml.getTransactions(15972))
 
