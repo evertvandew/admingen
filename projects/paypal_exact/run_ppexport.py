@@ -35,7 +35,7 @@ if __name__ == '__main__':
                       help='Url to the database containing the task configuration.'
                            'Defaults to a CSV data file on stdin.',
                       default='stdin')
-    parser.add_argument('-t', '--transactionlog',
+    parser.add_argument('-l', '--transactionlog',
                       help='Url to the database containing the transaction log.'
                            'Defaults to "sqlite://transactionlog.db".',
                       default='sqlite://transactionlog.db')
@@ -45,11 +45,16 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--file',
                         help='File containing the paypal transactions',
                         default=None)
+    parser.add_argument('-t', '--test', help='Perform a test run: don\'t upload to exact.',
+                        action='store_true')
     args = parser.parse_args()
 
     # Read the keyring password from stdin and open the keyring
     pw = input('Please provide the keyring password:')
     keyring = KeyRing(args.keyring, pw)
+
+    if args.test:
+        args.transactionlog = 'sqlite://:memory:'
 
     # Connect to the transaction log, generate it if necessary
     openDb(args.transactionlog)
@@ -80,6 +85,6 @@ if __name__ == '__main__':
             exact_secrets = OAuthDetails(**exact_secrets)
 
             worker = PaypalExactTask(task_id, task_details, exact_secrets, pp_secrets)
-            worker.run(fname=args.file)
+            worker.run(fname=args.file, test=args.test)
         except:
             logging.exception('Failed to run task %s'%task_id)

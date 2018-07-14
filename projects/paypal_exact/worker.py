@@ -540,7 +540,8 @@ class PaypalExactTask:
             raise
 
     @log_exceptions
-    def run(self, period: DataRanges=DataRanges.Yesterday, fname=None, start_balance:Decimal=None):
+    def run(self, period: DataRanges=DataRanges.Yesterday, fname=None, start_balance:Decimal=None,
+            test=False):
         """ The actual worker. Loads the transactions for yesterday and processes them """
         print ('RUNNING')
 
@@ -585,13 +586,15 @@ class PaypalExactTask:
             logging.info('Written exact transactions to %s: %s\t%s'%(os.path.abspath(fname), len(transactions), total))
 
             # Upload the XML to Exact
-            batch.success, batch.warnings, batch.errors, batch.fatals = [1, 2, 3, 4]
-            return
-            store = FileTokenStore('exacttoken_%s.json'%self.config.customerid)
-            oa = OAuth2(store, self.exact_secrets)
-            counts = uploadTransactions(oa, self.config.administration_hid, fname)
-            logging.info('Uploaded transactions to exact division %s: %s'%(self.config.administration_hid, counts))
-            batch.success, batch.warnings, batch.errors, batch.fatals = counts
+            if test:
+                batch.success, batch.warnings, batch.errors, batch.fatals = [1, 2, 3, 4]
+                return
+            else:
+                store = FileTokenStore('exacttoken_%s.json'%self.config.customerid)
+                oa = OAuth2(store, self.exact_secrets)
+                counts = uploadTransactions(oa, self.config.administration_hid, fname)
+                logging.info('Uploaded transactions to exact division %s: %s'%(self.config.administration_hid, counts))
+                batch.success, batch.warnings, batch.errors, batch.fatals = counts
 
 
 if __name__ == '__main__':
