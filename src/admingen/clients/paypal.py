@@ -108,23 +108,22 @@ def checkReportAvailable(browser, daterange):
     return e
 
 
-def downloadTransactions(secrets: PaypalSecrets, range_value: DataRanges=DataRanges.Yesterday) -> str:
-    """ Download the transactions for yesterday. Returns the filename of the download """
-    chromeOptions = webdriver.ChromeOptions()
-    prefs = {"download.default_directory": downloaddir}
-    chromeOptions.add_experimental_option("prefs", prefs)
-    browser = webdriver.Chrome(chrome_options=chromeOptions)
-
-    today = datetime.datetime.now()
+def period2dt(range_value: DataRanges=DataRanges.Yesterday):
+    """ Rangevalue is either a DataRange value, or a string.
+        The string must have the format yyyy/mm/dd-yyyy/mm/dd
+    """
+    if isinstance(range_value, str):
+        return tuple(datetime.datetime.strptime(s, '%Y/%m/%d').date() for s in range_value.split('-'))
+    today = datetime.datetime.now().date()
     if range_value == DataRanges.Today:
-        daterange = today.strftime('%d %b %Y - %d %b %Y')
+        return today, today
     elif range_value == DataRanges.Yesterday:
         yesterday = today - datetime.timedelta(1)
-        daterange = yesterday.strftime('%d %b %Y - %d %b %Y')
+        return yesterday, yesterday
     elif range_value == DataRanges.Custom:
-        raise 'Custom range not (yet) supported'
+        raise ValueError('Custom range not supported--use a string')
     else:
-        end = datetime.datetime(today.year, today.month, 1) - datetime.timedelta(1)
+        end = datetime.date(today.year, today.month, 1) - datetime.timedelta(1)
         sy = today.year
         if range_value == DataRanges.PastMonth:
             sm = today.month - 1
@@ -135,9 +134,20 @@ def downloadTransactions(secrets: PaypalSecrets, range_value: DataRanges=DataRan
         if sm < 1:
             sy -= 1
             sm += 12
-        start = datetime.datetime(sy, sm, 1)
-        txts = tuple(d.strftime('%d %b %Y') for d in [start, end])
-        daterange = '%s - %s'%txts
+        start = datetime.datetime(sy, sm, 1).date()
+    return start, end
+
+
+
+def downloadTransactions(secrets: PaypalSecrets, range_value: DataRanges=DataRanges.Yesterday) -> str:
+    """ Download the transactions for yesterday. Returns the filename of the download """
+    chromeOptions = webdriver.ChromeOptions()
+    prefs = {"download.default_directory": downloaddir}
+    chromeOptions.add_experimental_option("prefs", prefs)
+    browser = webdriver.Chrome(chrome_options=chromeOptions)
+
+    txts = tuple(d.strftime('%d %b %Y') for d in period2dt(range_value))
+    daterange = '%s - %s' % txts
 
     # browser = webdriver.Chrome()
     with quitter(browser):

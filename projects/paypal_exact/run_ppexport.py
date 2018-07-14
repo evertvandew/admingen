@@ -12,12 +12,14 @@ from admingen.logging import logging
 from admingen.db_api import openDb
 
 try:
-    from paypal_exact.worker import PaypalExactTask, OAuthDetails, PaypalSecrets
+    from paypal_exact.worker import PaypalExactTask
 except ModuleNotFoundError:
     import sys
     import os.path
     sys.path.append(os.path.dirname(__file__)+'/..')
     from paypal_exact.worker import PaypalExactTask
+
+from paypal_exact.worker import PaypalExactTask, OAuthDetails, PaypalSecrets, paypal_export_config
 
 
 if __name__ == '__main__':
@@ -35,8 +37,8 @@ if __name__ == '__main__':
                       default='stdin')
     parser.add_argument('-t', '--transactionlog',
                       help='Url to the database containing the transaction log.'
-                           'Defaults to "sqlite:///transactionlog.db".',
-                      default='sqlite:///transactionlog.db')
+                           'Defaults to "sqlite://transactionlog.db".',
+                      default='sqlite://transactionlog.db')
     parser.add_argument('-r', '--range',
                         help='The range for the batch in the form yyyy/mm/ss-yyyy/mm/ss',
                         default= 'yesterday')
@@ -44,7 +46,6 @@ if __name__ == '__main__':
                         help='File containing the paypal transactions',
                         default=None)
     args = parser.parse_args()
-    task_id = int(args.task_id)
 
     # Read the keyring password from stdin and open the keyring
     pw = input('Please provide the keyring password:')
@@ -55,7 +56,7 @@ if __name__ == '__main__':
 
 
     # Read the database and extract the paypal_export_config for the required task_id
-    data = DataReader(args.database)
+    data = DataReader(args.config)
     #index the configuration by task_id
     taskconfig = {d.taskid:d for d in data['TaskConfig']}
     userconfig = {d.customerid:d for d in data['CustomerConfig']}
@@ -65,8 +66,8 @@ if __name__ == '__main__':
 
     for task_id in taskids:
         try:
-            task_details = taskconfig[task_id]
-            customer_id = task_details['customerid']
+            task_details = paypal_export_config(**taskconfig[task_id].__dict__)
+            customer_id = task_details.customerid
             customer_details = userconfig[customer_id]
 
             pp_secrets = keyring['ppsecrets_%s'%task_id]

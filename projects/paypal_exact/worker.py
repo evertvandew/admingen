@@ -22,7 +22,7 @@ from admingen.servers import mkUnixServer, Message, expose, serialize, deseriali
 from admingen import config
 from admingen.logging import log_exceptions
 from admingen.clients.paypal import (downloadTransactions, pp_reader, PPTransactionDetails,
-                                     PaypalSecrets, DataRanges)
+                                     PaypalSecrets, DataRanges, period2dt)
 from admingen.clients import zeke
 from admingen.clients.exact_xml import uploadTransactions, OAuthDetails, OAuth2, FileTokenStore
 from admingen import logging
@@ -97,8 +97,9 @@ class ExchangeTransactionLog:
 class PaypalExchangeBatch:
     task_id: int
     timestamp: datetime.datetime
-    period_start: datetime.datetime
-    period_end: datetime.datetime
+    period_start: datetime.date
+    period_end: datetime.date
+    starting_balance: Decimal
     closing_balance: Decimal
     fatals: int
     errors: int
@@ -303,9 +304,9 @@ class PaypalExactTask:
             # This is related to another payment, in almost all cases a return of a previous payment
             # If available, use the details from the previous transaction
             with sessionScope():
-                txs = select(_ for _ in TransactionLog if _.pp_tx == transaction.ReferenceTxnID)
+                txs = select(_ for _ in PaypalTransactionLog if _.ref == transaction.ReferenceTxnID)
                 for tx in txs:
-                    return tx.account, tx.vat_percent
+                    return tx.exact_transaction.account, tx.exact_transaction.vat_percent
             # Transaction unknown, try to guess the details
             # This means that debtors and creditors are reversed
             accounts = self.sale_accounts if transaction.Net < 0 else self.purchase_accounts
@@ -461,7 +462,7 @@ class PaypalExactTask:
                                        transaction.Saldo)
         return exact_transaction, exact_log
 
-    def make_foreign_transaction(self, transactions: List[PPTransactionDetails]):
+    def make_foreign_transaction(self, transactions: List[PPTransactionDetails], batch):
         # Get the details from the original transaction
         sale:PPTransactionDetails = next(t for t in transactions if
                     t.Type != 'Algemeen valutaomrekening' and t.Valuta != self.config.currency)
@@ -476,7 +477,7 @@ class PaypalExactTask:
         # Paypal converts the net amount of foreign money into the gross amount of local money
         rate = (valuta_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
 
-        exact_transaction, log = self.make_transaction(sale, rate)
+        exact_transaction, log = self.make_transaction(sale, rate, batch=batch)
         exact_transaction.closingbalance = valuta_details.Saldo
         for tx in [valuta_details, foreign_details]:
             _ = PaypalTransactionLog(ref=tx.Transactiereferentie,
@@ -531,7 +532,7 @@ class PaypalExactTask:
                         yield self.make_foreign_transaction(txs, batch)
                         del conversions_stack[ref]
                 else:
-                    yield self.make_transaction(transaction, batch)
+                    yield self.make_transaction(transaction, batch=batch)[0]
         except StopIteration:
             return
         except Exception as e:
@@ -546,11 +547,12 @@ class PaypalExactTask:
         # Load the transaction from PayPal
         #fname = '/home/ehwaal/admingen/downloads/Download (1).CSV'
         if not fname:
-            fname, period_start, period_end = downloadTransactions(self.pp_login)
+            fname = downloadTransactions(self.pp_login, period)
         #fname = downloadTransactions(self.pp_login, period)
         logging.info('Processing transactions from %s'%os.path.abspath(fname))
         #zeke_details = zeke.loadTransactions()
         with sessionScope():
+            period_start, period_end = period2dt(period)
             batch = PaypalExchangeBatch(task_id=self.task_id,
                                         timestamp=datetime.datetime.now(),
                                         period_start=period_start,
@@ -563,16 +565,18 @@ class PaypalExactTask:
                 sum_first = sum(l.Amount for l in transactions[0].lines
                                 if l.GLAccount==self.config.pp_account)
                 start_balance = transactions[0].closingbalance - sum_first
+            balance = start_balance
             for t in transactions:
                 s = sum(l.Amount for l in t.lines
                                 if l.GLAccount==self.config.pp_account)
-                start_balance += s
-                assert start_balance == t.closingbalance, 'No connection for transaction %s'%t
+                balance += s
+                assert balance == t.closingbalance, 'No connection for transaction %s'%t
             # Start_balance now contains the closing balance...
 
             # Generate the accompanying XML
-            batch.closing_balance = start_balance
-            xml = self.generateExactTransactionsFile(transactions, batch)
+            batch.closing_balance = balance
+            batch.starting_balance = start_balance
+            xml = self.generateExactTransactionsFile(transactions)
             fname = 'exact_transactions.xml'
             with open(fname, 'w') as of:
                 of.write(xml)

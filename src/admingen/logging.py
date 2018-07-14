@@ -6,6 +6,15 @@ import logging
 import traceback
 
 
+
+info = logging.info
+debug = logging.debug
+warning = logging.warning
+error = logging.error
+exception = logging.exception
+
+
+
 def log_limited(func):
     """ Log the message for any exception that occurs """
     def doIt(*args, **kwargs):
