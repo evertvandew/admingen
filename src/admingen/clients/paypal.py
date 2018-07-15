@@ -21,16 +21,9 @@ from admingen.config import getConfig, downloaddir
 from admingen.dataclasses import dataclass, fields, asdict
 
 
+DataRangesString = ['TODAY', 'YESTERDAY', 'LAST_MONTH', 'LAST_3_MONTHS', 'LAST_6_MONTHS', 'CUSTOM']
 
-
-class DataRanges(enum.Enum):
-    Today = 'TODAY'
-    Yesterday = 'YESTERDAY'
-    PastMonth = 'LAST_MONTH'
-    Past3Months = 'LAST_3_MONTHS'
-    Past6Months = 'LAST_6_MONTHS'
-    Custom = 'CUSTOM'
-
+DataRanges = enum.Enum('DataRanges', DataRangesString)
 
 @dataclass
 class PaypalSecrets:
@@ -65,16 +58,32 @@ def wait_till_loaded(browser):
     wait.until(EC.invisibility_of_element_located((By.CLASS_NAME, "loading")))
 
 
-def generateReport(browser, range_value: DataRanges):
+def generateReport(browser, range_value: str):
     """ Only the pre-defined ranges are currently supported """
     # Set the correct filters
-    filters = browser.find_elements_by_class_name("filters")
-    # Set the range filter to 'yesterday'
-    range = [f for f in filters if 'dateRange' in f.get_attribute('class')][0]
-    btn = range.find_element_by_tag_name('button')
-    btn.click()
-    a = range.find_element_by_xpath('//a[@data-id="%s"]' % range_value.value)
+    # First wait until they are available
+    while True:
+        filters = browser.find_elements_by_class_name("filters")
+        # Set the range filter to 'yesterday'
+        range = [f for f in filters if 'dateRange' in f.get_attribute('class')][0]
+        btn = range.find_element_by_tag_name('button')
+        if btn:
+            btn.click()
+            break
+        time.sleep(2)
+    filter_range = range_value.upper() if not '/' in range_value else 'CUSTOM'
+    a = range.find_element_by_xpath('//a[@data-id="%s"]' % filter_range)
     a.click()
+    # For the CUSTOM range, explicitly set the 'from' and 'to' fields
+    if filter_range == 'CUSTOM':
+        start, finish = period2dt(range_value)
+        for field_text, value in [('From', start), ('To', finish)]:
+            e = a.find_element_by_xpath('//label[contains(text(), "%s")]' % field_text)
+            element = WebDriverWait(e.parent, 3).until(
+                EC.visibility_of_element_located((By.TAG_NAME, 'input')))
+            element.send_keys(value.strftime('%d/%m/%Y'))
+
+
     # Set the type 'all transactions'
     txntype = [f for f in filters if 'txnType' in f.get_attribute('class')][0]
     btn = txntype.find_element_by_tag_name('button')
@@ -108,28 +117,30 @@ def checkReportAvailable(browser, daterange):
     return e
 
 
-def period2dt(range_value: DataRanges=DataRanges.Yesterday):
+def period2dt(range_value: DataRanges=DataRanges.YESTERDAY):
     """ Rangevalue is either a DataRange value, or a string.
         The string must have the format yyyy/mm/dd-yyyy/mm/dd
     """
-    if isinstance(range_value, str):
+    if isinstance(range_value, str) and range_value[0].isnumeric():
         return tuple(datetime.datetime.strptime(s, '%Y/%m/%d').date() for s in range_value.split('-'))
+    else:
+        range_value = getattr(DataRanges, range_value)
     today = datetime.datetime.now().date()
-    if range_value == DataRanges.Today:
+    if range_value == DataRanges.TODAY:
         return today, today
-    elif range_value == DataRanges.Yesterday:
+    elif range_value == DataRanges.YESTERDAY:
         yesterday = today - datetime.timedelta(1)
         return yesterday, yesterday
-    elif range_value == DataRanges.Custom:
+    elif range_value == DataRanges.CUSTOM:
         raise ValueError('Custom range not supported--use a string')
     else:
         end = datetime.date(today.year, today.month, 1) - datetime.timedelta(1)
         sy = today.year
-        if range_value == DataRanges.PastMonth:
+        if range_value == DataRanges.PASTMONTH:
             sm = today.month - 1
-        elif range_value == DataRanges.Past3Months:
+        elif range_value == DataRanges.PAST3MONTHS:
             sm = today.month - 3
-        elif range_value == DataRanges.Past6Months:
+        elif range_value == DataRanges.PAST6MONTHS:
             sm = today.month - 6
         if sm < 1:
             sy -= 1
@@ -139,12 +150,13 @@ def period2dt(range_value: DataRanges=DataRanges.Yesterday):
 
 
 
-def downloadTransactions(secrets: PaypalSecrets, range_value: DataRanges=DataRanges.Yesterday) -> str:
+def downloadTransactions(secrets: PaypalSecrets, range_value: DataRanges=DataRanges.YESTERDAY) -> str:
     """ Download the transactions for yesterday. Returns the filename of the download """
     chromeOptions = webdriver.ChromeOptions()
     prefs = {"download.default_directory": downloaddir}
     chromeOptions.add_experimental_option("prefs", prefs)
     browser = webdriver.Chrome(chrome_options=chromeOptions)
+    #browser.implicitly_wait(20)  # seconds
 
     txts = tuple(d.strftime('%d %b %Y') for d in period2dt(range_value))
     daterange = '%s - %s' % txts

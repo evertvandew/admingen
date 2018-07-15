@@ -540,7 +540,7 @@ class PaypalExactTask:
             raise
 
     @log_exceptions
-    def run(self, period: DataRanges=DataRanges.Yesterday, fname=None, start_balance:Decimal=None,
+    def run(self, period: DataRanges=DataRanges.YESTERDAY, fname=None, start_balance:Decimal=None,
             test=False):
         """ The actual worker. Loads the transactions for yesterday and processes them """
         print ('RUNNING')
@@ -560,6 +560,10 @@ class PaypalExactTask:
                                         period_end = period_end)
 
             transactions: List[ExactTransaction] = list(self.detailsGenerator(fname, batch))
+
+            # If there are no transactions, quit
+            if len(transactions) == 0:
+                return
 
             # Check the transactions...
             if start_balance is None:

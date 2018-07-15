@@ -169,13 +169,14 @@ class XMLapi:
         params['PageNumber'] = 1
         params['Topic'] = topic
         params['_Division_'] = division
-        r = requests.post(self.download_url, data, params=params, headers=headers)
+        r = requests.post(self.upload_url, data, params=params, headers=headers)
         if r.status_code != 200:
             return None
         root = ET.fromstring(r.content.decode('utf-8'))
-        msgs = [Message(m.attrib['type'], m[0].attrib['code'], m[0][0].attrib['key'], m[2].text)
-                for m in root[0]]
-        return msgs
+        # TODO: Analyse the responses
+        #msgs = [Message(m.attrib['type'], m[0].attrib['code'], m[0][0].attrib['key'], m[2].text)
+        #        for m in root[0]]
+        return root
 
     def getDivisions(self):
         headers = self.oauth_headers()
@@ -198,6 +199,7 @@ class XMLapi:
 
     def uploadTransactions(self, division, data):
         msgs = self.post('GLTransactions', division, data)
+        return 0,0,0,0
         errors = [m for m in msgs if m.type == '0']
         warnings = [m for m in msgs if m.type == '1']
         successes = [m for m in msgs if m.type == '2']
@@ -212,7 +214,7 @@ class XMLapi:
 
 
 
-@log_limited
+#@log_limited
 def uploadTransactions(oauth_details: OAuth2, hid, fname):
     # Open the API
     api = XMLapi(oauth_details)
@@ -227,9 +229,8 @@ def uploadTransactions(oauth_details: OAuth2, hid, fname):
     # Now upload the transactions
     with open(fname, 'r') as f:
         data = f.read()
-    if api.uploadTransactions(administration, data) / 100 != 2:
-        msg = 'An error occurred when uploading %s to %s'%(fname, hid)
-        raise RuntimeError(msg)
+
+    return api.uploadTransactions(administration, data)
 
 
 if __name__ == '__main__':

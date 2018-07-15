@@ -40,7 +40,9 @@ if __name__ == '__main__':
                            'Defaults to "sqlite://transactionlog.db".',
                       default='sqlite://transactionlog.db')
     parser.add_argument('-r', '--range',
-                        help='The range for the batch in the form yyyy/mm/ss-yyyy/mm/ss',
+                        help='The range for the batch in the form yyyy/mm/ss-yyyy/mm/ss,'
+                             ' or one of these strings: today, yesterday, last_month, last_3_months'
+                             ' or last_6_months.',
                         default= 'yesterday')
     parser.add_argument('-f', '--file',
                         help='File containing the paypal transactions',
@@ -59,7 +61,6 @@ if __name__ == '__main__':
     # Connect to the transaction log, generate it if necessary
     openDb(args.transactionlog)
 
-
     # Read the database and extract the paypal_export_config for the required task_id
     data = DataReader(args.config)
     #index the configuration by task_id
@@ -68,6 +69,7 @@ if __name__ == '__main__':
 
     # If no task ids are specified, run all tasks
     taskids = args.taskids or taskconfig.keys()
+    taskids = [int(i) for i in taskids]
 
     for task_id in taskids:
         try:
@@ -85,6 +87,6 @@ if __name__ == '__main__':
             exact_secrets = OAuthDetails(**exact_secrets)
 
             worker = PaypalExactTask(task_id, task_details, exact_secrets, pp_secrets)
-            worker.run(fname=args.file, test=args.test)
+            worker.run(period=args.range.upper(), fname=args.file, test=args.test)
         except:
             logging.exception('Failed to run task %s'%task_id)
