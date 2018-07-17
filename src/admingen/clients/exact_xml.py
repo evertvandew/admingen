@@ -233,6 +233,16 @@ def uploadTransactions(oauth_details: OAuth2, hid, fname):
     return api.uploadTransactions(administration, data)
 
 
+def testLogin(oauth_details: OAuth2):
+    """ Returns True if we successfully logged-in """
+    # Open the API
+    api = XMLapi(oauth_details)
+
+    # First translate the HID to the actual administration code
+    divs = api.getDivisions()
+    return divs is not None
+
+
 if __name__ == '__main__':
     pw = input('Please give password for oauth keyring')
     ring = KeyRing('oauthring.enc', pw)

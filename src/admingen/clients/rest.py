@@ -45,7 +45,7 @@ class OAuthDetails:
     client_secret: str
 
 
-def loginOAuth(username, password, details: OAuthDetails):
+def loginOAuth(username, password, twophase_code, details: OAuthDetails):
     """ Get the initial token necessary for oauth2 authentication """
     # First experiments with the exact online login
     PORT = 13957
@@ -87,9 +87,21 @@ def loginOAuth(username, password, details: OAuthDetails):
     elem = browser.find_element_by_name("LoginButton")
     elem.click()
 
+    # Fill in the authentication code (2-step)
+    if twophase_code:
+        elem = browser.find_element_by_name("ResponseTokenTotp$Key")
+        elem.send_keys(twophase_code)
+
+        # Submit the details
+        elem = browser.find_element_by_name("LoginButton")
+        elem.click()
+
     # Wait until the oauth code is submitted
+    start = time.time()
     while not the_code:
         time.sleep(0.1)
+        if time.time()-start > 20:
+            raise RuntimeError('Did not receive token...')
 
     # We can close the browser and http server
     browser.quit()
@@ -166,7 +178,8 @@ def OAuth2(tokenstore: TokenStoreApi, details: OAuthDetails, getInput=input):
             print ('We have no starting token! Please supply the necessary details')
             username = getInput('Username')
             password = getInput('Password')
-            token = loginOAuth(username, password, details)
+            authcode = getInput('Authentication Code')
+            token = loginOAuth(username, password, authcode, details)
             tokenstore.set(token)
 
         # Check if we need to refresh the token
