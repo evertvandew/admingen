@@ -78,7 +78,9 @@ if __name__ == '__main__':
         exact_secrets = OAuthDetails(**exact_secrets)
         store = FileTokenStore('exacttoken_%s.json' % customer_id)
         oa = OAuth2(store, exact_secrets)
-        sys.exit(0 if testLogin(oa) else 1)
+        t = testLogin(oa)
+        print ('OK' if t else 'PROBLEM DURING LOGIN')
+        sys.exit(0 if t else 1)
 
     if args.test:
         args.transactionlog = 'sqlite://:memory:'
