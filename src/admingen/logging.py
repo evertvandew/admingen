@@ -2,7 +2,8 @@
     The actual log handlers etc. are set in admingen.config.
 """
 
-import logging
+import sys
+import logging, logging.handlers
 import traceback
 
 
@@ -12,6 +13,16 @@ debug = logging.debug
 warning = logging.warning
 error = logging.error
 exception = logging.exception
+
+
+# By default, log to both stdout and to syslog
+log = logging.getLogger()
+log.setLevel(logging.DEBUG)
+
+handler1 = logging.handlers.SysLogHandler('/dev/log')
+fmt = logging.Formatter(sys.argv[0]+' - %(module)s.%(funcName)s (%(levelname)s): %(message)s')
+handler1.setFormatter(fmt)
+log.addHandler(handler1)
 
 
 

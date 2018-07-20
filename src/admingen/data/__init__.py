@@ -60,6 +60,10 @@ class dataline:
 def read_lines(stream, headers, types, delimiter):
     for line in stream:
         line = line.strip()
+
+        # Ignore comment lines.
+        if line.startswith('#'):
+            continue
         if not line:
             return
         parts = line.split(delimiter)
