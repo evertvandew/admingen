@@ -100,7 +100,6 @@ def openDb(url, version=1, update=None, create=True):
     if the_db.provider is not None:
         logging.error('Trying to initialise the database twice!')
         return
-    print ('Using database', url)
     parts = urlparse(url)
     if parts.scheme == 'sqlite':
         path = parts.netloc or parts.path

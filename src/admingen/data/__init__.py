@@ -113,12 +113,12 @@ def CsvWriter(stream: typing.TextIO, collection, delimiter=';'):
 
 def DataReader(url):
     parts = urlparse(url)
-    print (parts)
     if parts.scheme in ['', 'stream'] and parts.path=='stdin':
         return CsvReader(sys.stdin)
-    if parts.scheme in ['', 'file']:
-        with open(parts.path) as stream:
+    if parts.scheme in ['', 'file', 'csv']:
+        with open(parts.path or parts.netloc) as stream:
             return CsvReader(stream)
+    raise RuntimeError('Unknown scheme %s'%parts.scheme)
 
 
 

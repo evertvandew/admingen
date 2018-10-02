@@ -3,6 +3,7 @@ import datetime
 import requests
 import xml.etree.ElementTree as ET
 from decimal import Decimal
+import re
 
 from admingen.logging import log_limited, logging
 from admingen.keyring import KeyRing
@@ -82,13 +83,13 @@ class TransactionLine:
     """ Details of specific transactions """
     AccountCode: str
     AccountName: str
-    Date: datetime.datetime
+    Date: datetime.date
     Amount: Decimal
     Currency: str
     ForeignAmount: Decimal
     ForeignCurrency: str
     GLAccountCode: str
-    Description: str
+    GLAccountDescription: str
     CostUnit: str
     CostCenter: str
     AssetCode: str
@@ -100,7 +101,8 @@ class TransactionLine:
     VATCode: str
     YourRef: str
     Description: str
-
+    Transaction: str
+# TODO: Het zou mooi zijn om de invoerdatum er ook bij te hebben.
 
 @dataclass
 class Transaction:
@@ -130,6 +132,58 @@ class Message:
     reason: str
 
 
+def findtext(node, childtag, default=''):
+    c = node.find(childtag)
+    return c.text if c is not None else default
+
+def findattrib(node, childtag, attrib, default=''):
+    c = node.find(childtag)
+    return c.attrib.get(attrib, default) if c is not None else default
+
+
+def parseTransactions(data):
+    def generate(node):
+        """ Extract the transaction information from the XML nodes """
+        # We hatest XML, don't we precious...
+        for transaction in node:
+            entry = transaction.attrib['entry']
+            for line in transaction.findall('GLTransactionLine'):
+                # Make some aliasses for compact access
+                account = line.find('Account')
+                amount = line.find('Amount')
+                famount = line.find('ForeignAmount')
+                glaccount = line.find('GLAccount')
+
+                # Create the Transaction Line
+                tl = TransactionLine(
+                    AccountCode=account.attrib['code'] if account else '',
+                    AccountName=account.find('Name').text if account else '',
+                    Date=datetime.datetime.strptime(line.find('Date').text, '%Y-%m-%d').date(),
+                    Amount=Decimal(findtext(amount, 'Value', '0')),
+                    Currency=amount.find('Currency').attrib['code'],
+                    ForeignAmount=Decimal(findtext(famount, 'Value', '0')) if famount else None,
+                    ForeignCurrency=findattrib(amount, 'Currency', 'code') if famount else None,
+                    GLAccountCode=glaccount.attrib['code'],
+                    GLAccountDescription=findtext(glaccount, 'Description'),
+                    CostUnit='',
+                    CostCenter='',
+                    AssetCode='',
+                    FinPeriod=int(findattrib(line, 'FinPeriod', 'number')),
+                    FinYear=int(findattrib(line, 'FinYear', 'number')),
+                    InvoiceNumber=0,
+                    JournalCode=findattrib(transaction, 'Journal', 'code'),
+                    ProjectCode='',
+                    VATCode=findtext(line, 'VATType'),
+                    YourRef='',
+                    Description=findtext(line, 'Description'),
+                    Transaction=entry)
+                yield tl
+
+    root = ET.fromstring(data)
+    trans = list(generate(root[0]))
+    return trans
+
+
 class XMLapi:
     base_url = 'https://start.exactonline.nl/docs/'
     download_url = base_url + 'XMLDownload.aspx'
@@ -156,8 +210,7 @@ class XMLapi:
         r = requests.get(self.download_url, params=params, headers=headers)
         if r.status_code != 200:
             return None
-        root = ET.fromstring(r.content.decode('utf-8'))
-        return root
+        return r.content.decode('utf-8')
 
     def post(self, topic, division, data, **kwargs):
         if topic not in TOPICS:
@@ -190,12 +243,27 @@ class XMLapi:
                 for div in root]
         return divs
 
-    def getTransactions(self, division, **kwargs):
-        def args(node):
-            pass
-        root = self.get('GLTransactions', division, **kwargs)
-        trans = [TransactionLine(**args(t)) for t in root[0]]
-        return trans
+    def getTransactions(self, division: str, **kwargs):
+        # TODO: Make me variable!
+        year = '2018'
+        filter = {'Params_EntryDate_From': '01-01-%s'%year,
+                  'Params_EntryDate_To': '31-12-%s'%year}
+        transactions = []
+        r = re.compile(r'ts_d="(0x[0-9A-Fa-f]*)"')
+        with open('/home/ehwaal/tmp/transactions.xml', 'w') as f:
+            while True:
+                data = self.get('GLTransactions', division, **filter)
+                f.write(data)
+                transactions += parseTransactions(data)
+                # Check if there are more transactions to load
+                m = r.search(data)
+                if m:
+                    filter['TSPaging'] = m.groups()[0]
+                    logging.getLogger().debug('Continuing download')
+                else:
+                    break
+
+        return transactions
 
     def uploadTransactions(self, division, data):
         msgs = self.post('GLTransactions', division, data)

@@ -17,20 +17,66 @@ An alternative could be a local app that writes into ODBC.
 
 """
 
+import sys
+from admingen.dataclasses import asdict, fields
+from argparse import ArgumentParser
 from admingen.clients.rest import OAuth2
-from admingen.clients.exact_xml import
+from admingen.clients.exact_xml import XMLapi, logging, TransactionLine
+from admingen.keyring import KeyRing
+from admingen.clients.rest import OAuth2, OAuthDetails, FileTokenStore
+from csv import DictWriter
 
 
+# TODO: afmaken
+
+logging.getLogger().setLevel(logging.DEBUG)
+
+if False:
+    with open('/home/ehwaal/tmp/transactions.xml') as f:
+        data = f.read()
+    ts = parseTransactions(data)
+
+    w = DictWriter(sys.stdout, fieldnames = asdict(ts[0]).keys(), delimiter=';')
+    w.writeheader()
+    for t in ts:
+        details = asdict(t)
+        for k in ['Amount', 'ForeignAmount']:
+            a = str(details[k])
+            a = a.replace(',', '_')
+            a = a.replace('.', ',')
+            a = a.replace('_', '.')
+            details[k] = a
+        w.writerow(details)
+
+    sys.exit()
 
 
+pw = input('Please give password for oauth keyring')
+ring = KeyRing('oauthring.enc', pw)
+details = ring['exact_secrets_1']
+details = OAuthDetails(**details)
+oa = OAuth2(FileTokenStore('../paypal_exact/exacttoken_1.json'), details, ring.__getitem__)
+api = XMLapi(oa)
+divisions = api.getDivisions()
 
 
-def export():
-    # Get a token with which to authenticate...
-    # First query exact to retrieve all administrations.
-    # The REST api is used for this
+with open('test.csv', 'w') as f:
+    w = DictWriter(f,
+                   fieldnames=['administratie', 'admincode'] + [f.name for f in fields(TransactionLine)],
+                   delimiter=';')
+    w.writeheader()
 
-    connection =
-    # Read all data for all administrations, over the period
-    # Write the data into two files, one for the balance, the other cashflow.
-
+    for division in divisions:
+        logging.getLogger().debug('Downloading administration %s'%division)
+        transactions = api.getTransactions(division.Code)
+        for t in transactions:
+            details = asdict(t)
+            for k in ['Amount', 'ForeignAmount']:
+                a = str(details[k])
+                a = a.replace(',', '_')
+                a = a.replace('.', ',')
+                a = a.replace('_', '.')
+                details[k] = a
+            details['administratie'] = division.Description
+            details['admincode'] = division.HID
+            w.writerow(details)

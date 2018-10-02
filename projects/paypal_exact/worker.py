@@ -188,6 +188,24 @@ ForeignLineTemplate = '''            <GLTransactionLine type="40" line="{linenr}
                 </ForeignAmount>
             </GLTransactionLine>'''
 
+ForeignLineTemplateWithAmount = '''            <GLTransactionLine type="40" line="{linenr}" status="20">
+                <Date>{date}</Date>
+                <FinYear number="{year}" />
+                <FinPeriod number="{period}" />
+                <GLAccount code="{GLAccount}" type="{GLType}" />
+                {additional}
+                <Description>{Description}</Description>
+                <Amount>
+                    <Currency code="{Currency}" />
+                    <Value>{Amount}</Value>
+                </Amount>
+                <ForeignAmount>
+                    <Currency code="{Currency}" />
+                    <Value>{Amount}</Value>
+                    <Rate>{ConversionRate}</Rate>
+                </ForeignAmount>
+            </GLTransactionLine>'''
+
 
 
 TransactionTemplate = '''        <GLTransaction>
@@ -217,27 +235,9 @@ def zeke_classifier(transaction: PPTransactionDetails):
     return SalesType.Unknown
 
 
-class PaypalExactTask:
-    """ Produce exact transactions based on the PayPal transactions """
-    config: [paypal_export_config]
-    optional_config: [zeke.ZekeDetails]
-    optional_secrets: [zeke.ZekeSecrets]
-
-    def __init__(self, task_id, config_details, exact_secrets: OAuthDetails, pp_login: PaypalSecrets):
-        self.task_id = task_id
-        self.exact_secrets = exact_secrets
-        self.pp_login = pp_login
-        # TODO: Handle the optional secrets
-        self.config: paypal_export_config = config_details if isinstance(config_details, paypal_export_config) \
-            else config_details[0]
-
-        self.classifier = None
-        if isinstance(config_details, list) and len(config_details) > 1:
-            for option in config_details[1:]:
-                if isinstance(option, zeke.ZekeDetails):
-                    self.classifier = zeke.classifySale
-
-        # TODO: Handle the optional configuration
+class PaypalExactConverter:
+    def __init__(self, config:paypal_export_config):
+        self.config = config
         self.sale_accounts = {SalesType.Local: self.config.sale_account_nl,
                               SalesType.EU_private: self.config.sale_account_eu_vat,
                               SalesType.EU_ICP: self.config.sale_account_eu_no_vat,
@@ -253,13 +253,7 @@ class PaypalExactTask:
                                 SalesType.EU_ICP: Decimal('0.00'),
                                 SalesType.Other: Decimal('0.00'),
                                 SalesType.Unknown: Decimal('0.21')}
-
-        self.pp_username = self.pp_login.username
-
-        # Ensure the download directory exists
-        if not os.path.exists(config.downloaddir):
-            os.mkdir(config.downloaddir)
-
+        self.classifier = None
 
     def classifyTransaction(self, transaction: PPTransactionDetails):
         """ Classify a transaction to determine account and VAT percentage """
@@ -539,6 +533,49 @@ class PaypalExactTask:
             #traceback.print_exc()
             raise
 
+
+    def convertTransactions(self, pp_fname, batch) -> Tuple[List[ExactTransaction], str]:
+        """ Convert a paypal transaction """
+        transactions: List[ExactTransaction] = list(self.detailsGenerator(pp_fname, batch))
+
+        # If there are no transactions, quit
+        if len(transactions) == 0:
+            return
+
+        xml = self.generateExactTransactionsFile(transactions)
+
+        return transactions, xml
+
+
+
+class PaypalExactTask:
+    """ Produce exact transactions based on the PayPal transactions """
+    config: [paypal_export_config]
+    optional_config: [zeke.ZekeDetails]
+    optional_secrets: [zeke.ZekeSecrets]
+
+    def __init__(self, task_id, config_details, exact_secrets: OAuthDetails, pp_login: PaypalSecrets):
+        self.task_id = task_id
+        self.exact_secrets = exact_secrets
+        self.pp_login = pp_login
+        # TODO: Handle the optional secrets
+        self.config: paypal_export_config = config_details if isinstance(config_details, paypal_export_config) \
+            else config_details[0]
+
+        self.classifier = None
+        if isinstance(config_details, list) and len(config_details) > 1:
+            for option in config_details[1:]:
+                if isinstance(option, zeke.ZekeDetails):
+                    self.classifier = zeke.classifySale
+
+        # TODO: Handle the optional configuration
+
+        self.pp_username = self.pp_login.username
+
+        # Ensure the download directory exists
+        if not os.path.exists(config.downloaddir):
+            os.mkdir(config.downloaddir)
+
     @log_exceptions
     def run(self, period: DataRanges=DataRanges.YESTERDAY, fname=None, start_balance:Decimal=None,
             test=False):
@@ -559,7 +596,7 @@ class PaypalExactTask:
                                         period_start=period_start,
                                         period_end = period_end)
 
-            transactions: List[ExactTransaction] = list(self.detailsGenerator(fname, batch))
+            transactions, xml = self.convertTransactions(self.detailsGenerator(fname, batch))
 
             # If there are no transactions, quit
             if len(transactions) == 0:
@@ -581,7 +618,6 @@ class PaypalExactTask:
             # Generate the accompanying XML
             batch.closing_balance = balance
             batch.starting_balance = start_balance
-            xml = self.generateExactTransactionsFile(transactions)
             fname = 'exact_transactions.xml'
             with open(fname, 'w') as of:
                 of.write(xml)

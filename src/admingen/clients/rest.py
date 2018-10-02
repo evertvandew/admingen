@@ -179,6 +179,8 @@ def OAuth2(tokenstore: TokenStoreApi, details: OAuthDetails, getInput=input):
             username = getInput('Username')
             password = getInput('Password')
             authcode = getInput('Authentication Code')
+            if not (username and password and authcode):
+                raise RuntimeError("Could not retrieve oauth login details from %s"%getInput)
             token = loginOAuth(username, password, authcode, details)
             tokenstore.set(token)
 
@@ -193,6 +195,7 @@ def OAuth2(tokenstore: TokenStoreApi, details: OAuthDetails, getInput=input):
 
 
 if __name__ == '__main__':
+    # This code will load the initial OAuth2 Token, interacting with the user.
     pw = input('Please give password for oauth keyring')
     ring = KeyRing('oauthring.enc', pw)
     details = ring['oauthdetails']
