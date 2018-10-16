@@ -12,7 +12,7 @@ import time
 from admingen import config
 from admingen.db_api import sessionScope, openDb
 from admingen.servers import unixproxy
-from admingen.dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict
 from admingen.keyring import KeyRing
 from admingen.worker import Worker, appconfig
 

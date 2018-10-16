@@ -10,7 +10,7 @@ from paypal_exact.worker import (PaypalExactTask, paypal_export_config, generate
                                  PPTransactionDetails, zeke_classifier, PaypalSecrets, ExactSecrets)
 from admingen.clients import zeke
 from admingen.db_api import the_db, sessionScope, select
-from admingen.dataclasses import asdict
+from dataclasses import asdict
 from admingen.international import SalesType
 
 

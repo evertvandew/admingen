@@ -4,10 +4,13 @@
 TaskConfig
 taskid:int;customerid:int;administration_hid:int;ledger:str;costs_account:str;pp_account:str;sale_account_nl:str;sale_account_eu_vat:str;sale_account_eu_no_vat: str;sale_account_world: str;purchase_account_nl: str;purchase_account_eu_vat: str;purchase_account_eu_no_vat: str;purchase_account_world: str;pp_kruispost: str;vat_account: str;currency: str
 1;1;4;21;5561;1101;8000;8102;8100;8101;7100;7102;7103;7102;2100;1514;USD
-2;1;1006;Paypal;5561;1101;8000;8102;8100;8101;7100;7102;7103;7102;2100;1514;USD
-#3;1;33;21;5561;1101;8000;8102;8100;8101;7100;7102;7103;7102;2100;1514;EUR
+2;1;1006;Paypal;5561;1101;8000;8102;8100;8101;7100;7102;7103;7102;2100;1514;EUR
+3;1;33;21;5561;1101;8000;8102;8100;8101;7100;7102;7103;7102;2100;1514;EUR
+4;1;18;26;5561;1106;8000;8102;8100;8101;7100;7102;7103;7102;2100;1514;EUR
 
 CustomerConfig
 customerid:int;name:str
 1;CoinCare
 2;riverchurch
+3;retrofit
+4;123products

@@ -28,7 +28,7 @@ from admingen.clients.exact_xml import uploadTransactions, OAuthDetails, OAuth2,
 from admingen import logging
 from admingen.db_api import the_db, sessionScope, DbTable, select, Required, Set, openDb, orm
 from admingen.international import SalesType, PP_EU_COUNTRY_CODES
-from admingen.dataclasses import dataclass, fields, asdict
+from dataclasses import dataclass, fields, asdict
 from admingen.worker import Worker
 
 
@@ -74,6 +74,80 @@ class paypal_export_config:
     pp_kruispost: str
     vat_account: str
     currency: str
+
+    def __post_init__(self):
+
+    def classifyTransaction(self, transaction: PPTransactionDetails):
+        """ Classify a transaction to determine account and VAT percentage """
+        if self.classifier:
+            t = self.classifier(transaction)
+            # Check if the classifier could handle it.
+            if t != SalesType.Unknown:
+                return t
+
+        # The classifier could not handle this transaction, classify it directly
+        if transaction.Landcode == 'NL':
+            return SalesType.Local
+        elif transaction.Landcode in PP_EU_COUNTRY_CODES:
+            # EU is complex due to the ICP rules.
+            return SalesType.Unknown
+        elif transaction.Landcode:
+            return SalesType.Other
+        else:
+            return SalesType.Unknown
+
+
+    def determineAccountVat(self, transaction: PPTransactionDetails):
+        """ Determine the grootboeken to be used for a specific transaction """
+
+        if transaction.Type == 'Algemene opname' or 'withdrawl' in transaction.Type:
+            # A bank withdrawl goes directly to the kruispost
+            return self.config.pp_kruispost, Decimal('0.00')
+
+        # Determine if the transaction is within the Netherlands, the EU or the world.
+        region = self.classifyTransaction(transaction)
+        accounts = self.sale_accounts if transaction.Net > 0 else self.purchase_accounts
+
+        if region == SalesType.Unknown:
+            if transaction.Valuta != 'EUR':
+                # non-euro transactions are assumed to be outside the EU
+                return accounts[SalesType.Other], self.vat_percentages[SalesType.Other]
+            if transaction.Net > 0:
+                # Sales with an unknown region are parked on the kruispost
+                return self.config.pp_kruispost, Decimal('0.00')
+
+        if transaction.ReferenceTxnID:
+            # This is related to another payment, in almost all cases a return of a previous payment
+            # If available, use the details from the previous transaction
+            with sessionScope():
+                txs = select(_ for _ in PaypalTransactionLog if _.ref == transaction.ReferenceTxnID)
+                for tx in txs:
+                    return tx.exact_transaction.account, tx.exact_transaction.vat_percent
+            # Transaction unknown, try to guess the details
+            # This means that debtors and creditors are reversed
+            accounts = self.sale_accounts if transaction.Net < 0 else self.purchase_accounts
+
+        return accounts[region], self.vat_percentages[region]
+
+
+    def determineComment(self, transaction: PPTransactionDetails):
+        """ Determine the comment for a specific transaction """
+        # For purchases, insert the email address
+        parts = []
+        if transaction.Bruto < 0 and transaction.ReferenceTxnID == '':
+            parts.append(transaction.Naaremailadres)
+        if transaction.Valuta != self.config.currency:
+            parts.append(str(transaction.Valuta))
+            parts.append(str(transaction.Bruto))
+        parts += ['Fact: %s'%transaction.Factuurnummer,
+                  transaction.Note[:20],
+                  'ref:%s' % transaction.Transactiereferentie
+                 ]
+        dirty = ' '.join(parts)
+
+        clean = illegal_xml_re.sub('', dirty)
+        return clean
+
 
 
 # Create a cache for storing the details of earlier transactions
@@ -235,6 +309,7 @@ def zeke_classifier(transaction: PPTransactionDetails):
     return SalesType.Unknown
 
 
+
 class PaypalExactConverter:
     def __init__(self, config:paypal_export_config):
         self.config = config
@@ -255,76 +330,6 @@ class PaypalExactConverter:
                                 SalesType.Unknown: Decimal('0.21')}
         self.classifier = None
 
-    def classifyTransaction(self, transaction: PPTransactionDetails):
-        """ Classify a transaction to determine account and VAT percentage """
-        if self.classifier:
-            t = self.classifier(transaction)
-            # Check if the classifier could handle it.
-            if t != SalesType.Unknown:
-                return t
-
-        # The classifier could not handle this transaction, classify it directly
-        if transaction.Landcode == 'NL':
-            return SalesType.Local
-        elif transaction.Landcode in PP_EU_COUNTRY_CODES:
-            # EU is complex due to the ICP rules.
-            return SalesType.Unknown
-        elif transaction.Landcode:
-            return SalesType.Other
-        else:
-            return SalesType.Unknown
-
-
-    def determineAccountVat(self, transaction: PPTransactionDetails):
-        """ Determine the grootboeken to be used for a specific transaction """
-
-        if transaction.Type == 'Algemene opname' or 'withdrawl' in transaction.Type:
-            # A bank withdrawl goes directly to the kruispost
-            return self.config.pp_kruispost, Decimal('0.00')
-
-        # Determine if the transaction is within the Netherlands, the EU or the world.
-        region = self.classifyTransaction(transaction)
-        accounts = self.sale_accounts if transaction.Net > 0 else self.purchase_accounts
-
-        if region == SalesType.Unknown:
-            if transaction.Valuta != 'EUR':
-                # non-euro transactions are assumed to be outside the EU
-                return accounts[SalesType.Other], self.vat_percentages[SalesType.Other]
-            if transaction.Net > 0:
-                # Sales with an unknown region are parked on the kruispost
-                return self.config.pp_kruispost, Decimal('0.00')
-
-        if transaction.ReferenceTxnID:
-            # This is related to another payment, in almost all cases a return of a previous payment
-            # If available, use the details from the previous transaction
-            with sessionScope():
-                txs = select(_ for _ in PaypalTransactionLog if _.ref == transaction.ReferenceTxnID)
-                for tx in txs:
-                    return tx.exact_transaction.account, tx.exact_transaction.vat_percent
-            # Transaction unknown, try to guess the details
-            # This means that debtors and creditors are reversed
-            accounts = self.sale_accounts if transaction.Net < 0 else self.purchase_accounts
-
-        return accounts[region], self.vat_percentages[region]
-
-
-    def determineComment(self, transaction: PPTransactionDetails):
-        """ Determine the comment for a specific transaction """
-        # For purchases, insert the email address
-        parts = []
-        if transaction.Bruto < 0 and transaction.ReferenceTxnID == '':
-            parts.append(transaction.Naaremailadres)
-        if transaction.Valuta != self.config.currency:
-            parts.append(str(transaction.Valuta))
-            parts.append(str(transaction.Bruto))
-        parts += ['Fact: %s'%transaction.Factuurnummer,
-                  transaction.Note[:20],
-                  'ref:%s' % transaction.Transactiereferentie
-                 ]
-        dirty = ' '.join(parts)
-
-        clean = illegal_xml_re.sub('', dirty)
-        return clean
 
     def generateExactLine(self, transaction: ExactTransaction, line: ExactTransactionLine, linenr):
         index = transaction.lines.index(line)
@@ -505,7 +510,7 @@ class PaypalExactConverter:
         conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
         try:
             # Download the PayPal Transactions
-            reader: List(PPTransactionDetails) = pp_reader(fname)
+            reader: List[PPTransactionDetails] = pp_reader(fname)
             # For each transaction, extract the accounting details
             for transaction in reader:
                 # Skip memo transactions.

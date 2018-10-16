@@ -18,7 +18,7 @@ An alternative could be a local app that writes into ODBC.
 """
 
 import sys
-from admingen.dataclasses import asdict, fields
+from dataclasses import asdict, fields
 from argparse import ArgumentParser
 from admingen.clients.rest import OAuth2
 from admingen.clients.exact_xml import XMLapi, logging, TransactionLine

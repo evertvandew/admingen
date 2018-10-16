@@ -27,10 +27,10 @@ def run():
     parser.add_argument('-c', '--config',
                         help='Url to the database containing the task configuration.'
                              'Defaults to a CSV data file on stdin.',
-                        default='stdin')
+                        default=None)
     parser.add_argument('-f', '--file',
                         help='File containing the paypal transactions',
-                        default=None)
+                        default='stdin')
     parser.add_argument('-o', '--outfile',
                         help='File to which the XML transactions are written. Default: stdout',
                         default=sys.stdout)
@@ -46,6 +46,9 @@ def run():
     task_details = paypal_export_config(**taskconfig[taskid].__dict__)
 
     openDb('sqlite://:memory:')
+
+    if args.file == 'stdin':
+        args.file = sys.stdin
 
     timestamp = datetime.datetime.now()
     with  sessionScope():

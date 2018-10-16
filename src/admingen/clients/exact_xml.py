@@ -8,7 +8,7 @@ import re
 from admingen.logging import log_limited, logging
 from admingen.keyring import KeyRing
 from admingen.clients.rest import OAuth2, OAuthDetails, FileTokenStore
-from admingen.dataclasses import dataclass
+from dataclasses import dataclass
 
 
 TOPICS = ["Accounts",

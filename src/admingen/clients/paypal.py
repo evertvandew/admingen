@@ -18,7 +18,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 
 from admingen.config import getConfig, downloaddir
-from admingen.dataclasses import dataclass, fields, asdict
+from dataclasses import dataclass, fields, asdict
 
 
 DataRangesString = ['TODAY', 'YESTERDAY', 'LAST_MONTH', 'LAST_3_MONTHS', 'LAST_6_MONTHS', 'CUSTOM']

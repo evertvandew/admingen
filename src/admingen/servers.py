@@ -14,7 +14,7 @@ import socket
 import cherrypy
 from .keyring import KeyRing, DecodeError
 import admingen.htmltools as html
-from .dataclasses import dataclass, asdict, fields, is_dataclass
+from dataclasses import dataclass, asdict, fields, is_dataclass
 from .appengine import ApplicationModel
 from .db_api import the_db, sessionScope, DbTable, select, delete, Required, Set, commit, orm
 

@@ -2,7 +2,7 @@
 from typing import Dict, Set, List
 import re
 
-from .dataclasses import dataclass
+from dataclasses import dataclass
 
 @dataclass
 class Transition:

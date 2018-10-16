@@ -15,7 +15,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 
 
-from admingen.dataclasses import dataclass
+from dataclasses import dataclass
 from admingen.keyring import KeyRing
 
 def restapi(cls):

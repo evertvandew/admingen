@@ -6,7 +6,7 @@ from pony import orm
 from .parsers import fsm_model as model
 from .htmltools import generateCrud
 from .db_api import the_db
-from .dataclasses import dataclass
+from dataclasses import dataclass
 from .fsmengine import createFsmModel, FsmModel, Transition
 from .dbengine import createDbModel
 

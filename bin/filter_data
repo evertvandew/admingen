@@ -2,7 +2,18 @@
 
 import sys
 import argparse
-from admingen.data import filter
+
+tryonce = 1
+while True:
+    try:
+        from admingen.data import filter
+        break
+    except ModuleNotFoundError:
+        from os.path import abspath, dirname, join
+        d = abspath(join(dirname(__file__), '../src'))
+        sys.path.append(d)
+        assert tryonce > 0, 'Could not find admingen'
+        tryonce -= 1
 
 
 

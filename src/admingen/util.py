@@ -5,7 +5,7 @@ import os
 import json
 import datetime
 
-from admingen.dataclasses import dataclass, asdict, is_dataclass
+from dataclasses import dataclass, asdict, is_dataclass
 
 @contextmanager
 def quitter(item):
