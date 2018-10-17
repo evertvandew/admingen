@@ -6,6 +6,7 @@ import re
 import datetime
 from typing import List, Tuple
 import logging
+import traceback
 from admingen.db_api import the_db, sessionScope, DbTable, select, Required, Set, openDb, orm
 from admingen.international import SalesType, PP_EU_COUNTRY_CODES
 from admingen.clients.paypal import (downloadTransactions, pp_reader, PPTransactionDetails,
@@ -50,6 +51,9 @@ class paypal_export_config:
     purchase_account_eu_vat: str
     purchase_account_eu_no_vat: str
     purchase_account_world: str
+    purchase_needs_invoice: bool
+    creditors_kruispost: str
+    unknown_creditor: str
     pp_kruispost: str
     vat_account: str
     currency: str
@@ -481,6 +485,49 @@ class PaypalExactConverter:
         exact_transaction.closingbalance = valuta_details.Saldo
         return exact_transaction
 
+
+    def groupedDetailsGenerator(self, fname, batch):
+        conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
+        lines = []
+        current_period = None
+        try:
+            # Download the PayPal Transactions
+            reader: List[PPTransactionDetails] = pp_reader(fname)
+            # For each transaction, extract the accounting details
+            for transaction in reader:
+                period = (transaction.Datum.year, transaction.Datum.month)
+                current_period = current_period or period
+                if period != current_period and lines:
+                    yield ExactTransaction(self.config.ledger, lines, saldo)
+                    lines = []
+                    current_period = period
+                # Skip memo transactions.
+                if transaction.Effectopsaldo.lower() == 'memo':
+                    continue
+                if transaction.Type == 'Algemeen valutaomrekening' or \
+                   transaction.Valuta != self.config.currency:
+                    # We need to compress the next three transactions into a single, foreign valuta one.
+                    # The actual transaction is NOT a conversion and is in foreign valuta.
+                    # The two conversions refer to this transaction
+                    if transaction.Type.strip() not in ['Algemeen valutaomrekening', 'Terugbetaling', 'Bank Deposit to PP Account']:
+                        ref = transaction.Transactiereferentie
+                    else:
+                        ref = transaction.ReferenceTxnID
+                    txs = conversions_stack.setdefault(ref, [])
+                    txs.append(transaction)
+                    if len(txs) == 3:
+                        new_lines, saldo = self.make_foreign_transaction(txs, batch)
+                        lines.extend(new_lines)
+                        del conversions_stack[ref]
+                else:
+                    new_lines, saldo = self.make_transaction(transaction, batch=batch)
+                    lines.extend(new_lines)
+
+            if lines:
+                yield ExactTransaction(self.config.ledger, lines, saldo)
+        except:
+            traceback.print_exc()
+
     def detailsGenerator(self, fname, batch):
         """ Generator that reads a list of PayPal transactions, and yields ExactTransactions """
         conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
@@ -520,7 +567,7 @@ class PaypalExactConverter:
 
     def convertTransactions(self, pp_fname, batch) -> Tuple[List[ExactTransaction], str]:
         """ Convert a paypal transaction """
-        transactions: List[ExactTransaction] = list(self.detailsGenerator(pp_fname, batch))
+        transactions: List[ExactTransaction] = list(self.groupedDetailsGenerator(pp_fname, batch))
 
         # If there are no transactions, quit
         if len(transactions) == 0:
@@ -540,7 +587,7 @@ if __name__ == '__main__':
     config = paypal_export_config(**config.__dict__)
     converter = PaypalExactConverter(config)
     testfname = '/home/ehwaal/tmp/pp_export/test-data/twease/Download.CSV'
-    transactions = converter.detailsGenerator(testfname, None)
+    transactions = converter.groupedDetailsGenerator(testfname, None)
     xml = converter.generateExactTransactionsFile(transactions)
     fname = 'test_transactions.xml'
     with open(fname, 'w') as of:
