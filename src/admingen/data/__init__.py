@@ -30,7 +30,8 @@ supported_types = {'str': str,
                    'date': mkdate,
                    'datetime': mkdatetime,
                    'int': int,
-                   'float': float
+                   'float': float,
+                   'bool': bool
                    }
 
 

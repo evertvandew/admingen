@@ -85,6 +85,8 @@ class paypal_export_config:
                 return t
 
         # The classifier could not handle this transaction, classify it directly
+        if self.purchase_needs_invoice and transaction.Net < 0:
+            return SalesType.Invoiced
         if transaction.Landcode == 'NL':
             return SalesType.Local
         elif transaction.Landcode in PP_EU_COUNTRY_CODES:
@@ -105,6 +107,11 @@ class paypal_export_config:
 
         # Determine if the transaction is within the Netherlands, the EU or the world.
         region = self.classifyTransaction(transaction)
+
+        # The transaction needs an invoice
+        if region == SalesType.Invoiced:
+            return self.creditors_kruispost, Decimal('0.00')
+
         accounts = self.sale_accounts if transaction.Net > 0 else self.purchase_accounts
 
         if region == SalesType.Unknown:
@@ -406,10 +413,16 @@ class PaypalExactConverter:
                                                                             rounding=ROUND_DOWN)
         vat_euro = gross_euro - net_euro
         comment = base_comment
-        lines.append((transactiondate, gb_sales, GLAccountTypes.Revenue,
+        additional = '<GLOffset code="%s" />'%self.config.pp_account
+        if gb_sales == self.config.creditors_kruispost:
+            additional += '<Account code="%s" />'%self.config.unknown_creditor
+            account_type = GLAccountTypes.AccountsPayable
+        else:
+            account_type = GLAccountTypes.Revenue
+        lines.append((transactiondate, gb_sales, account_type,
                          comment,
                       -net_euro, self.config.currency, -net, foreign_valuta, rate,
-                         '<GLOffset code="%s" />'%self.config.pp_account))
+                         additional))
         lines.append((transactiondate, self.config.pp_account, GLAccountTypes.Bank,
                          comment,
                       net_euro, self.config.currency, net, foreign_valuta, rate,

@@ -25,3 +25,4 @@ class SalesType(IntEnum):
     EU_private = 2
     EU_ICP = 3
     Other = 4
+    Invoiced = 5
