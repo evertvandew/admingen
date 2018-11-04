@@ -118,10 +118,6 @@ class Division:
     HID: int
     Description: str
 
-@dataclass
-class Accounts:
-    """ CRM accounts, i.e. the customers / debtors """
-
 
 @dataclass
 class Message:
@@ -130,6 +126,14 @@ class Message:
     topic: str
     key: str
     reason: str
+
+
+
+@dataclass
+class Account:
+    code: int
+    name: str
+    email: str
 
 
 def findtext(node, childtag, default=''):
@@ -309,6 +313,18 @@ def testLogin(oauth_details: OAuth2):
     # First translate the HID to the actual administration code
     divs = api.getDivisions()
     return divs is not None
+
+
+def processAccounts(stream):
+    root = ET.fromstring(stream.read())
+    accounts = []
+    for a_xml in root.iter('Account'):
+        code = a_xml.attrib['code']
+        name = a_xml.find('Name').text
+        email = [e.text for e in a_xml.findall('Email') if e.text]
+        accounts.append(Account(code, name, email))
+    return accounts
+
 
 
 if __name__ == '__main__':

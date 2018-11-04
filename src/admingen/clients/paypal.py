@@ -245,8 +245,8 @@ class PPTransactionDetails:
     Transactiereferentie: str
     Verzendadres: str
     Statusadres: str
-    ItemTitle: str
-    Objectreferentie: str
+    ArtikelNaam: str
+    ArtikelNr: str
     Verzendkosten: str
     Verzekeringsbedrag: str
     SalesTax: str
@@ -288,11 +288,11 @@ def pp_reader(fname):
         # PP uses different key names depending on the language of the UI
         # Ensure the Dutch names are used
         english = 'Gross' in reader.fieldnames
-        if english:
-            reader.fieldnames = 'Datum,Tijd,Tijdzone,Naam,Type,Status,Valuta,Bruto,Fee,Net,Van e-mailadres,Naar e-mailadres,Transactiereferentie,Verzendadres,Status adres,Item Title,Objectreferentie,Verzendkosten,Verzekeringsbedrag,Sales Tax,Naam optie 1,Waarde optie 1,Naam optie 2,Waarde optie 2,Reference Txn ID,Factuurnummer,Custom Number,Hoeveelheid,Ontvangstbewijsreferentie,Saldo,Adresregel 1,Adresregel 2/regio/omgeving,Plaats,Staat/Provincie/Regio/Gebied,Zip/Postal Code,Land,Telefoonnummer contactpersoon,Onderwerp,Note,Landcode,Effect op saldo'.split(',')
+        reader.fieldnames = 'Datum,Tijd,Tijdzone,Naam,Type,Status,Valuta,Bruto,Fee,Net,Van e-mailadres,Naar e-mailadres,Transactiereferentie,Verzendadres,Status adres,ArtikelNaam,ArtikelNr,Verzendkosten,Verzekeringsbedrag,Sales Tax,Naam optie 1,Waarde optie 1,Naam optie 2,Waarde optie 2,Reference Txn ID,Factuurnummer,Custom Number,Hoeveelheid,Ontvangstbewijsreferentie,Saldo,Adresregel 1,Adresregel 2/regio/omgeving,Plaats,Staat/Provincie/Regio/Gebied,Zip/Postal Code,Land,Telefoonnummer contactpersoon,Onderwerp,Note,Landcode,Effect op saldo'.split(',')
 
         allfields = [f.name for f in fields(PPTransactionDetails)]
-        # Paypal uses some characters that mess-up XML: get rid of them.
+        # Paypal uses some characters in keys that mess-up XML: get rid of them.
+        # I already said I don't like XML, didn't I?
         translator = str.maketrans({' ':None, '-':None, '/':None, })
         keys = [(k.translate(translator), k) for k in reader.fieldnames]
         keys = [(k1, k2) for k1, k2 in keys if k1 in allfields]
