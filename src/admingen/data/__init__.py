@@ -55,27 +55,30 @@ def read_header(stream, delimiter):
             return headers, types
 
 class dataline:
-    pass
-
-
-def read_lines(stream, headers, types, delimiter):
-    for line in stream:
-        line = line.strip()
-
-        # Ignore comment lines.
-        if line.startswith('#'):
-            continue
-        if not line:
-            return
-        parts = line.split(delimiter)
+    @staticmethod
+    def create_instance(headers, types, values):
         result = dataline()
-        for h, t, p in zip(headers, types, parts):
+        for h, t, p in zip(headers, types, values):
             try:
                 setattr(result, h, t(p))
             except:
                 msg = 'Error when converting parameter %s value %s to %s'
                 raise RuntimeError(msg%(h, p, t.__name__))
-        yield result
+        return result
+
+
+
+def read_lines(stream, headers, types, delimiter):
+    for line in stream:
+        line = line.strip()
+        # Ignore comment lines.
+        if line.startswith('#'):
+            continue
+        # If we see an empty line, the table is ended.
+        if not line:
+            return
+        parts = line.split(delimiter)
+        yield dataline.create_instance(headers, types, parts)
 
 
 def read_lines_id(stream, headers, types, delimiter):
@@ -90,6 +93,8 @@ class AnnotatedDict(dict):
 
 
 def CsvReader(stream: typing.TextIO, delimiter=';'):
+    if isinstance(stream, str):
+        stream = open(stream)
     collection = AnnotatedDict()
     for table in read_tablename(stream):
         names, types = read_header(stream, delimiter)

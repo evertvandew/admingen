@@ -15,3 +15,5 @@ caldav
 python-dateutil
 aiosmtpd
 pyyaml
+google-api-python-client
+oauth2client

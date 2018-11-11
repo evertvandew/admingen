@@ -121,3 +121,5 @@ tmp/
 # Temporarily ignore the paypal sdk
 src/paypalrestsdk
 /test/2017001101-Aanpassingen voor uitrol in station Neckerspoel.fodt
+/projects/urenreg/credentials.json
+/projects/urenreg/token.json
