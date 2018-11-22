@@ -126,8 +126,8 @@ class paypal_export_config:
                 # non-euro transactions are assumed to be outside the EU
                 return accounts[SalesType.Other], self.vat_percentages[SalesType.Other]
             if transaction.Net > 0:
-                # Sales with an unknown region are parked on the kruispost
-                return self.pp_kruispost, Decimal('0.00')
+                # Assume that we need to pay BTW
+                return self.sale_account_eu_vat, Decimal('0.21')
 
         if transaction.ReferenceTxnID:
             # This is related to another payment, in almost all cases a return of a previous payment
@@ -174,6 +174,9 @@ class paypal_export_config:
             parts['Crediteur'] = t.Naaremailadres
         elif account in self.sale_accounts:
             parts['Debiteur'] = t.Vanemailadres
+
+        if account == self.sale_account_eu_no_vat:
+            parts['BTW account'] = self.classifier.getBtwAccount(transaction)
 
         note = ', '.join('%s: %s'%i for i in parts.items() if i[1])
         return illegal_xml_re.sub('', note)
@@ -379,21 +382,8 @@ class PaypalExactConverter:
         if transaction.Fee:
             # If the payment includes VAT, the VAT on the fee can be deducted
             # The gross amount equals 1.21 times the net amount, so dividing should get the net.
-            net_costs = (transaction.Fee / (Decimal(1.00)+vat_percentage)).quantize(Decimal('.01'), rounding=ROUND_UP)
-            vat_costs = transaction.Fee - net_costs
+            net_costs = transaction.Fee
             net_costs_euro  = (net_costs*rate).quantize(Decimal('.01'), rounding=ROUND_UP)
-            vat_costs_euro = (vat_costs*rate).quantize(Decimal('.01'), rounding=ROUND_DOWN)
-            if vat_costs_euro != Decimal(0.00):
-                # The VAT over the fee
-                comment = 'BTW kosten ' + base_comment
-                lines.append((transactiondate, self.config.vat_account, GLAccountTypes.General,
-                             comment,
-                             -vat_costs_euro, self.config.currency, -vat_costs, foreign_valuta, rate,
-                             '<GLOffset code="%s" />'%self.config.pp_account, '', ''))
-                lines.append((transactiondate, self.config.pp_account, GLAccountTypes.Bank,
-                              comment,
-                              vat_costs_euro, self.config.currency, vat_costs, foreign_valuta, rate,
-                              '', '', ''))
             # The actual fee
             comment = 'Kosten ' + base_comment
             lines.append((transactiondate, self.config.costs_account, GLAccountTypes.SalesMarketingGeneralExpenses,
