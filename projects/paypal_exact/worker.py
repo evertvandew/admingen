@@ -23,7 +23,6 @@ from admingen import config
 from admingen.logging import log_exceptions
 from admingen.clients.paypal import (downloadTransactions, pp_reader, PPTransactionDetails,
                                      PaypalSecrets, DataRanges, period2dt)
-from admingen.clients import zeke
 from admingen.clients.exact_xml import uploadTransactions, OAuthDetails, OAuth2, FileTokenStore
 from admingen import logging
 from admingen.db_api import the_db, sessionScope, DbTable, select, Required, Set, openDb, orm
@@ -35,15 +34,6 @@ from admingen.worker import Worker
 
 
 # TODO: Periodically clean up the cache
-
-def zeke_classifier(transaction: PPTransactionDetails):
-    """ Let the Zeke client classify a PayPal transaction """
-    match = order_nr_re.match(transaction.Factuurnummer)
-    if match:
-        order_nr = match.groups()[0]
-        return zeke.classifySale(order_nr)
-    return SalesType.Unknown
-
 
 class PaypalExactTask:
     """ Produce exact transactions based on the PayPal transactions """

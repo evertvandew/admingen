@@ -6,6 +6,7 @@ from decimal import Decimal
 from datetime import date, datetime, timedelta
 from admingen.util import isoweekno2day
 from yaml import load, dump
+import json
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
 except ImportError:
@@ -25,13 +26,23 @@ def mkdatetime(s):
     return datetime.strftime('%Y-%m-%d %H:%M:%S')
 
 
+def id_type(s):
+    return int(s)
+
+
+def json_loads(s):
+    return json.loads(s)
+
+
 supported_types = {'str': str,
                    'decimal': mkDecimal,
                    'date': mkdate,
                    'datetime': mkdatetime,
                    'int': int,
                    'float': float,
-                   'bool': bool
+                   'bool': bool,
+                   'id': id_type,
+                   'json': json_loads
                    }
 
 
@@ -82,7 +93,8 @@ def read_lines(stream, headers, types, delimiter):
 
 
 def read_lines_id(stream, headers, types, delimiter):
-    return {d.id:d for d in read_lines(stream, headers, types, delimiter)}
+    id_key = 'id' if 'id' in headers else headers[types.index(id_type)]
+    return {getattr(d, id_key):d for d in read_lines(stream, headers, types, delimiter)}
 
 
 class AnnotatedDict(dict):
@@ -99,7 +111,7 @@ def CsvReader(stream: typing.TextIO, delimiter=';'):
     for table in read_tablename(stream):
         names, types = read_header(stream, delimiter)
         collection.__annotations__[table] = [names, types]
-        if 'id' in names:
+        if 'id' in names or id_type in types:
             collection[table] = read_lines_id(stream, names, types, delimiter)
         else:
             collection[table] = list(read_lines(stream, names, types, delimiter))

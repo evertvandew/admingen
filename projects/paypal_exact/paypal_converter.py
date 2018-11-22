@@ -9,7 +9,8 @@ import logging
 import traceback
 import sys
 import os.path
-from admingen.db_api import the_db, sessionScope, DbTable, select, Required, Set, openDb, orm
+import glob
+from admingen import db_api
 from admingen.international import SalesType, PP_EU_COUNTRY_CODES
 from admingen.clients.paypal import (downloadTransactions, pp_reader, PPTransactionDetails,
                                      PaypalSecrets, DataRanges, period2dt)
@@ -80,6 +81,7 @@ class paypal_export_config:
                                 SalesType.Other: Decimal('0.00'),
                                 SalesType.Unknown: Decimal('0.21')}
         self.classifier = None
+        self.persist = None
 
     def classifyTransaction(self, transaction: PPTransactionDetails):
         """ Classify a transaction to determine account and VAT percentage """
@@ -141,12 +143,14 @@ class paypal_export_config:
         return accounts[region], self.vat_percentages[region]
 
 
-    def determineComment(self, transaction: PPTransactionDetails):
+    def determineComment(self, transaction: PPTransactionDetails, account):
         """ Determine the comment for a specific transaction """
         # For purchases, insert the email address
         parts = [transaction.Naam,
                  'Fact: %s'%transaction.Factuurnummer
                  ]
+        if account == self.sale_account_eu_no_vat:
+            parts.append('btw:%s'%self.classifier.getBtwAccount(transaction))
         dirty = ' '.join(parts)
 
         clean = illegal_xml_re.sub('', dirty)
@@ -174,39 +178,6 @@ class paypal_export_config:
         note = ', '.join('%s: %s'%i for i in parts.items() if i[1])
         return illegal_xml_re.sub('', note)
 
-
-
-
-# Create a cache for storing the details of earlier transactions
-@DbTable
-class PaypalTransactionLog:
-    ref: Required(str, index=True)
-    xref: str
-    timestamp: datetime.datetime
-    exact_transaction: Required('ExchangeTransactionLog')
-
-@DbTable
-class ExchangeTransactionLog:
-    pp_transactions : Set(PaypalTransactionLog)
-    amount: Decimal
-    vat_percent : Decimal
-    account: int
-    batch: Required('PaypalExchangeBatch')
-
-# Keep track of when transactions were last retrieved from PayPal
-@DbTable
-class PaypalExchangeBatch:
-    task_id: int
-    timestamp: datetime.datetime
-    period_start: datetime.date
-    period_end: datetime.date
-    starting_balance: Decimal
-    closing_balance: Decimal
-    fatals: int
-    errors: int
-    warnings: int
-    success: int
-    transactions: Set(ExchangeTransactionLog)
 
 
 class GLAccountTypes(IntEnum):
@@ -346,7 +317,6 @@ order_nr_re = re.compile(r'\D+(\d+)')
 class PaypalExactConverter:
     def __init__(self, config:paypal_export_config):
         self.config = config
-        self.classifier = None
 
 
     def generateExactLine(self, transaction: ExactTransaction, line: ExactTransactionLine, linenr):
@@ -371,7 +341,7 @@ class PaypalExactConverter:
         ostream.write(FileEndTemplate)
 
     def make_transaction(self, transaction: PPTransactionDetails, email_2_accounts,
-                         rate=1, batch=None) -> ExactTransaction:
+                         rate=1) -> ExactTransaction:
         """ Translate a PayPal transaction into a set of Exact bookings
             :param rate: euro_amount / foreign_amount
 
@@ -379,7 +349,7 @@ class PaypalExactConverter:
         """
         # A regular payment in euro's
         gb_sales, vat_percentage = self.config.determineAccountVat(transaction)
-        base_comment = self.config.determineComment(transaction)
+        base_comment = self.config.determineComment(transaction, gb_sales)
         note = self.config.determineNote(transaction, gb_sales)
         transactiondate = transaction.Datum.date()
 
@@ -393,16 +363,16 @@ class PaypalExactConverter:
 
         # Cache the results
         exact_log = None
-        if batch is not None:
-            exact_log = ExchangeTransactionLog(batch=batch,
-                                       vat_percent=vat_percentage,
-                                       account=gb_sales,
-                                       amount=transaction.Bruto)
+        p = self.config.persist
+        if p is not None:
+            exact_log = p.exchangeTransactionLog(vat_percent=vat_percentage,
+                                   account=gb_sales,
+                                   amount=transaction.Bruto)
 
-            _ = PaypalTransactionLog(ref=transaction.Transactiereferentie,
-                                     xref=transaction.ReferenceTxnID,
-                                     timestamp=transaction.Datum,
-                                     exact_transaction = exact_log)
+            p.paypalTransactionLog(exact_log,
+                                   ref=transaction.Transactiereferentie,
+                                   xref=transaction.ReferenceTxnID,
+                                   timestamp=transaction.Datum)
 
         lines = []
         net_costs_euro = vat_costs_euro = Decimal('0.00')
@@ -497,7 +467,7 @@ class PaypalExactConverter:
                                        transaction.Saldo)
         return exact_transaction, exact_log
 
-    def make_foreign_transaction(self, transactions: List[PPTransactionDetails], email_2_accounts, batch):
+    def make_foreign_transaction(self, transactions: List[PPTransactionDetails], email_2_accounts):
         # Get the details from the original transaction
         s = [t for t in transactions if
                     t.Type != 'Algemeen valutaomrekening' and t.Valuta != self.config.currency]
@@ -524,7 +494,7 @@ class PaypalExactConverter:
         # Paypal converts the net amount of foreign money into the gross amount of local money
         rate = (valuta_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
 
-        lines, saldo = self.make_transaction(sale, email_2_accounts, rate, batch=batch)
+        lines, saldo = self.make_transaction(sale, email_2_accounts, rate)
 
         transactiondate = lines[0].date
 
@@ -560,7 +530,7 @@ class PaypalExactConverter:
         return exact_transaction
 
 
-    def groupedDetailsGenerator(self, fname, email_2_accounts, batch):
+    def groupedDetailsGenerator(self, fname, email_2_accounts):
         conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
         lines = []
         current_period = None
@@ -595,13 +565,13 @@ class PaypalExactConverter:
                     else:
                         txs.append(transaction)
                     if len(txs) == 3:
-                        foreign_details = self.make_foreign_transaction(txs, email_2_accounts, batch)
+                        foreign_details = self.make_foreign_transaction(txs, email_2_accounts)
                         if foreign_details:
                             new_lines, saldo = foreign_details
                             lines.extend(new_lines)
                         del conversions_stack[ref]
                 else:
-                    new_lines, saldo = self.make_transaction(transaction, email_2_accounts, batch=batch)
+                    new_lines, saldo = self.make_transaction(transaction, email_2_accounts)
                     lines.extend(new_lines)
 
             if lines:
@@ -609,7 +579,7 @@ class PaypalExactConverter:
         except:
             traceback.print_exc()
 
-    def detailsGenerator(self, fname, batch):
+    def detailsGenerator(self, fname):
         """ Generator that reads a list of PayPal transactions, and yields ExactTransactions """
         conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
         try:
@@ -633,11 +603,11 @@ class PaypalExactConverter:
                     txs = conversions_stack.setdefault(ref, [])
                     txs.append(transaction)
                     if len(txs) == 3:
-                        lines, saldo = self.make_foreign_transaction(txs, batch)
+                        lines, saldo = self.make_foreign_transaction(txs)
                         yield ExactTransaction(self.config.ledger, lines, saldo)
                         del conversions_stack[ref]
                 else:
-                    lines, saldo = self.make_transaction(transaction, batch=batch)
+                    lines, saldo = self.make_transaction(transaction)
                     yield ExactTransaction(self.config.ledger, lines, saldo)
 
         except StopIteration:
@@ -647,9 +617,9 @@ class PaypalExactConverter:
             raise
 
 
-    def convertTransactions(self, pp_fname, batch) -> Tuple[List[ExactTransaction], str]:
+    def convertTransactions(self, pp_fname) -> Tuple[List[ExactTransaction], str]:
         """ Convert a paypal transaction """
-        transactions: List[ExactTransaction] = list(self.groupedDetailsGenerator(pp_fname, batch))
+        transactions: List[ExactTransaction] = list(self.groupedDetailsGenerator(pp_fname))
 
         # If there are no transactions, quit
         if len(transactions) == 0:
@@ -660,30 +630,71 @@ class PaypalExactConverter:
         return transactions, xml
 
 
+def ZekeClassifier(path, details: dict):
+    db = db_api.the_db = db_api.orm.Database()
+    from admingen.clients import zeke
+    instance = zeke.ZekeClassifier()
+    db_api.openDb('sqlite://%s/zeke_data.db'%path)
+    icp_files = glob.glob(path+'/*icp*.csv')
+    transaction_files = glob.glob(path+'/*invoices*.csv')
+    with db_api.sessionScope():
+        instance.readTransactions(icp_files, transaction_files, details)
+
+    def zeke_classifier(transaction: PPTransactionDetails):
+        """ Let the Zeke client classify a PayPal transaction """
+        match = order_nr_re.match(transaction.Factuurnummer)
+        if match:
+            order_nr = match.groups()[0]
+            return instance.classifySale(order_nr)
+        return SalesType.Unknown
+
+    def getBtwAccount(transaction: PPTransactionDetails):
+        """ Let the Zeke client classify a PayPal transaction """
+        match = order_nr_re.match(transaction.Factuurnummer)
+        if match:
+            order_nr = match.groups()[0]
+            return instance.getBtwAccount(order_nr)
+        return None
+
+    # I love Python! Might be more maintainable to use a proper class though...
+    zeke_classifier.getBtwAccount = getBtwAccount
+
+    return zeke_classifier
+
+
+classifiers = {'Zeke': ZekeClassifier}
 
 
 def handleDir(path, task_index):
     import glob
     from admingen.data import DataReader
+    home = path+'/task_%i'%task_index
 
-    paypals = glob.glob(path+'/Download*.CSV')
-    with open(path+'/Accounts_1.xml') as f:
+    paypals = glob.glob(home+'/Download*.CSV')
+    with open(home+'/Accounts_1.xml') as f:
         accounts = processAccounts(f)
     data = DataReader('/home/ehwaal/admingen/projects/paypal_exact/taskconfig.csv')
     config = data['TaskConfig'][task_index]
     config = paypal_export_config(**config.__dict__)
+
     email_2_accounts = {email: account for account in accounts for email in account.email}
+
+    classifier_config = data['Classifier'].get(task_index, None)
+    if classifier_config:
+        name = classifier_config.classifier_name
+        config.classifier = classifiers[name](home, classifier_config.details)
 
     for i, fname in enumerate(paypals):
         converter = PaypalExactConverter(config)
-        transactions = converter.groupedDetailsGenerator(fname, email_2_accounts, None)
+        transactions = converter.groupedDetailsGenerator(fname, email_2_accounts)
         ofname = os.path.dirname(fname) + '/upload_%s.xml'%(i+1)
         with open(ofname, 'w') as of:
             converter.generateExactTransactionsFile(transactions, of)
 
 
+
 if __name__ == '__main__':
-    handleDir('/home/ehwaal/tmp/pp_export/test-data/123products', 3)
+    handleDir('/home/ehwaal/tmp/pp_export/test-data', 3)
     sys.exit(0)
 
 

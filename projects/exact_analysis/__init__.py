@@ -53,30 +53,43 @@ if False:
 
 pw = input('Please give password for oauth keyring')
 ring = KeyRing('oauthring.enc', pw)
-details = ring['exact_secrets_1']
-details = OAuthDetails(**details)
-oa = OAuth2(FileTokenStore('../paypal_exact/exacttoken_1.json'), details, ring.__getitem__)
+ringdetails = ring['exact_secrets_1']
+ringdetails = OAuthDetails(**ringdetails)
+oa = OAuth2(FileTokenStore('../paypal_exact/exacttoken_1.json'), ringdetails, ring.__getitem__)
 api = XMLapi(oa)
 divisions = api.getDivisions()
 
+results = []
+for division in divisions:
+    logging.getLogger().debug('Downloading glaccounts for %s' % division)
+    glaccounts = api.getGLAccounts(division.Code)
+    glaccountsdict = {a.Code: a for a in glaccounts}
+    logging.getLogger().debug('Downloading administration %s' % division)
+    transactions = api.getTransactions(division.Code)
+    for t in transactions:
+        details = asdict(t)
+        for k in ['Amount', 'ForeignAmount']:
+            a = str(details[k])
+            a = a.replace(',', '_')
+            a = a.replace('.', ',')
+            a = a.replace('_', '.')
+            details[k] = a
+        details['administratie'] = division.Description
+        details['admincode'] = division.HID
+        gla = glaccountsdict.get(t.GLAccountCode, None)
+        if gla:
+            details['classification'] = gla.Classification
+            details['classpath'] = gla.Classpath
+        else:
+            details['classification'] = ''
+            details['classpath'] = ''
+        results.append(details)
 
 with open('test.csv', 'w') as f:
     w = DictWriter(f,
-                   fieldnames=['administratie', 'admincode'] + [f.name for f in fields(TransactionLine)],
+                   fieldnames=['administratie', 'admincode', 'classification', 'classpath'] + [f.name for f in fields(TransactionLine)],
                    delimiter=';')
     w.writeheader()
 
-    for division in divisions:
-        logging.getLogger().debug('Downloading administration %s'%division)
-        transactions = api.getTransactions(division.Code)
-        for t in transactions:
-            details = asdict(t)
-            for k in ['Amount', 'ForeignAmount']:
-                a = str(details[k])
-                a = a.replace(',', '_')
-                a = a.replace('.', ',')
-                a = a.replace('_', '.')
-                details[k] = a
-            details['administratie'] = division.Description
-            details['admincode'] = division.HID
-            w.writerow(details)
+    for details in results:
+        w.writerow(details)

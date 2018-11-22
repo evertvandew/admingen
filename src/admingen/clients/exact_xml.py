@@ -88,7 +88,7 @@ class TransactionLine:
     Currency: str
     ForeignAmount: Decimal
     ForeignCurrency: str
-    GLAccountCode: str
+    GLAccountCode: int
     GLAccountDescription: str
     CostUnit: str
     CostCenter: str
@@ -97,6 +97,7 @@ class TransactionLine:
     FinYear: int
     InvoiceNumber: int
     JournalCode: str
+    JournalName: str
     ProjectCode: str
     VATCode: str
     YourRef: str
@@ -117,6 +118,15 @@ class Division:
     Code: int
     HID: int
     Description: str
+
+@dataclass
+class GLAccount:
+    Code: int
+    Description: str
+    Classification: str
+    Classpath: str
+    Balancetype: str
+    Balanceside: str
 
 
 @dataclass
@@ -145,7 +155,7 @@ def findattrib(node, childtag, attrib, default=''):
     return c.attrib.get(attrib, default) if c is not None else default
 
 
-def parseTransactions(data):
+def parseTransactions(data) -> TransactionLine:
     def generate(node):
         """ Extract the transaction information from the XML nodes """
         # We hatest XML, don't we precious...
@@ -157,6 +167,11 @@ def parseTransactions(data):
                 amount = line.find('Amount')
                 famount = line.find('ForeignAmount')
                 glaccount = line.find('GLAccount')
+                gla_code = glaccount.attrib['code']
+                gla_code = int(gla_code) if gla_code.isnumeric() else -1
+                journal = transaction.find('Journal')
+
+
 
                 # Create the Transaction Line
                 tl = TransactionLine(
@@ -167,7 +182,7 @@ def parseTransactions(data):
                     Currency=amount.find('Currency').attrib['code'],
                     ForeignAmount=Decimal(findtext(famount, 'Value', '0')) if famount else None,
                     ForeignCurrency=findattrib(amount, 'Currency', 'code') if famount else None,
-                    GLAccountCode=glaccount.attrib['code'],
+                    GLAccountCode=gla_code,
                     GLAccountDescription=findtext(glaccount, 'Description'),
                     CostUnit='',
                     CostCenter='',
@@ -175,7 +190,8 @@ def parseTransactions(data):
                     FinPeriod=int(findattrib(line, 'FinPeriod', 'number')),
                     FinYear=int(findattrib(line, 'FinYear', 'number')),
                     InvoiceNumber=0,
-                    JournalCode=findattrib(transaction, 'Journal', 'code'),
+                    JournalCode=journal.attrib['code'],
+                    JournalName=findtext(journal, 'Description'),
                     ProjectCode='',
                     VATCode=findtext(line, 'VATType'),
                     YourRef='',
@@ -193,7 +209,7 @@ class XMLapi:
     download_url = base_url + 'XMLDownload.aspx'
     upload_url = base_url + 'XMLUpload.aspx'
     divisions_url = base_url + 'XMLDivisions.aspx'
-    topics = ['GLTransactions', 'Administrations']
+    topics = ['GLTransactions', 'Administrations', 'GLAccounts']
     '?Mode=1&Params%24YearRange%24To=2017&Topic=GLTransactions&Params%24EntryDate%24From=++-++-++++&BeginModalCallStack=1&Backwards=0&_Division_=15972&Params%24Status=20%2c50&Params%24YearRange%24From=2017&PagedFromUI=1&IsModal=1&Params%24Period%24From=1&Params%24EntryDate%24To=++-++-++++&Params%24Period%24To=12&PageNumber=4&TSPaging=0x000000019E3E63EF'
 
     '''https://start.exactonline.nl/docs/XMLDownload.aspx?BeginModalCallStack=1&Params%24StartDate%24From=++-++-++++&_Division_=15972&PagedFromUI=1&Backwards=0&IsModal=1&Params%24StartDate%24To=++-++-++++&Mode=1&Topic=Administrations&PageNumber=1&TSPaging='''
@@ -247,7 +263,28 @@ class XMLapi:
                 for div in root]
         return divs
 
-    def getTransactions(self, division: str, **kwargs):
+    def getGLAccounts(self, division: str) -> GLAccount:
+        headers = self.oauth_headers()
+        data = self.get('GLAccounts', division, headers=headers)
+        root = ET.fromstring(data)
+        glaccounts = []
+        for div in root.iter('GLAccount'):
+            classlink = div.find('GLClassificationLinks')
+            classlink = classlink and classlink[0]
+            classification = classpath = ''
+            if div.attrib['balanceType'] != 'W' and classlink:
+                classification = classlink.find('GLClassification').attrib['code']
+                classpath = '/'.join(c.attrib['code'] for c in classlink[0].iter('GLClassification'))
+            glaccount = GLAccount(Code=div.attrib['code'],
+                    Description=div[0].text,
+                    Classification=classification,
+                    Classpath=classpath,
+                    Balancetype=div.attrib['balanceType'],
+                    Balanceside=div.attrib['balanceSide'])
+            glaccounts.append(glaccount)
+        return glaccounts
+
+    def getTransactions(self, division: str, **kwargs) -> TransactionLine:
         # TODO: Make me variable!
         year = '2018'
         filter = {'Params_EntryDate_From': '01-01-%s'%year,
@@ -335,5 +372,5 @@ if __name__ == '__main__':
     oa = OAuth2(FileTokenStore('temptoken.json'), details, ring.__getitem__)
 
     xml = XMLapi(oa)
-    print (xml.getTransactions(15972))
+    print (xml.getGLAccounts(15972))
 

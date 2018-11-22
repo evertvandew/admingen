@@ -79,13 +79,6 @@ def fields(cls):
     """ Mimics the API for dataclasses, but working on ponyorm database tables. """
     return cls._columns_
 
-
-class DbaseVersion(the_db.Entity):   #pylint:disable=W0232
-    ''' Stores the version number of the database. '''
-    version = orm.Required(int)
-
-
-
 def url2path(url):
     """ For SQLite database, return the path to the database file """
     parts = urlparse(url)
@@ -97,6 +90,10 @@ def url2path(url):
 def openDb(url, version=1, update=None, create=True):
     ''' Create a new database from the URL
     '''
+    class DbaseVersion(the_db.Entity):  # pylint:disable=W0232
+        ''' Stores the version number of the database. '''
+        version = orm.Required(int)
+
     if the_db.provider is not None:
         logging.error('Trying to initialise the database twice!')
         return
