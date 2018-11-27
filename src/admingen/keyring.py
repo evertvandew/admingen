@@ -107,9 +107,9 @@ class KeyRing:
 
 
 
-def editor():
+def editor(fname=None):
     """ A simple CLI interface for bootstrapping / maintaining keyrings """
-    fname = input('Filename : ')
+    fname = fname or input('Filename : ')
     password = input('Password : ')
     keyring = KeyRing(fname, password)
 
@@ -122,7 +122,12 @@ def editor():
         print ('Current value: ', keyring[key])
         value = input('Enter new value or enter to leave unchanged : ')
         if value:
-            keyring[key] = value
+            # See if this is json-encoded data
+            try:
+                v = json.loads(value)
+                keyring[key] = v
+            except json.decoder.JSONDecodeError:
+                print ("That was not proper JSON!")
 
 
 if __name__ == '__main__':

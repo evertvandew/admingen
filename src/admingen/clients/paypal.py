@@ -123,8 +123,6 @@ def period2dt(range_value: DataRanges=DataRanges.YESTERDAY):
     """
     if isinstance(range_value, str) and range_value[0].isnumeric():
         return tuple(datetime.datetime.strptime(s, '%Y/%m/%d').date() for s in range_value.split('-'))
-    else:
-        range_value = getattr(DataRanges, range_value)
     today = datetime.datetime.now().date()
     if range_value == DataRanges.TODAY:
         return today, today
