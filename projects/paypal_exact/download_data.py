@@ -16,7 +16,7 @@ from admingen.clients.paypal import downloadTransactions, DataRanges, PaypalSecr
 def run(task_ids, keychain, directory):
     for task_id in task_ids:
         try:
-            rundir = os.path.join(directory, str(task_id))
+            rundir = os.path.join(directory, 'task_%i'%task_id)
 
             # Extract the paypal login from the central keychain
             key = 'ppsecrets_%i'%task_id
@@ -60,7 +60,6 @@ if __name__ == '__main__':
 
     if not args.taskids:
         taskids = taskconfig['TaskConfig'].keys()
-        taskids = [1]
     else:
         taskids = [int(i) for i in args.taskids]
     for i in taskids:

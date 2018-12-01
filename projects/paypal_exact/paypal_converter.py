@@ -183,6 +183,54 @@ class paypal_export_config:
 
 
 
+TransactionTypes = IntEnum("""AddFundsfromaBankAccount
+    ATMWithdrawal
+    ATMWithdrawalReversal
+    AuctionPaymentReceived
+    AuctionPaymentSent
+    CanceledFee
+    CanceledPayment
+    CanceledTransfer
+    ChargebackSettlement
+    CheckWithdrawalfromPayPal
+    CurrencyConversion
+    DebitCardCashAdvance
+    DebitCardPurchase
+    DividendFromPayPalMoneyMarket
+    DonationReceived
+    DonationSent
+    eCheckReceived
+    eCheckSent
+    FundsAddedwithaPersonalCheck
+    GuaranteeReimbursement
+    PaymentReceived
+    PaymentSent
+    PayPal
+    PayPalBalanceAdjustment
+    ReferralBonus
+    Refund
+    ShoppingCartItem
+    ShoppingCartPaymentReceived
+    ShoppingCartPaymentSent
+    SubscriptionPaymentReceived
+    SubscriptionPaymentSent
+    TransferUpdatetoAddFundsfromaBankAccount
+    UpdatetoDebitCardCredit
+    UpdatetoeCheckReceived
+    UpdatetoPaymentReceived
+    UpdatetoPaymentSent
+    UpdatetoReversal
+    UpdatetoWebAcceptPaymentReceived
+    VirtualDebitCardAuthorization
+    VirtualDebitCardCreditReceived
+    VirtualDebitCardPurchase
+    VirtualDebtCardCreditReceived
+    WebAcceptPaymentReceived
+    WebAcceptPaymentSent
+    WithdrawFundstoaBankAccount""")
+
+
+
 class GLAccountTypes(IntEnum):
     Cash = 10
     Bank = 12
@@ -288,7 +336,7 @@ ForeignLineTemplateWithAmount = '''            <GLTransactionLine type="40" line
                     <Rate>{ConversionRate}</Rate>
                 </ForeignAmount>
                 <Note>
-                    {note>
+                    {note}
                 </Note>
             </GLTransactionLine>
 '''
@@ -344,7 +392,7 @@ class PaypalExactConverter:
         ostream.write(FileEndTemplate)
 
     def make_transaction(self, transaction: PPTransactionDetails, email_2_accounts,
-                         rate=1) -> ExactTransaction:
+                         rate=1) -> Tuple[ExactTransactionLine, Decimal]:
         """ Translate a PayPal transaction into a set of Exact bookings
             :param rate: euro_amount / foreign_amount
 
@@ -562,6 +610,9 @@ class PaypalExactConverter:
                         del conversions_stack[ref]
                 else:
                     new_lines, saldo = self.make_transaction(transaction, email_2_accounts)
+                    # If this account is not in euro's, set the exchange rate to -1 (unknown)
+                    for l in new_lines:
+                        l.ConversionRate = -1
                     lines.extend(new_lines)
 
             if lines:
@@ -684,7 +735,7 @@ def handleDir(path, task_index):
 
 
 if __name__ == '__main__':
-    handleDir('/home/ehwaal/tmp/pp_export/test-data', 3)
+    handleDir('/home/ehwaal/tmp/pp_export/test-data', 1)
     sys.exit(0)
 
 

@@ -96,7 +96,7 @@ def generateReport(browser, range_value: str):
     submit.click()
 
 
-def checkReportAvailable(browser, daterange):
+def checkReportAvailable(browser, dateranges):
     """ Returns the element describing the daterange in a downloadable report, or None """
     # Check if the right line is available
     div = None
@@ -105,16 +105,19 @@ def checkReportAvailable(browser, daterange):
             div = browser.find_element_by_id('pastHistory')
         except:
             time.sleep(0.1)
-    try:
-        e = div.find_element_by_xpath('//td[contains(text(), "%s")]' % daterange)
-        # The report is in the list; check it can be downloaded.
-        p = e.find_element_by_xpath('..')
-        _ = p.find_element_by_tag_name('button')
-    except NoSuchElementException:
-        return
+    for daterange in dateranges:
+        try:
+            e = div.find_element_by_xpath('//td[contains(text(), "%s")]' % daterange)
+            # The report is in the list; check it can be downloaded.
+            p = e.find_element_by_xpath('..')
+            _ = p.find_element_by_tag_name('button')
+            # The report can be downloaded.
+            return e
+        except NoSuchElementException:
+            # Try the next daterange
+            pass
+    return
 
-    # The report can be downloaded.
-    return e
 
 
 def period2dt(range_value: DataRanges=DataRanges.YESTERDAY):
@@ -156,8 +159,14 @@ def downloadTransactions(secrets: PaypalSecrets, range_value: DataRanges=DataRan
     browser = webdriver.Chrome(chrome_options=chromeOptions)
     #browser.implicitly_wait(20)  # seconds
 
+    dateranges = []
+    # Paypal -- bless their darling hearts -- have two (known) formats for date ranges.
     txts = tuple(d.strftime('%d %b %Y') for d in period2dt(range_value))
     daterange = '%s - %s' % txts
+    dateranges.append(daterange)
+    txts = tuple(d.strftime('%d %b. %Y').lower() for d in period2dt(range_value))
+    daterange = '%s - %s' % txts
+    dateranges.append(daterange)
 
     # browser = webdriver.Chrome()
     with quitter(browser):
@@ -174,10 +183,10 @@ def downloadTransactions(secrets: PaypalSecrets, range_value: DataRanges=DataRan
         time.sleep(0.1)
         wait_till_loaded(browser)
 
-        e = checkReportAvailable(browser, daterange)
+        e = checkReportAvailable(browser, dateranges)
 
         if not e:
-            generateReport(browser, range_value)
+            generateReport(browser, range_value.name)
 
         # Wait until the report is available
         start = time.time()
@@ -193,7 +202,7 @@ def downloadTransactions(secrets: PaypalSecrets, range_value: DataRanges=DataRan
                 # Wait 10 minutes for the correct line
                 if time.time() - start > 10 * 60:
                     raise RuntimeError('Report did not arrive in time')
-                e = checkReportAvailable(browser, daterange)
+                e = checkReportAvailable(browser, dateranges)
                 if e:
                     break
             except:
