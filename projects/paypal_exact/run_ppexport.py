@@ -10,19 +10,9 @@ from argparse import ArgumentParser
 from admingen.keyring import KeyRing
 from admingen.data import DataReader
 from admingen.logging import logging, log_exceptions
-from admingen.db_api import openDb
-from admingen.clients.exact_xml import testLogin, FileTokenStore, OAuth2
 
 
-try:
-    from paypal_exact.worker import PaypalExactTask
-except ModuleNotFoundError:
-    import sys
-    import os.path
-    sys.path.append(os.path.dirname(__file__)+'/..')
-    from paypal_exact.worker import PaypalExactTask
 
-from paypal_exact.worker import PaypalExactTask, OAuthDetails, PaypalSecrets, paypal_export_config
 
 
 @log_exceptions
@@ -92,28 +82,6 @@ def run():
     if args.test:
         args.transactionlog = 'sqlite://:memory:'
 
-    # Connect to the transaction log, generate it if necessary
-    openDb(args.transactionlog)
-
-    for task_id in taskids:
-        try:
-            task_details = paypal_export_config(**taskconfig[task_id].__dict__)
-            customer_id = task_details.customerid
-            customer_details = userconfig[customer_id]
-
-            pp_secrets = keyring['ppsecrets_%s' % task_id]
-            # We assume that the customer uses one exact account for all its clients
-            exact_secrets = keyring['exact_secrets_%s' % customer_id]
-
-            # The keyring only stores basic Python types.
-            # Cast the secrets to the expected complex types.
-            pp_secrets = PaypalSecrets(**pp_secrets)
-            exact_secrets = OAuthDetails(**exact_secrets)
-
-            worker = PaypalExactTask(task_id, task_details, exact_secrets, pp_secrets)
-            worker.run(period=args.range.upper(), fname=args.file, test=args.test)
-        except:
-            logging.exception('Failed to run task %s' % task_id)
 
 
 if __name__ == '__main__':

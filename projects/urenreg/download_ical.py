@@ -4,9 +4,12 @@ from googleapiclient.discovery import build
 from httplib2 import Http
 from oauth2client import file, client, tools
 from admingen.data import CsvReader, CsvWriter, dataline
+from admingen.util import isoweekno2day
+import re
+
 
 calendarId = 'h66vatlgj8e3lh2fkd5p2arvps@group.calendar.google.com'
-month = (2018, 10)
+week = (2018, 51)
 
 
 
@@ -29,11 +32,12 @@ if not creds or creds.invalid:
 service = build('calendar', 'v3', http=creds.authorize(Http()))
 
 # Call the Calendar API
-monthstart = datetime.datetime(month[0], month[1], 1, 0, 0, 0).isoformat() + 'Z'
-monthend = datetime.datetime(month[0], month[1], 31, 23, 59, 59).isoformat() + 'Z'
+s = isoweekno2day(week[0], week[1])
+weekstart = s.isoformat() + 'Z'
+weekend = (s + datetime.timedelta(6, 24*60*60-1)).isoformat() + 'Z'
 
-events_result = service.events().list(calendarId=calendarId, timeMin=monthstart,
-                                    timeMax=monthend, singleEvents=True,
+events_result = service.events().list(calendarId=calendarId, timeMin=weekstart,
+                                    timeMax=weekend, singleEvents=True,
                                     orderBy='startTime').execute()
 events = events_result.get('items', [])
 
@@ -45,14 +49,14 @@ if not events:
 for event in events:
     start = event['start'].get('dateTime', event['start'].get('date'))
 
+    # Find the opdrachtnr for the current event
     opdrachtnr = None
-    if 'dynniq' in event['summary'].lower():
-        if 'neck' in event['summary'].lower():
-            opdrachtnr = '1'
-        elif 'haar' in event['summary'].lower():
-            opdrachtnr = '3'
-    if 'dis sensor' in event['summary'].lower():
-        opdrachtnr = 2
+    for opdracht in tasks['Opdracht']:
+        if opdracht.naam.lower() in event['summary'].lower():
+            for kw in opdracht.keywords.split():
+                if re.search(kw, event['summary'].lower()):
+                    opdrachtnr = opdracht.id
+                    break
 
     if not opdrachtnr:
         print ('Could not find opdracht for %s'%event['summary'], file=sys.stderr)
@@ -87,4 +91,4 @@ for (opdrachtnr, weeknr), days in proj_weekdata.items():
 
     tasks['Uren'].append(dataline.create_instance(names, types, parts))
 
-CsvWriter(sys.stdout, tasks)
+print ('Done!')

@@ -1,0 +1,23 @@
+
+
+Next steps:
+* BTW liefst afhandelen via de BTW code in de eigenlijke transactie. Zo is er ook een controleerbare koppeling met de eigenlijke transactie.
+* Voor retrofit wordt de BTW omzet berekend uit de Zeke rapportage, dus de BTW hoeft voor deze niet aangegeven te worden.
+* Kijk of Exact een lege account slikt voor inkoop. Wel op crediteuren grootboek...
+* Controlleer de aansluiting, en of er dubbelingen in zitten.
+
+---
+* Run on server
+* Put editor on top of configuration file en keyring
+
+
+ 
+ 14-10: Twease en Retrofit transacties geupload. Er is een probleem in de rekeningen van Riverchurch: account 1101 voor bankopnames wordt niet geaccepteerd.
+ 
+TO TEST:
+* Implement grouping transactions per period (month)
+* Purchases are always through the creditors balance
+* Match purchases on known suppliers through email address
+* Add a <Note> field to transactionlines with full transaction details.
+* Van 123product svp transacties sinds 2016-9-5.
+
