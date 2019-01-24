@@ -10,12 +10,13 @@ import traceback
 import sys
 import os.path
 import glob
+import xml.etree.ElementTree as ET
 from admingen import db_api
 from admingen.international import SalesType, PP_EU_COUNTRY_CODES
 from admingen.clients.paypal import (downloadTransactions, pp_reader, PPTransactionDetails,
                                      PaypalSecrets, DataRanges, period2dt)
 from admingen.clients.exact_xml import processAccounts
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 illegal_xml_re = re.compile(
             u'[&\x00-\x08\x0b-\x1f\x7f-\x84\x86-\x9f\ud800-\udfff\ufdd0-\ufddf\ufffe-\uffff]')
@@ -61,7 +62,12 @@ class paypal_export_config:
     creditors_kruispost: str
     unknown_creditor: str
     pp_kruispost: str
-    vat_account: str
+    handle_vat: bool
+    vat_code_nl: int
+    vat_code_eu: int
+    vat_code_icp: int
+    vat_code_world: int
+    vat_code_unknown: int
     currency: str
 
     def __post_init__(self):
@@ -75,13 +81,147 @@ class paypal_export_config:
                               SalesType.EU_ICP: self.purchase_account_eu_no_vat,
                               SalesType.Other: self.purchase_account_world,
                               SalesType.Unknown: self.purchase_account_nl}
-        self.vat_percentages = {SalesType.Local: Decimal('0.21'),
-                                SalesType.EU_private: Decimal('0.21'),
-                                SalesType.EU_ICP: Decimal('0.00'),
-                                SalesType.Other: Decimal('0.00'),
-                                SalesType.Unknown: Decimal('0.21')}
+        self.vat_codes = {SalesType.Local: self.vat_code_nl,
+                              SalesType.EU_private: self.vat_code_eu,
+                              SalesType.EU_ICP: self.vat_code_icp,
+                              SalesType.Other: self.vat_code_world,
+                              SalesType.Unknown: self.vat_code_unknown}
         self.classifier = None
         self.persist = None
+
+    def getType(self, t: PPTransactionDetails):
+        """ The following transaction types are used:
+                c: Transaction involving buying something from a supplier.
+                d: Transaction involving a sale to a customer
+                b: Transaction with a bank
+        """
+        if t.Type == 'algemene opname' or 'withdrawal' in t.Type.lower():
+            return 'b'
+        elif t.ReferenceTxnID and t.Net < 0:
+            return 'd'
+        elif not t.ReferenceTxnID and t.Net > 0:
+            return 'd'
+        else:
+            return 'c'
+
+    def getRegion(self, t: PPTransactionDetails):
+        # The classifier could not handle this transaction, classify it directly
+        if self.purchase_needs_invoice and t.Net < 0:
+            return SalesType.Invoiced
+        if t.Landcode == 'NL':
+            return SalesType.Local
+        elif t.Landcode in PP_EU_COUNTRY_CODES:
+            # EU is complex due to the ICP rules.
+            return SalesType.Unknown
+        elif t.Landcode:
+            return SalesType.Other
+        else:
+            return SalesType.Unknown
+
+    def getGLAccount(self, t: PPTransactionDetails):
+        if t.Type == 'algemene opname' or 'withdrawal' in t.Type.lower():
+            # A bank withdrawl goes directly to the kruispost
+            return self.pp_kruispost
+
+        # The transaction needs an invoice
+        if t.vatregion == SalesType.Invoiced:
+            return self.creditors_kruispost
+
+        accounts = self.sale_accounts if t.Net > 0 else self.purchase_accounts
+
+        if t.vatregion == SalesType.Unknown:
+            if t.Valuta != 'EUR':
+                # non-euro transactions are assumed to be outside the EU
+                return accounts[SalesType.Other]
+            if t.Net > 0:
+                # Assume that we need to pay BTW
+                return self.sale_account_eu_vat
+
+        if t.ReferenceTxnID:
+            # This is related to another payment, in almost all cases a return of a previous payment
+            # If available, use the details from the previous transaction
+            #with sessionScope():
+            #    txs = select(_ for _ in PaypalTransactionLog if _.ref == transaction.ReferenceTxnID)
+            #    for tx in txs:
+            #        return tx.exact_transaction.account, tx.exact_transaction.vat_percent
+            # Transaction unknown, try to guess the details
+            # This means that debtors and creditors are reversed
+            accounts = self.sale_accounts if t.Net < 0 else self.purchase_accounts
+
+        return accounts[t.vatregion]
+    def getGLAType(self, t):
+        if t.glaccount == self.creditors_kruispost:
+            return GLAccountTypes.AccountsPayable.value
+        return GLAccountTypes.Revenue.value
+
+    def getTemplate(self, t: PPTransactionDetails):
+        if t.Valuta != 'EUR' or t.ForeignValuta != self.currency:
+            return 'ForeignLineTemplate'
+        return 'LineTemplate'
+
+    def getNote(self, transaction: PPTransactionDetails):
+        t = transaction
+        parts = {'Naam': t.Naam,
+                 'Factuur': t.Factuurnummer,
+                 'Type': t.Type,
+                 'Tijd': t.Tijd,
+                 'Artikel': t.ArtikelNaam,
+                 'Artikel nr': t.ArtikelNr,
+                 'Transactie': t.Transactiereferentie,
+                 'Kruisref': t.ReferenceTxnID,
+                 'Bedrag': t.Bruto,
+                 'Kosten': t.Fee,
+                 'Valuta': t.Valuta,
+                 'Aantekning': t.Note}
+        parts['Crediteur'] = t.Naaremailadres
+        parts['Debiteur'] = t.Vanemailadres
+
+        if hasattr(transaction, 'VatAccount'):
+            parts['BTW account'] = transaction.VatAccount
+
+        note = ', '.join('%s: %s'%i for i in parts.items() if i[1])
+        return illegal_xml_re.sub('', note)
+
+    def getComment(self, transaction: PPTransactionDetails):
+        """ Determine the comment for a specific transaction """
+        # For purchases, insert the email address
+        parts = [transaction.Naam,
+                 'Fact: %s'%transaction.Factuurnummer
+                 ]
+        if hasattr(transaction, 'VatAccount'):
+            parts['BTW account'] = transaction.VatAccount
+        dirty = ' '.join(parts)
+
+        clean = illegal_xml_re.sub('', dirty)
+        return clean
+
+    ###########################################################################
+    ## OOOOLD...
+
+    def loadVatDetails(self, s : str):
+        vat_details = {}
+        if s.startswith('<?xml'):
+            # This is XML data
+            root = ET.fromstring(s)
+            # Each VAT code has the percentage and the GL accounts for paying and claiming
+            # The other details are not used.
+            for vat in root.findall('*/VAT'):
+                details = {}
+                details['percentage'] = Decimal(vat.find('Percentage').text)
+                details['pay_gla'] = int(vat.find('GLToPay').attrib['code'])
+                details['claim_gla'] = int(vat.find('GLToClaim').attrib['code'])
+                code = details['code'] = int(vat.attrib['code'])
+                vat_details[code] = details
+        else:
+            raise RuntimeError('Format not supported')
+
+        for t, c in [(SalesType.Local, self.vat_code_nl),
+                     (SalesType.EU_private, self.vat_code_eu),
+                     (SalesType.EU_ICP, self.vat_code_icp),
+                     (SalesType.Other, self.vat_code_world),
+                     (SalesType.Unknown, self.vat_code_unknown)]:
+            self.vat_details[t] = vat_details[c]
+
 
     def classifyTransaction(self, transaction: PPTransactionDetails):
         """ Classify a transaction to determine account and VAT percentage """
@@ -140,7 +280,7 @@ class paypal_export_config:
             # This means that debtors and creditors are reversed
             accounts = self.sale_accounts if transaction.Net < 0 else self.purchase_accounts
 
-        return accounts[region], self.vat_percentages[region]
+        return accounts[region], self.vat_percentages[region], vatcode
 
 
     def determineComment(self, transaction: PPTransactionDetails, account):
@@ -183,7 +323,7 @@ class paypal_export_config:
 
 
 
-TransactionTypes = IntEnum("""AddFundsfromaBankAccount
+TransactionTypes = Enum('TransactionTypes', """AddFundsfromaBankAccount
     ATMWithdrawal
     ATMWithdrawalReversal
     AuctionPaymentReceived
@@ -283,6 +423,7 @@ class GLTransactionTypes(IntEnum):
 
 LineTemplate = '''            <GLTransactionLine type="40" line="{linenr}" status="20">
                 <Date>{date}</Date>
+                {vattype}
                 <FinYear number="{year}" />
                 <FinPeriod number="{period}" />
                 <GLAccount code="{GLAccount}" type="{GLType}" />
@@ -301,6 +442,7 @@ LineTemplate = '''            <GLTransactionLine type="40" line="{linenr}" statu
 
 ForeignLineTemplate = '''            <GLTransactionLine type="40" line="{linenr}" status="20">
                 <Date>{date}</Date>
+                {vattype}
                 <FinYear number="{year}" />
                 <FinPeriod number="{period}" />
                 <GLAccount code="{GLAccount}" type="{GLType}" />
@@ -320,6 +462,7 @@ ForeignLineTemplate = '''            <GLTransactionLine type="40" line="{linenr}
 
 ForeignLineTemplateWithAmount = '''            <GLTransactionLine type="40" line="{linenr}" status="20">
                 <Date>{date}</Date>
+                {vattype}
                 <FinYear number="{year}" />
                 <FinPeriod number="{period}" />
                 <GLAccount code="{GLAccount}" type="{GLType}" />
@@ -329,11 +472,14 @@ ForeignLineTemplateWithAmount = '''            <GLTransactionLine type="40" line
                 <Amount>
                     <Currency code="{Currency}" />
                     <Value>{Amount}</Value>
+                    {vatline}
+                    {vatdetails}
                 </Amount>
                 <ForeignAmount>
                     <Currency code="{Currency}" />
                     <Value>{Amount}</Value>
                     <Rate>{ConversionRate}</Rate>
+                    {vatforeigndetails}
                 </ForeignAmount>
                 <Note>
                     {note}
@@ -731,6 +877,73 @@ def handleDir(path, task_index):
         ofname = os.path.dirname(fname) + '/upload_%s.xml'%(i+1)
         with open(ofname, 'w') as of:
             converter.generateExactTransactionsFile(transactions, of)
+
+
+
+def group_currency_conversions(reader, config):
+    """ Generator that reads a list of PayPal transactions, and yields ExactTransactions """
+    conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
+    # Download the PayPal Transactions
+    transaction: PPTransactionDetails
+    # For each transaction, extract the accounting details
+    for transaction in reader:
+        # Skip memo transactions.
+        if transaction.Effectopsaldo.lower() == 'memo':
+            continue
+        if transaction.Type == 'Algemeen valutaomrekening' or \
+           transaction.Valuta != config.currency:
+            # We need to compress the next three transactions into a single, foreign valuta one.
+            # The actual transaction is NOT a conversion and is in foreign valuta.
+            # The two conversions refer to this transaction
+            if transaction.Type.strip() not in ['Algemeen valutaomrekening', 'Terugbetaling', 'Bank Deposit to PP Account']:
+                ref = transaction.Transactiereferentie
+            else:
+                ref = transaction.ReferenceTxnID
+            txs = conversions_stack.setdefault(ref, [])
+            txs.append(transaction)
+            if len(txs) == 3:
+                # Classify the transactions and extract the useful bits
+                s = [t for t in txs if
+                     t.Type != 'Algemeen valutaomrekening' and t.Valuta != config.currency]
+                if not s:
+                    logging.warning('Could not find original transaction, %s' % transactions)
+                    raise RuntimeError('Could not find original transaction')
+                sale: PPTransactionDetails = s[0]
+                s = [t for t in txs if
+                     t.Type == 'Algemeen valutaomrekening' and t.Valuta == config.currency]
+                if not s:
+                    logging.warning('Ignoring conversion between foreign valuta, %s' % transactions)
+                    return None
+                valuta_details: PPTransactionDetails = s[0]
+                s = [t for t in txs if
+                     t.Type == 'Algemeen valutaomrekening' and t.Valuta != config.currency]
+                if not s:
+                    logging.warning('Could not find foreign valuta part, %s' % transactions)
+                    raise RuntimeError('Could not find foreign valuta part')
+                foreign_details: PPTransactionDetails = s[0]
+                # Check the right transactions were found
+                assert valuta_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
+                assert foreign_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
+
+                valuta_details.ConversionRate = (valuta_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
+                valuta_details.Remainder = sale.Net + foreign_details.Bruto
+                valuta_details.ForeignValuta = valuta_details.OriginalValuta = sale.Valuta
+                valuta_details.NetForeign = valuta_details.NetOriginal = sale.Net
+                valuta_details.Net = valuta_details.Bruto
+                valuta_details.BrutoForeign = sale.Bruto
+                valuta_details.Bruto = valuta_details.ConversionRate * sale.Bruto
+                valuta_details.FeeForeign = sale.Fee
+                valuta_details.Fee = valuta_details.ConversionRate * sale.Fee
+                valuta_details.Type = sale.Type
+                valuta_details.Naam = sale.Naam
+                valuta_details.Vanemailadres = sale.Vanemailadres
+                valuta_details.Naaremailadres = sale.Naaremailadres
+
+                yield valuta_details
+
+                del conversions_stack[ref]
+        else:
+            yield transaction
 
 
 

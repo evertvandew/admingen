@@ -1,7 +1,6 @@
 import cherrypy
 import logging
 import urllib
-import json
 from datetime import datetime
 from urllib.parse import urlencode
 import json
@@ -29,6 +28,7 @@ class ExactClientConfig:
         self.transaction_url = self.base + r"/v1/%(division)i/financialtransaction/TransactionLines"
         self.users_url = self.base + r"/v1/%(division)i/crm/Accounts"
         self.accounts_url = self.base + r"/v1/%(division)i/financial/GLAccounts"
+        self.btwcodes_url = self.base + r"/v1/%(division)i/financial/VATs"
 
 
 config = ExactClientConfig()
@@ -133,6 +133,12 @@ def getDivisions(token):
     divisions = request(url, token)
     divisions = {d['Code']: d['Description'] for d in divisions}
     return current, divisions
+
+
+def getBtwCodes(division, token):
+    options = {}
+    users = request(config.accounts_url % {'division': exact_division}, token, query=options)
+    return users
 
 
 def getAccessToken(code):

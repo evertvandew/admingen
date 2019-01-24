@@ -4,8 +4,11 @@ from urllib.parse import urlparse
 import typing
 from decimal import Decimal
 from datetime import date, datetime, timedelta
+import logging
 from admingen.util import isoweekno2day
 from yaml import load, dump
+from collections.abc import Mapping
+
 import json
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
@@ -32,6 +35,62 @@ def id_type(s):
 
 def json_loads(s):
     return json.loads(s)
+
+
+
+class dataset:
+    def __init__(self, iterator, index=None):
+        if index:
+            self.data = {getattr(g, index):g for g in iterator}
+        else:
+            self.data = {i: g for i, g in enumerate(iterator)}
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __iter__(self):
+        return iter(self.data.values())
+
+    def enrich(self, func=None, **kwargs):
+        for r in self.data.values():
+            if callable(func):
+                update = func(r)
+                r.__dict__.update(update)
+            else:
+                for key, getter in kwargs.items():
+                    setattr(r, key, getter(r))
+        return self
+
+    def enrich_condition(self, condition, true=None, false=None):
+        for r in self.data.values():
+            update = {}
+            if condition(r):
+                if callable(true):
+                    update = true(r)
+                elif isinstance(true, dict):
+                    update = true
+            else:
+                if callable(false):
+                    update = false(r)
+                elif isinstance(false, dict):
+                    update = false
+            for key, value in update.items():
+                setattr(r, key, value)
+        print ('Done')
+
+    def join(self, getter, getupdate, defaults):
+        for r in self.data.values():
+            try:
+                other = getter(r)
+            except KeyError:
+                other = None
+            if other:
+                update = getupdate(r, other)
+            if defaults:
+                for k, v in defaults.items():
+                    value = update.setdefault(k, v)
+                    setattr(r, k, value)
+        return self
 
 
 supported_types = {'str': str,
@@ -65,17 +124,26 @@ def read_header(stream, delimiter):
             types = [supported_types[t] for t in types]
             return headers, types
 
-class dataline:
+class dataline(Mapping):
     @staticmethod
     def create_instance(headers, types, values):
         result = dataline()
         for h, t, p in zip(headers, types, values):
             try:
                 setattr(result, h, t(p))
-            except:
+            except Exception as e:
                 msg = 'Error when converting parameter %s value %s to %s'
+                logging.exception('Error converting value')
                 raise RuntimeError(msg%(h, p, t.__name__))
         return result
+
+    # Implement the Mapping protocol
+    def __getitem__(self, key):
+        return getattr(self, key)
+    def __iter__(self):
+        return iter(self.__dict__)
+    def __len__(self):
+        return len(self.__dict__)
 
 
 
