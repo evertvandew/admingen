@@ -1,0 +1,241 @@
+% macro datepart(datum)
+<Date>{{datum.strftime("%Y-%m-%d")}}</Date>
+                <FinYear number="{{datum.year}}" />
+                <FinPeriod number="{{ '%02i'%datum.month }}" />
+% endmacro
+% macro note(line)
+<Note>
+                    {{ line.Note }}
+                </Note>
+% endmacro
+% macro vatcode(line)
+% if line.vatcode
+                    <VAT code="{{line.vatcode}}" />
+                    % endif
+                    % if line.vatpercent
+                    <VATPercentage>{{line.vatpercent}}</VATPercentage>
+                    <VATBaseAmount>{{line.Amount}}</VATBaseAmount>
+                    % endif
+% endmacro
+<?xml version="1.0" encoding="utf-8"?>
+<eExact xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="eExact-XML.xsd">
+    <GLTransactions> 
+        % for transaction in transactions
+        <GLTransaction>
+            <TransactionType number="40" />
+            <Journal code="{{config.ledger}}" type="12" />
+            % for line in transaction
+            % if (line.Fee and abs(line.Fee) > 0.005) or (line.FeeForeign and abs(line.FeeForeign)) > 0.005
+            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
+%%                <!-- Transaction for the Fee, winst-verlies side -->
+                {{datepart(line.Datum)}}
+                <GLAccount code="{{config.costs_account}}" type="121" />
+                <GLOffset code="{{config.pp_account}}" />
+                <Description>Kosten {{line.Comment}}</Description>
+                
+                % if line.account
+                <Account code="{{line.account}}" />
+                % endif
+                % if line.template in ['LineTemplate', 'ForeignLineTemplateWithAmount']
+                <Amount>
+                    <Currency code="{{line.Currency}}" />
+                    <Value>{{ -line.Fee }}</Value>
+                </Amount>
+                % endif
+                % if line.template in ['ForeignLineTemplate', 'ForeignLineTemplateWithAmount']
+                <ForeignAmount>
+                    <Currency code="{{line.ForeignValuta}}" />
+                    <Value>{{ '%.2f'%(-line.FeeForeign) }}</Value>
+                    <Rate>{{line.ConversionRate}}</Rate>
+                </ForeignAmount>
+                % endif
+                <Note>
+                    
+                </Note>
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
+%%                <!-- Transaction for the Fee, balance side -->
+                {{datepart(line.Datum)}}
+                <GLAccount code="{{config.pp_account}}" type="12" />
+                <Description>Kosten {{line.Comment}}</Description>
+                % if line.account
+                <Account code="{{line.account}}" />
+                % endif
+                % if line.template in ['LineTemplate', 'ForeignLineTemplateWithAmount']
+                <Amount>
+                    <Currency code="{{line.Currency}}" />
+                    <Value>{{ '%.2f'%line.Fee}}</Value>
+                </Amount>
+                % endif
+                % if line.template in ['ForeignLineTemplate', 'ForeignLineTemplateWithAmount']
+                <ForeignAmount>
+                    <Currency code="{{line.ForeignValuta}}" />
+                    <Value>{{ '%.2f'%line.FeeForeign}}</Value>
+                    <Rate>{{line.ConversionRate}}</Rate>
+                </ForeignAmount>
+                % endif
+                <Note>
+                    
+                </Note>
+            </GLTransactionLine>
+            % endif
+            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
+%%                <!-- Net transaction, winst/verlies side -->
+                <Date>{{line.Datum.strftime("%Y-%m-%d")}}</Date>
+                % if line.percentage
+                <VATType>S</VATType>
+                % endif
+                <FinYear number="{{line.Datum.year}}" />
+                <FinPeriod number="{{ '%02i'%line.Datum.month }}" />
+                <GLAccount code="{{line.glaccount}}" type="{{line.glatype}}" />
+                <GLOffset code="{{config.pp_account}}" />
+                <Description>{{line.Comment}}</Description>
+                % if line.Customer
+                <Account code="{{line.Customer}}" />
+                % endif
+                % if line.template in ['LineTemplate', 'ForeignLineTemplateWithAmount']
+                <Amount>
+                    <Currency code="{{line.Currency}}" />
+                    <Value>{{ '%.2f'%(-line.Bruto)}}</Value>
+                </Amount>
+                % endif
+                % if line.template in ['ForeignLineTemplate', 'ForeignLineTemplateWithAmount']
+                <ForeignAmount>
+                    <Currency code="{{line.ForeignValuta}}" />
+                    <Value>{{ '%.2f'%(-line.BrutoForeign) }}</Value>
+                    <Rate>{{line.ConversionRate}}</Rate>
+                </ForeignAmount>
+                % endif
+                {{note(line)}}
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
+%%                <!--Net transaction, balance side -->
+                <Date>{{line.Datum.strftime("%Y-%m-%d")}}</Date>
+                % if line.percentage
+                <VATType>S</VATType>
+                % endif
+                <FinYear number="{{line.Datum.year}}" />
+                <FinPeriod number="{{ '%02i'%line.Datum.month }}" />
+                <GLAccount code="{{config.pp_account}}" type="12" />
+                <GLOffset code="{{config.pp_account}}" />
+                <Description>{{line.Comment}}</Description>
+                % if line.Customer
+                <Account code="{{line.Customer}}" />
+                % endif
+                % if line.template in ['LineTemplate', 'ForeignLineTemplateWithAmount']
+                <Amount>
+                    <Currency code="{{line.Currency}}" />
+                    <Value>{{ '%.2f'%line.Bruto}}</Value>
+                </Amount>
+                % endif
+                % if line.template in ['ForeignLineTemplate', 'ForeignLineTemplateWithAmount']
+                <ForeignAmount>
+                    <Currency code="{{line.ForeignValuta}}" />
+                    <Value>{{ '%.2f'%line.BrutoForeign}}</Value>
+                    <Rate>{{line.ConversionRate}}</Rate>
+                </ForeignAmount>
+                % endif
+                {{note(line)}}
+            </GLTransactionLine>
+            % if line.Vat or line.VatForeign
+            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
+%%                <!-- Transaction VAT, balance side -->
+                <Date>{{line.Datum.strftime("%Y-%m-%d")}}</Date>
+                {% if line.percentage %}
+                <VATType>S</VATType>
+                {% endif %}
+                <FinYear number="{{line.Datum.year}}" />
+                <FinPeriod number="{{line.Datum.month}}" />
+                <GLAccount code="{{config.pp_account}}" type="12" />
+                <Description>{{line.Comment}}</Description>
+                {% if line.template in ['LineTemplate', 'ForeignLineTemplateWithAmount'] %}
+                <Amount>
+                    <Currency code="{{line.Currency}}" />
+                    <Value>{{ '%.2f'%line.Amount}}</Value>
+                </Amount>
+                {% endif %}
+                {% if line.template in ['ForeignLineTemplate', 'ForeignLineTemplateWithAmount'] %}
+                <ForeignAmount>
+                    <Currency code="{{line.ForeignValuta}}" />
+                    <Value>{{ '%.2f'%line.ForeignAmount}}</Value>
+                    <Rate>{{line.ConversionRate}}</Rate>
+                </ForeignAmount>
+                {% endif %}
+                {{note(line)}}
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
+%%                <!-- Transaction VAT, winst/verlies side -->
+                <Date>{{line.Datum.strftime("%Y-%m-%d")}}</Date>
+                {% if line.percentage %}
+                <VATType>S</VATType>
+                {% endif %}
+                <FinYear number="{{line.Datum.year}}" />
+                <FinPeriod number="{{line.Datum.month}}" />
+                <GLAccount code="{{line.vataccount}}" type="121" />
+                <GLOffset code="{{config.pp_account}}" />
+                {{line.additional}}
+                <Description>{{line.Comment}}</Description>
+                {% if line.template in ['LineTemplate', 'ForeignLineTemplateWithAmount'] %}
+                <Amount>
+                    <Currency code="{{line.Currency}}" />
+                    <Value>{{ '%.2f'%line.Amount}}</Value>
+                </Amount>
+                {% endif %}
+                {% if line.template in ['ForeignLineTemplate', 'ForeignLineTemplateWithAmount'] %}
+                <ForeignAmount>
+                    <Currency code="{{line.ForeignValuta}}" />
+                    <Value>{{ '%.2f'%line.ForeignAmount}}</Value>
+                    <Rate>{{line.ConversionRate}}</Rate>
+                </ForeignAmount>
+                {% endif %}
+                {{note(line)}}
+            </GLTransactionLine>
+            % endif
+            % if getattr(line, 'Remainder', Decimal('0.00')) != Decimal('0.00')
+            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
+%%                <!-- Conversion remainder, balance side -->
+                {{datepart(line.Datum)}}
+                <GLAccount code="{{config.pp_kruispost}}" type="90" />
+                <GLOffset code="{{config.pp_account}}" />
+                <Description>Restant in vreemde valuta, ref: {{line.Transactiereferentie}}</Description>
+                % if line.template in ['LineTemplate', 'ForeignLineTemplateWithAmount']
+                <Amount>
+                    <Currency code="{{line.Currency}}" />
+                    <Value>{{ '%.2f'%line.Remainder}}</Value>
+                </Amount>
+                % endif
+                % if line.template in ['ForeignLineTemplate', 'ForeignLineTemplateWithAmount']
+                <ForeignAmount>
+                    <Currency code="{{line.ForeignValuta}}" />
+                    <Value>{{ '%.2f'%line.RemainderForeign}}</Value>
+                    <Rate>{{line.ConversionRate}}</Rate>
+                </ForeignAmount>
+                % endif
+                {{note(line)}}
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
+%%                <!-- Conversion remainder, winst/verlies side -->
+                {{datepart(line.Datum)}}
+                <GLAccount code="{{config.pp_account}}" type="12" />
+                <Description>Restant in vreemde valuta, ref: {{line.Transactiereferentie}}</Description>
+                % if line.template in ['LineTemplate', 'ForeignLineTemplateWithAmount']
+                <Amount>
+                    <Currency code="{{line.Currency}}" />
+                    <Value>{{ '%.2f'%(-line.Remainder)}}</Value>
+                </Amount>
+                % endif
+                % if line.template in ['ForeignLineTemplate', 'ForeignLineTemplateWithAmount']
+                <ForeignAmount>
+                    <Currency code="{{line.ForeignValuta}}" />
+                    <Value>{{ '%.2f'%(-line.RemainderForeign)}}</Value>
+                    <Rate>{{line.ConversionRate}}</Rate>
+                </ForeignAmount>
+                % endif
+                {{note(line)}}
+            </GLTransactionLine>
+            % endif
+            % endfor
+        </GLTransaction>
+        % endfor
+    </GLTransactions>
+</eExact>
