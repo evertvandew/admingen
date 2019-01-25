@@ -938,6 +938,7 @@ def group_currency_conversions(reader, config):
                 valuta_details.Naam = sale.Naam
                 valuta_details.Vanemailadres = sale.Vanemailadres
                 valuta_details.Naaremailadres = sale.Naaremailadres
+                valuta_details.Transactiereferentie = sale.Transactiereferentie
 
                 yield valuta_details
 

@@ -9,6 +9,9 @@ from admingen.data import DataReader
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from scipy.interpolate import interp1d
 import sys
+import csv
+import re
+import datetime
 
 vat_name = '/home/ehwaal/tmp/pp_export/test-data/task_1/VATs_1.xml'
 fname = '/home/ehwaal/tmp/pp_export/test-data/task_1/Download2018.CSV'
@@ -30,7 +33,7 @@ if False:
         purchase_needs_invoice: bool
         creditors_kruispost: str
         unknown_creditor: str
-        pp_kruispost: str
+         : str
         handle_vat: bool
         vat_codes: Dict[SalesType, int]
         currency: str
@@ -89,11 +92,36 @@ transactions = dataset(group_currency_conversions(pp_transactions, config)) \
           defaults=dict(vatpercent=0, vataccount=None)
           )
 
-USD_conversions = interp1d
 
+def readConversionRates():
+    # Load the current conversion table
+    # Download the table from: https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip
+    reader = csv.reader(open('/home/ehwaal/tmp/pp_export/test-data/eurofxref-hist.csv'))
+    # Create a lookup table for determining the right exchange rate.
+    keys = next(reader)
+    data = {}
+    matcher = re.compile(r'[0-9.]+')
+    for line in reader:
+        conversions = {k:Decimal(e) for k, e in zip(keys[1:], line[1:]) if matcher.match(e)}
+        d = datetime.datetime.strptime(line[0], '%Y-%m-%d').date()
+        data[d] = conversions
 
-def getRate(date, currency):
-    pass
+    def getRate(d, currency):
+        """ Retrieve the conversion rate from the foreign currency to EUR,
+            based on the daily settlement rates published by the European Bank.
+        """
+        if isinstance(d, str):
+            d = datetime.datetime.strptime(d, '%Y-%m-%d').date()
+        elif isinstance(d, datetime.datetime):
+            d = d.date()
+        while True:
+            table = data.get(d, None)
+            if table:
+                return table[currency]
+            d -= datetime.timedelta(1, 0)
+    return getRate
+
+getRate = readConversionRates()
 
 
 if config.currency != 'EUR':
@@ -101,6 +129,9 @@ if config.currency != 'EUR':
     # with some support for handling non-EUR currencies. So we need to generate the necessary
     # conversions to Euro without having a conversion read from the actual transaction.
     def setDetails(t):
+        date = t.Datum
+        rate = getRate(date, t.Valuta)
+        assert t.Valuta == config.currency
         return dict(NetForeign=t.Net,
                     FeeForeign=t.Fee,
                     BrutoForeign=t.Bruto,
@@ -108,7 +139,8 @@ if config.currency != 'EUR':
                     Fee=None,
                     Bruto=None,
                     ForeignValuta=t.Valuta,
-                    ConversionRate=Decimal('1'))
+                    ConversionRate=rate,
+                    RemainderForeign=getattr(t, 'Remainder', Decimal('0')) * rate)
 
 
     # We need to add the details needed by Exact to handle the conversion to EUR.
@@ -142,7 +174,7 @@ env = Environment(loader=FileSystemLoader('.'),
                   line_statement_prefix='%',
                   line_comment_prefix='%%')
 
-env.globals.update(abs=abs)
+env.globals.update(abs=abs, Decimal=Decimal, getattr=getattr)
 
 template = env.get_template('exacttransactions.jinja')
 sys.stdout.write(template.render(transactions=grouped_transactions, config=config))
