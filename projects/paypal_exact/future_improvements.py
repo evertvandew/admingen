@@ -12,12 +12,22 @@ import sys
 import csv
 import re
 import datetime
+import os.path
 
-vat_name = '/home/ehwaal/tmp/pp_export/test-data/task_1/VATs_1.xml'
-fname = '/home/ehwaal/tmp/pp_export/test-data/task_1/Download2018.CSV'
+
+# TODO: er zit een GLOffset naar zichzelf bij een 1101 transactie.
+# TODO: De note staat uit.
+# TODO: De VAT onderdelen toevoegen en testen.
+
+
+
+taskid = 2
+vat_name = '/home/ehwaal/tmp/pp_export/test-data/task_%i/VATs_1.xml'%taskid
+fname = '/home/ehwaal/tmp/pp_export/test-data/task_%i/Download.CSV'%taskid
+
 
 data = DataReader('/home/ehwaal/admingen/projects/paypal_exact/taskconfig.csv')
-config = paypal_export_config(**data['TaskConfig'][1])
+config = paypal_export_config(**data['TaskConfig'][taskid])
 
 if False:
     @dataclass
@@ -33,7 +43,7 @@ if False:
         purchase_needs_invoice: bool
         creditors_kruispost: str
         unknown_creditor: str
-         : str
+        pp_kruispost: str
         handle_vat: bool
         vat_codes: Dict[SalesType, int]
         currency: str
@@ -67,31 +77,6 @@ def group_per_period(transactions):
     yield group
 
 
-# Read the VAT details
-root = ET.parse(vat_name)
-vatdetails = dataset((VatDetails(v.attrib['code'],
-                                 v.find('Percentage').text,
-                                 findattrib(v, 'GLToPay', 'code'),
-                                 findattrib(v, 'GLToClaim', 'code'))
-                      for v in root.findall('*/VAT')),
-                     index='code')
-
-# Read the Paypal
-pp_transactions = pp_reader(fname)
-transactions = dataset(group_currency_conversions(pp_transactions, config)) \
-    .enrich(debitcredit=config.getType,
-            vatregion=config.getRegion,
-            glaccount=config.getGLAccount,
-            glatype=config.getGLAType,
-            template=config.getTemplate) \
-    .join(lambda t: vatdetails[config.vat_codes[t.vatregion]],
-          getupdate=lambda t, v: dict(
-              vatpercent=v.percentage,
-              vataccount=v.pay_gla if t.debitcredit == 'c' else v.claim_gla
-          ),
-          defaults=dict(vatpercent=0, vataccount=None)
-          )
-
 
 def readConversionRates():
     # Load the current conversion table
@@ -122,6 +107,40 @@ def readConversionRates():
     return getRate
 
 getRate = readConversionRates()
+
+
+
+# Read the VAT details
+if os.path.exists(vat_name):
+    root = ET.parse(vat_name)
+    vatdetails = dataset((VatDetails(v.attrib['code'],
+                                     v.find('Percentage').text,
+                                     findattrib(v, 'GLToPay', 'code'),
+                                     findattrib(v, 'GLToClaim', 'code'))
+                          for v in root.findall('*/VAT')),
+                         index='code')
+else:
+    vatdetails = {}
+
+
+###############################################################################
+# Read and process the Paypal transactions
+# Process is performed by queries that add data to the transactions.
+
+pp_transactions = pp_reader(fname)
+transactions = dataset(group_currency_conversions(pp_transactions, config)) \
+    .enrich(debitcredit=config.getType,
+            vatregion=config.getRegion,
+            glaccount=config.getGLAccount,
+            glatype=config.getGLAType,
+            template=config.getTemplate) \
+    .join(lambda t: vatdetails[config.vat_codes[t.vatregion]],
+          getupdate=lambda t, v: dict(
+              vatpercent=v.percentage,
+              vataccount=v.pay_gla if t.debitcredit == 'c' else v.claim_gla
+          ),
+          defaults=dict(vatpercent=0, vataccount=None)
+          )
 
 
 if config.currency != 'EUR':
@@ -169,6 +188,9 @@ transactions.enrich(Note=config.getNote,
 grouped_transactions = list(group_per_period(transactions))
 
 
+###############################################################################
+# Create the output file.
+# We use a Jinja2 template to create an XML file that can be loaded into Exact.
 env = Environment(loader=FileSystemLoader('.'),
                   autoescape=select_autoescape(['xml']),
                   line_statement_prefix='%',

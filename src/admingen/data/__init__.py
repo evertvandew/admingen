@@ -83,9 +83,12 @@ class dataset:
             try:
                 other = getter(r)
             except KeyError:
+                # No match was made...
                 other = None
             if other:
                 update = getupdate(r, other)
+            else:
+                update = {}
             if defaults:
                 for k, v in defaults.items():
                     value = update.setdefault(k, v)

@@ -155,7 +155,7 @@ class paypal_export_config:
         return GLAccountTypes.Revenue.value
 
     def getTemplate(self, t: PPTransactionDetails):
-        if t.Valuta != 'EUR' or t.ForeignValuta != self.currency:
+        if t.Valuta != 'EUR' or getattr(t, 'ForeignValuta', self.currency) != self.currency:
             return 'ForeignLineTemplate'
         return 'LineTemplate'
 
@@ -927,6 +927,7 @@ def group_currency_conversions(reader, config):
 
                 valuta_details.ConversionRate = (valuta_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
                 valuta_details.Remainder = sale.Net + foreign_details.Bruto
+                valuta_details.RemainderForeign = valuta_details.ConversionRate * valuta_details.Remainder
                 valuta_details.ForeignValuta = valuta_details.OriginalValuta = sale.Valuta
                 valuta_details.NetForeign = valuta_details.NetOriginal = sale.Net
                 valuta_details.Net = valuta_details.Bruto
