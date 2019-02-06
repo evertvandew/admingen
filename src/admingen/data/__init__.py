@@ -76,7 +76,6 @@ class dataset:
                     update = false
             for key, value in update.items():
                 setattr(r, key, value)
-        print ('Done')
 
     def join(self, getter, getupdate, defaults):
         for r in self.data.values():
@@ -133,7 +132,12 @@ class dataline(Mapping):
         result = dataline()
         for h, t, p in zip(headers, types, values):
             try:
-                setattr(result, h, t(p))
+                p = p.strip()
+                if t is bool:
+                    value = p and p.lower()[0] in 'ty1'
+                else:
+                    value = t(p)
+                setattr(result, h, value)
             except Exception as e:
                 msg = 'Error when converting parameter %s value %s to %s'
                 logging.exception('Error converting value')

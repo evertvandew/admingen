@@ -62,12 +62,12 @@ class paypal_export_config:
     creditors_kruispost: str
     unknown_creditor: str
     pp_kruispost: str
-    handle_vat: bool
     vat_code_nl: int
     vat_code_eu: int
     vat_code_icp: int
     vat_code_world: int
     vat_code_unknown: int
+    handle_vat: bool
     currency: str
 
     def __post_init__(self):
@@ -926,8 +926,9 @@ def group_currency_conversions(reader, config):
                 assert foreign_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
 
                 valuta_details.ConversionRate = (valuta_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
-                valuta_details.Remainder = sale.Net + foreign_details.Bruto
-                valuta_details.RemainderForeign = valuta_details.ConversionRate * valuta_details.Remainder
+                # The conversion rate goes from own currency to foreign currency
+                valuta_details.RemainderForeign = sale.Net + foreign_details.Bruto
+                valuta_details.Remainder = valuta_details.RemainderForeign / valuta_details.ConversionRate
                 valuta_details.ForeignValuta = valuta_details.OriginalValuta = sale.Valuta
                 valuta_details.NetForeign = valuta_details.NetOriginal = sale.Net
                 valuta_details.Net = valuta_details.Bruto

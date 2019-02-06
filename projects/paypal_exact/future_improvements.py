@@ -1,3 +1,7 @@
+"""
+Compare with old uploads using:
+set filter="(Rate)|(GLTransactionLine)|(Transactie)"; diff -bB <(egrep -v "$filter" ~/admingen/projects/paypal_exact/test.xml) <(egrep -v "$filter" pp_export/test-data/task_1/upload2018.xml) | less
+"""
 from decimal import Decimal
 from dataclasses import dataclass
 from admingen.data import dataset
@@ -14,17 +18,17 @@ import re
 import datetime
 import os.path
 
+# FIXME: Bij Riverchurch worden meerdere USD transacties samengevoegd omgezet in EUR...
+#        Hier wordt verder niet naar verwezen in de transactie ID links.
 
 # TODO: er zit een GLOffset naar zichzelf bij een 1101 transactie.
 # TODO: De note staat uit.
 # TODO: De VAT onderdelen toevoegen en testen.
 
 
-
-taskid = 2
-vat_name = '/home/ehwaal/tmp/pp_export/test-data/task_%i/VATs_1.xml'%taskid
-fname = '/home/ehwaal/tmp/pp_export/test-data/task_%i/Download.CSV'%taskid
-
+taskid = 4
+vat_name = '/home/ehwaal/tmp/pp_export/test-data/task_%i/VATs_1.xml' % taskid
+fname = '/home/ehwaal/tmp/pp_export/test-data/task_%i/Download.CSV' % taskid
 
 data = DataReader('/home/ehwaal/admingen/projects/paypal_exact/taskconfig.csv')
 config = paypal_export_config(**data['TaskConfig'][taskid])
@@ -77,7 +81,6 @@ def group_per_period(transactions):
     yield group
 
 
-
 def readConversionRates():
     # Load the current conversion table
     # Download the table from: https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip
@@ -87,7 +90,7 @@ def readConversionRates():
     data = {}
     matcher = re.compile(r'[0-9.]+')
     for line in reader:
-        conversions = {k:Decimal(e) for k, e in zip(keys[1:], line[1:]) if matcher.match(e)}
+        conversions = {k: Decimal(e) for k, e in zip(keys[1:], line[1:]) if matcher.match(e)}
         d = datetime.datetime.strptime(line[0], '%Y-%m-%d').date()
         data[d] = conversions
 
@@ -104,24 +107,23 @@ def readConversionRates():
             if table:
                 return table[currency]
             d -= datetime.timedelta(1, 0)
+
     return getRate
+
 
 getRate = readConversionRates()
 
-
-
 # Read the VAT details
-if os.path.exists(vat_name):
+if config.handle_vat:
     root = ET.parse(vat_name)
     vatdetails = dataset((VatDetails(v.attrib['code'],
-                                     v.find('Percentage').text,
+                                     Decimal(v.find('Percentage').text),
                                      findattrib(v, 'GLToPay', 'code'),
                                      findattrib(v, 'GLToClaim', 'code'))
                           for v in root.findall('*/VAT')),
                          index='code')
 else:
     vatdetails = {}
-
 
 ###############################################################################
 # Read and process the Paypal transactions
@@ -143,6 +145,23 @@ transactions = dataset(group_currency_conversions(pp_transactions, config)) \
           )
 
 
+# Calculate the VAT elements
+def CalculateVat(t):
+    update = {'Vat': t.Net * t.vatpercent}
+    update['AfterVat'] = t.Net - update['Vat']
+    if hasattr(t, 'NetForeign'):
+        update['VatForeign'] = t.NetForeign * t.vatpercent
+        update['AfterVatForeign'] = t.NetForeign - update['VatForeign']
+    return update
+
+transactions.enrich_condition(
+    condition=lambda t: t.debitcredit == 'd' or (t.debitcredit == 'c' and not config.purchase_needs_invoice),
+    true=CalculateVat,
+    false=lambda t: {'Vat': Decimal('0.00'), 'AfterVat': t.Net, 'VatForeign': Decimal('0.00')}
+)
+
+
+
 if config.currency != 'EUR':
     # Non-euro accounts present a problem, as accounts in Exact are always EUR accounts
     # with some support for handling non-EUR currencies. So we need to generate the necessary
@@ -154,6 +173,7 @@ if config.currency != 'EUR':
         return dict(NetForeign=t.Net,
                     FeeForeign=t.Fee,
                     BrutoForeign=t.Bruto,
+                    VatForeign=t.Vat,
                     Net=None,
                     Fee=None,
                     Bruto=None,
@@ -165,18 +185,10 @@ if config.currency != 'EUR':
     # We need to add the details needed by Exact to handle the conversion to EUR.
     if False:
         transactions.enrich_condition(
-        condition=lambda t: not hasattr(t, 'ForeignAmount'),
-        true=setDetails
-    )
+            condition=lambda t: not hasattr(t, 'ForeignAmount'),
+            true=setDetails
+        )
     transactions.enrich(setDetails)
-
-# Calculate the VAT elements
-transactions.enrich_condition(
-    condition=lambda t: t.Type == 'd' or (t.Type == 'c' and not config.purchase_needs_invoice),
-    true=lambda t: {'Vat': t.Net * t.percentage,
-                    'AfterVat': t.Net - t.Vat},
-    false=lambda t: {'Vat': Decimal('0.00'), 'AfterVat': t.Net}
-    )
 
 
 transactions.enrich_condition(condition=lambda t: t.glaccount == config.creditors_kruispost,
@@ -186,7 +198,6 @@ transactions.enrich(Note=config.getNote,
                     Comment=config.getComment)
 
 grouped_transactions = list(group_per_period(transactions))
-
 
 ###############################################################################
 # Create the output file.
