@@ -58,7 +58,11 @@ class dataset:
                 r.__dict__.update(update)
             else:
                 for key, getter in kwargs.items():
-                    setattr(r, key, getter(r))
+                    if callable(getter):
+                        value = getter(r)
+                    else:
+                        value = getter
+                    setattr(r, key, value)
         return self
 
     def enrich_condition(self, condition, true=None, false=None):
@@ -92,8 +96,9 @@ class dataset:
                 update = {}
             if defaults:
                 for k, v in defaults.items():
-                    value = update.setdefault(k, v)
-                    setattr(r, k, value)
+                    update.setdefault(k, v)
+            for k, v in update.items():
+                setattr(r, k, v)
         return self
 
 

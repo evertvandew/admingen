@@ -28,7 +28,7 @@ import os.path
 # TODO: De VAT onderdelen toevoegen en testen.
 
 
-taskid = 3
+taskid = 1
 home = '/home/ehwaal/tmp/pp_export/test-data/task_%i'%taskid
 vat_name = home+'/VATs_1.xml'
 fname = home+'/Download.CSV'
@@ -130,7 +130,7 @@ else:
 
 # Determine which VAT classifier to use
 classifier_def = data['Classifier'].get(taskid, None)
-if classifier_def:
+if False and classifier_def:
     classifier = classifiers[classifier_def.classifier_name](home, classifier_def.details)
 else:
     classifier = config.getRegion
@@ -141,43 +141,37 @@ else:
 # Process is performed by queries that add data to the transactions.
 
 pp_transactions = pp_reader(fname)
-transactions = dataset(group_currency_conversions(pp_transactions, config)) \
-    .enrich(debitcredit=config.getType,
-            vatregion=classifier,
-            glaccount=config.getGLAccount,
-            glatype=config.getGLAType,
-            template=config.getTemplate) \
-    .join(lambda t: vatdetails[config.vat_codes[t.vatregion]],
-          getupdate=lambda t, v: dict(
-              vatpercent=v.percentage,
-              vataccount=v.pay_gla if t.debitcredit == 'c' else v.claim_gla
-          ),
-          defaults=dict(vatpercent=0, vataccount=None)
-          )
+transactions = dataset(group_currency_conversions(pp_transactions, config))
+for t in transactions:
+    t.vatpercent = 0
+    t.template = 'LineTemplate'
+    t.glaccount = '8100'
 
-# Fill-in the ICP details, where necessary
-transactions.enrich_condition(
-    condition=lambda t: t.vatregion == SalesType.EU_ICP,
-    true={'icpaccountnr': classifier.getBtwAccount},
-    false=lambda t: {'icpaccountnr': None}
-)
+transactions.enrich(debitcredit=config.getType,
+                        vatregion=classifier,
+                        glaccount=config.getGLAccount,
+                        glatype=config.getGLAType,
+                        template='LineTemplate',
+                        vatpercent=0)
+
+transactions.join(lambda t: vatdetails[config.vat_codes[t.vatregion]],
+                  getupdate=lambda t, v: dict(
+                      vatpercent=v.percentage,
+                      vataccount=v.pay_gla if t.debitcredit == 'c' else v.claim_gla,
+                      vatcode=v.code
+                  ),
+                  defaults=dict(vatpercent=0, vataccount=None, vatcode=None)
+                  )
+
+if False:
 
 
-# Calculate the VAT elements
-def CalculateVat(t):
-    update = {'Vat': t.Net * t.vatpercent}
-    update['AfterVat'] = t.Net - update['Vat']
-    if hasattr(t, 'NetForeign'):
-        update['VatForeign'] = t.NetForeign * t.vatpercent
-        update['AfterVatForeign'] = t.NetForeign - update['VatForeign']
-    return update
-
-transactions.enrich_condition(
-    condition=lambda t: t.debitcredit == 'd' or (t.debitcredit == 'c' and not config.purchase_needs_invoice),
-    true=CalculateVat,
-    false=lambda t: {'Vat': Decimal('0.00'), 'AfterVat': t.Net, 'VatForeign': Decimal('0.00')}
-)
-
+    # Fill-in the ICP details, where necessary
+    transactions.enrich_condition(
+        condition=lambda t: t.vatregion == SalesType.EU_ICP,
+        true={'icpaccountnr': classifier.getBtwAccount},
+        false=lambda t: {'icpaccountnr': None}
+    )
 
 
 if config.currency != 'EUR':
@@ -191,15 +185,12 @@ if config.currency != 'EUR':
         return dict(NetForeign=t.Net,
                     FeeForeign=t.Fee,
                     BrutoForeign=t.Bruto,
-                    VatForeign=t.Vat,
-                    AfterVatForeign=t.AfterVat,
-                    AfterVat=t.AfterVat / rate,
                     Net=t.Net / rate,
                     Fee=t.Fee / rate,
                     Bruto=t.Bruto / rate,
                     ForeignValuta=t.Valuta,
-                    ConversionRate=rate,
-                    RemainderForeign=getattr(t, 'Remainder', Decimal('0')) * rate)
+                    Valuta='EUR',
+                    ConversionRate=rate)
 
 
     # We need to add the details needed by Exact to handle the conversion to EUR.
@@ -211,11 +202,14 @@ if config.currency != 'EUR':
     transactions.enrich(setDetails)
 
 
+
+
 transactions.enrich_condition(condition=lambda t: t.glaccount == config.creditors_kruispost,
                               true=lambda t: {'Customer': config.unknown_creditor},
                               false={'Customer': None})
 transactions.enrich(Note=config.getNote,
                     Comment=config.getComment)
+
 
 
 
@@ -233,8 +227,8 @@ env.globals.update(abs=abs, Decimal=Decimal, getattr=getattr)
 
 template = env.get_template('exacttransactions.jinja')
 sys.stdout.write(template.render(transactions=grouped_transactions, config=config))
-fname = 'test.xml'
-with open('test.xml', 'w') as out:
+ofname = 'test2.xml'
+with open(ofname, 'w') as out:
     out.write(template.render(transactions=grouped_transactions, config=config))
 
 
@@ -242,8 +236,11 @@ with open('test.xml', 'w') as out:
 # Check the output file: esp. the effect on saldo for the pp_account.
 
 # Run a subprocess that executes a XPATH query to determine the effect on saldo.
-cmnd = '''xmlstarlet sel -t -v "sum(//GLTransactionLine[GLAccount[@code=%s]]/Amount/Value)" %s'''
-cmnd = cmnd % (config.pp_account, fname)
+if config.currency == 'EUR':
+    cmnd = '''xmlstarlet sel -t -v "sum(//GLTransactionLine[GLAccount[@code=%s]]/Amount/Value)" %s'''
+else:
+    cmnd = '''xmlstarlet sel -t -v "sum(//GLTransactionLine[GLAccount[@code=%s]]/ForeignAmount/Value)" %s'''
+cmnd = cmnd % (config.pp_account, ofname)
 p = subprocess.Popen(cmnd, shell=True, stdout=subprocess.PIPE)
 stdout, stderr = p.communicate()
 d_saldo = Decimal(int(float(stdout)*100 + 0.5)) / 100
@@ -254,4 +251,5 @@ end = [t for t in reversed(transactions) if t.Valuta == config.currency][0]
 
 start_saldo = start.Saldo - start.Net
 end_saldo = end.Saldo
-assert end_saldo - start_saldo == d_saldo
+msg = 'Error in saldo: expected %s actual %s'%(end_saldo-start_saldo, d_saldo)
+assert end_saldo - start_saldo == d_saldo, msg
