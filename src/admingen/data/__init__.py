@@ -75,6 +75,8 @@ class dataset:
                 elif isinstance(false, dict):
                     update = false
             for key, value in update.items():
+                if callable(value):
+                    value = value(r)
                 setattr(r, key, value)
 
     def join(self, getter, getupdate, defaults):

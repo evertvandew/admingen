@@ -155,7 +155,7 @@
                 {% if line.template in ['ForeignLineTemplate', 'ForeignLineTemplateWithAmount'] %}
                 <ForeignAmount>
                     <Currency code="{{line.ForeignValuta}}" />
-                    <Value>{{ '%.2f'%line.ForeignVat}}</Value>
+                    <Value>{{ '%.2f'%line.VatForeign}}</Value>
                     <Rate>{{line.ConversionRate}}</Rate>
                 </ForeignAmount>
                 {% endif %}
@@ -180,7 +180,7 @@
                 % if line.template in ['ForeignLineTemplate', 'ForeignLineTemplateWithAmount']
                 <ForeignAmount>
                     <Currency code="{{line.ForeignValuta}}" />
-                    <Value>{{ '%.2f'%line.ForeignVat}}</Value>
+                    <Value>{{ '%.2f'%line.VatForeign}}</Value>
                     <Rate>{{line.ConversionRate}}</Rate>
                 </ForeignAmount>
                 % endif

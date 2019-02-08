@@ -190,8 +190,12 @@ class paypal_export_config:
                  ]
         if hasattr(transaction, 'VatAccount'):
             parts['BTW account'] = transaction.VatAccount
-        dirty = ' '.join(parts)
 
+        icp = getattr(transaction, 'icpaccountnr', '')
+        if icp:
+            parts.insert(0, 'ICP: %s' % icp)
+
+        dirty = ' '.join(parts)
         clean = illegal_xml_re.sub('', dirty)
         return clean
 
@@ -906,14 +910,15 @@ def group_currency_conversions(reader, config):
                 s = [t for t in txs if
                      t.Type != 'Algemeen valutaomrekening' and t.Valuta != config.currency]
                 if not s:
-                    logging.warning('Could not find original transaction, %s' % transactions)
+                    logging.warning('Could not find original transaction, %s' % txs)
                     raise RuntimeError('Could not find original transaction')
                 sale: PPTransactionDetails = s[0]
                 s = [t for t in txs if
                      t.Type == 'Algemeen valutaomrekening' and t.Valuta == config.currency]
                 if not s:
-                    logging.warning('Ignoring conversion between foreign valuta, %s' % transactions)
-                    return None
+                    logging.warning('Ignoring conversion between foreign valuta, %s' % txs)
+                    txs = []
+                    continue
                 valuta_details: PPTransactionDetails = s[0]
                 s = [t for t in txs if
                      t.Type == 'Algemeen valutaomrekening' and t.Valuta != config.currency]

@@ -6,7 +6,8 @@ from decimal import Decimal
 from dataclasses import dataclass
 from admingen.data import dataset
 import xml.etree.ElementTree as ET
-from paypal_converter import paypal_export_config, pp_reader, SalesType, group_currency_conversions
+from paypal_converter import (paypal_export_config, pp_reader, SalesType, group_currency_conversions,
+                              classifiers)
 from typing import Dict
 from admingen.clients.exact_xml import findattrib
 from admingen.data import DataReader
@@ -16,6 +17,7 @@ import sys
 import csv
 import re
 import datetime
+import subprocess
 import os.path
 
 # FIXME: Bij Riverchurch worden meerdere USD transacties samengevoegd omgezet in EUR...
@@ -26,9 +28,10 @@ import os.path
 # TODO: De VAT onderdelen toevoegen en testen.
 
 
-taskid = 4
-vat_name = '/home/ehwaal/tmp/pp_export/test-data/task_%i/VATs_1.xml' % taskid
-fname = '/home/ehwaal/tmp/pp_export/test-data/task_%i/Download.CSV' % taskid
+taskid = 3
+home = '/home/ehwaal/tmp/pp_export/test-data/task_%i'%taskid
+vat_name = home+'/VATs_1.xml'
+fname = home+'/Download.CSV'
 
 data = DataReader('/home/ehwaal/admingen/projects/paypal_exact/taskconfig.csv')
 config = paypal_export_config(**data['TaskConfig'][taskid])
@@ -125,6 +128,14 @@ if config.handle_vat:
 else:
     vatdetails = {}
 
+# Determine which VAT classifier to use
+classifier_def = data['Classifier'].get(taskid, None)
+if classifier_def:
+    classifier = classifiers[classifier_def.classifier_name](home, classifier_def.details)
+else:
+    classifier = config.getRegion
+
+
 ###############################################################################
 # Read and process the Paypal transactions
 # Process is performed by queries that add data to the transactions.
@@ -132,7 +143,7 @@ else:
 pp_transactions = pp_reader(fname)
 transactions = dataset(group_currency_conversions(pp_transactions, config)) \
     .enrich(debitcredit=config.getType,
-            vatregion=config.getRegion,
+            vatregion=classifier,
             glaccount=config.getGLAccount,
             glatype=config.getGLAType,
             template=config.getTemplate) \
@@ -143,6 +154,13 @@ transactions = dataset(group_currency_conversions(pp_transactions, config)) \
           ),
           defaults=dict(vatpercent=0, vataccount=None)
           )
+
+# Fill-in the ICP details, where necessary
+transactions.enrich_condition(
+    condition=lambda t: t.vatregion == SalesType.EU_ICP,
+    true={'icpaccountnr': classifier.getBtwAccount},
+    false=lambda t: {'icpaccountnr': None}
+)
 
 
 # Calculate the VAT elements
@@ -174,9 +192,11 @@ if config.currency != 'EUR':
                     FeeForeign=t.Fee,
                     BrutoForeign=t.Bruto,
                     VatForeign=t.Vat,
-                    Net=None,
-                    Fee=None,
-                    Bruto=None,
+                    AfterVatForeign=t.AfterVat,
+                    AfterVat=t.AfterVat / rate,
+                    Net=t.Net / rate,
+                    Fee=t.Fee / rate,
+                    Bruto=t.Bruto / rate,
                     ForeignValuta=t.Valuta,
                     ConversionRate=rate,
                     RemainderForeign=getattr(t, 'Remainder', Decimal('0')) * rate)
@@ -197,6 +217,8 @@ transactions.enrich_condition(condition=lambda t: t.glaccount == config.creditor
 transactions.enrich(Note=config.getNote,
                     Comment=config.getComment)
 
+
+
 grouped_transactions = list(group_per_period(transactions))
 
 ###############################################################################
@@ -211,5 +233,25 @@ env.globals.update(abs=abs, Decimal=Decimal, getattr=getattr)
 
 template = env.get_template('exacttransactions.jinja')
 sys.stdout.write(template.render(transactions=grouped_transactions, config=config))
+fname = 'test.xml'
 with open('test.xml', 'w') as out:
     out.write(template.render(transactions=grouped_transactions, config=config))
+
+
+###############################################################################
+# Check the output file: esp. the effect on saldo for the pp_account.
+
+# Run a subprocess that executes a XPATH query to determine the effect on saldo.
+cmnd = '''xmlstarlet sel -t -v "sum(//GLTransactionLine[GLAccount[@code=%s]]/Amount/Value)" %s'''
+cmnd = cmnd % (config.pp_account, fname)
+p = subprocess.Popen(cmnd, shell=True, stdout=subprocess.PIPE)
+stdout, stderr = p.communicate()
+d_saldo = Decimal(int(float(stdout)*100 + 0.5)) / 100
+
+transactions = list(pp_reader(fname))
+start = [t for t in transactions if t.Valuta == config.currency][0]
+end = [t for t in reversed(transactions) if t.Valuta == config.currency][0]
+
+start_saldo = start.Saldo - start.Net
+end_saldo = end.Saldo
+assert end_saldo - start_saldo == d_saldo
