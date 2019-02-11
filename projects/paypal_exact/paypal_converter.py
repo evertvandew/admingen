@@ -946,6 +946,8 @@ def group_currency_conversions(reader, config):
                 valuta_details.Vanemailadres = sale.Vanemailadres
                 valuta_details.Naaremailadres = sale.Naaremailadres
                 valuta_details.Transactiereferentie = sale.Transactiereferentie
+                if valuta_details.Remainder:
+                    print ('Remainder found:', valuta_details.Remainder, valuta_details)
 
                 yield valuta_details
 

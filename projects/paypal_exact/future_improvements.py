@@ -226,7 +226,7 @@ env = Environment(loader=FileSystemLoader('.'),
 env.globals.update(abs=abs, Decimal=Decimal, getattr=getattr)
 
 template = env.get_template('exacttransactions.jinja')
-sys.stdout.write(template.render(transactions=grouped_transactions, config=config))
+#sys.stdout.write(template.render(transactions=grouped_transactions, config=config))
 ofname = 'test2.xml'
 with open(ofname, 'w') as out:
     out.write(template.render(transactions=grouped_transactions, config=config))
