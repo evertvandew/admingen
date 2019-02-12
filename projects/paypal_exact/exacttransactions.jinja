@@ -1,7 +1,10 @@
-% macro datepart(datum)
-<Date>{{datum.strftime("%Y-%m-%d")}}</Date>
-                <FinYear number="{{datum.year}}" />
-                <FinPeriod number="{{ '%02i'%datum.month }}" />
+% macro datepart(line, vattype)
+<Date>{{line.Datum.strftime("%Y-%m-%d")}}</Date>
+                % if line.vatpercent
+                <VATType>{{vattype}}</VATType>
+                % endif
+                <FinYear number="{{line.Datum.year}}" />
+                <FinPeriod number="{{ '%02i'%line.Datum.month }}" />
 % endmacro
 % macro note(line)
 <Note>
@@ -15,19 +18,14 @@
         <GLTransaction>
             <TransactionType number="40" />
             <Journal code="{{config.ledger}}" type="12" />
-            % for line in transaction
+            % for linenr, line in enumerate(transaction)
                 % set vatamount = line.Bruto*line.vatpercent
                 % set aftervat = line.Bruto - vatamount
                 % set vatamountforeign = line.BrutoForeign*line.vatpercent
                 % set aftervatforeign = line.BrutoForeign - vatamountforeign
-            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
-                <!--Net transaction, balance side -->
-                <Date>{{line.Datum.strftime("%Y-%m-%d")}}</Date>
-                % if line.vatpercent
-                <VATType>S</VATType>
-                % endif
-                <FinYear number="{{line.Datum.year}}" />
-                <FinPeriod number="{{ '%02i'%line.Datum.month }}" />
+            <GLTransactionLine type="40" line="{{linenr*2+1}}" status="20">
+                <!--Gross transaction, balance side -->
+                {{datepart(line, 'S')}}
                 <GLAccount code="{{config.pp_account}}" type="12" />
                 <Description>{{line.Comment}}</Description>
                 % if line.Customer
@@ -35,12 +33,12 @@
                 % endif
                 <Amount>
                     <Currency code="{{line.Valuta}}" />
-                    <Value>{{ '%.2f'%line.Net}}</Value>
+                    <Value>{{ '%.2f'%line.Bruto}}</Value>
                 </Amount>
                 % if line.NetForeign
                 <ForeignAmount>
                     <Currency code="{{line.ForeignValuta}}" />
-                    <Value>{{ '%.2f'%line.NetForeign}}</Value>
+                    <Value>{{ '%.2f'%line.BrutoForeign}}</Value>
                     <Rate>{{line.ConversionRate}}</Rate>
                 </ForeignAmount>
                 % endif
@@ -48,40 +46,9 @@
             </GLTransactionLine>
             
             
-            % if abs(getattr(line, 'Fee', Decimal('0.00'))) > 0.005 or abs(getattr(line, 'FeeForeign', Decimal('0.00'))) > 0.005
-            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
-                <!-- Transaction for the Fee, winst-verlies side -->
-                {{datepart(line.Datum)}}
-                <GLAccount code="{{config.costs_account}}" type="121" />
-                <GLOffset code="{{config.pp_account}}" />
-                <Description>Kosten {{line.Comment}}</Description>
-                
-                % if line.account
-                <Account code="{{line.account}}" />
-                % endif
-                <Amount>
-                    <Currency code="{{line.Valuta}}" />
-                    <Value>{{ '%.2f'%(-line.Fee) }}</Value>
-                </Amount>
-                % if line.FeeForeign
-                <ForeignAmount>
-                    <Currency code="{{line.ForeignValuta}}" />
-                    <Value>{{ '%.2f'%(-line.FeeForeign) }}</Value>
-                    <Rate>{{line.ConversionRate}}</Rate>
-                </ForeignAmount>
-                % endif
-                {{note(line)}}
-            </GLTransactionLine>
-            % endif
-            
-            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
+            <GLTransactionLine type="40" line="{{linenr*2+1}}" status="20">
                 <!-- Net transaction, winst/verlies side -->
-                <Date>{{line.Datum.strftime("%Y-%m-%d")}}</Date>
-                % if line.vatpercent
-                <VATType>I</VATType>
-                % endif
-                <FinYear number="{{line.Datum.year}}" />
-                <FinPeriod number="{{ '%02i'%line.Datum.month }}" />
+                {{datepart(line, 'I')}}
                 <GLAccount code="{{line.glaccount}}" type="{{line.glatype}}" />
                 <GLOffset code="{{config.pp_account}}" />
                 <Description>{{line.Comment}}</Description>
@@ -103,8 +70,10 @@
                     <Value>{{ '%.2f'%(-aftervatforeign) }}</Value>
                     <Rate>{{line.ConversionRate}}</Rate>
                     % if line.vatpercent
+                    <VAT code="{{line.vatcode}}" />
                     <VATPercentage>{{line.vatpercent}}</VATPercentage>
                     <VATBaseAmount>{{ '%.2f'%(-aftervatforeign)}}</VATBaseAmount>
+                    <VATAmount>{{ '%.2f'%(-vatamountforeign)}}</VATAmount>
                     % endif
                 </ForeignAmount>
                 % endif
@@ -112,14 +81,9 @@
             </GLTransactionLine>
             
             % if line.vatpercent
-            <GLTransactionLine type="40" line="{{line.linenr}}" status="20">
+            <GLTransactionLine type="40" line="{{linenr*2+1}}" status="20">
                 <!-- Transaction VAT, winst/verlies side -->
-                <Date>{{line.Datum.strftime("%Y-%m-%d")}}</Date>
-                {% if line.vatpercent %}
-                <VATType>O</VATType>
-                {% endif %}
-                <FinYear number="{{line.Datum.year}}" />
-                <FinPeriod number="{{ '%02i'%line.Datum.month }}" />
+                {{datepart(line, 'O')}}
                 <GLAccount code="{{line.vataccount}}" type="90" />
                 <GLOffset code="{{config.pp_account}}" />
                 {{line.additional}}
@@ -145,7 +109,54 @@
                 {{note(line)}}
             </GLTransactionLine>
             % endif
-            
+
+            % if abs(getattr(line, 'Fee', Decimal('0.00'))) > 0.005 or abs(getattr(line, 'FeeForeign', Decimal('0.00'))) > 0.005
+            <GLTransactionLine type="40" line="{{linenr*2+2}}" status="20">
+                <!-- Transaction for the Fee, winst-verlies side -->
+                {{datepart(line, 'S')}}
+                <GLAccount code="{{config.costs_account}}" type="121" />
+                <GLOffset code="{{config.pp_account}}" />
+                <Description>Kosten {{line.Comment}}</Description>
+                
+                % if line.account
+                <Account code="{{line.account}}" />
+                % endif
+                <Amount>
+                    <Currency code="{{line.Valuta}}" />
+                    <Value>{{ '%.2f'%(-line.Fee) }}</Value>
+                </Amount>
+                % if line.FeeForeign
+                <ForeignAmount>
+                    <Currency code="{{line.ForeignValuta}}" />
+                    <Value>{{ '%.2f'%(-line.FeeForeign) }}</Value>
+                    <Rate>{{line.ConversionRate}}</Rate>
+                </ForeignAmount>
+                % endif
+                {{note(line)}}
+            </GLTransactionLine>
+            <GLTransactionLine type="40" line="{{linenr*2+2}}" status="20">
+                <!--Transaction for the Fee, balance side -->
+                {{datepart(line, 'S')}}
+                <GLAccount code="{{config.pp_account}}" type="12" />
+                <Description>{{line.Comment}}</Description>
+                % if line.Customer
+                <Account code="{{line.Customer}}" />
+                % endif
+                <Amount>
+                    <Currency code="{{line.Valuta}}" />
+                    <Value>{{ '%.2f'%line.Fee}}</Value>
+                </Amount>
+                % if line.NetForeign
+                <ForeignAmount>
+                    <Currency code="{{line.ForeignValuta}}" />
+                    <Value>{{ '%.2f'%line.FeeForeign}}</Value>
+                    <Rate>{{line.ConversionRate}}</Rate>
+                </ForeignAmount>
+                % endif
+                {{note(line)}}
+            </GLTransactionLine>
+            % endif
+                        
             % endfor
         </GLTransaction>
         % endfor
