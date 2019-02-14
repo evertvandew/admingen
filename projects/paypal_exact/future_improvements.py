@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 """
 Compare with old uploads using:
 set filter="(Rate)|(GLTransactionLine)|(Transactie)"; diff -bB <(egrep -v "$filter" ~/admingen/projects/paypal_exact/test.xml) <(egrep -v "$filter" pp_export/test-data/task_1/upload2018.xml) | less
 """
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import datetime
 from dataclasses import dataclass
 import xml.etree.ElementTree as ET
@@ -90,13 +91,78 @@ def readConversionRates():
 getRate = readConversionRates()
 
 
-def run(configpath, basedir, taskid, ofname):
+def checker(groupedtransactions, xml, config):
+    root = ET.fromstring(xml)
+
+    # First check: the main saldo.
+    first = groupedtransactions[0][0]
+    if config.currency == 'EUR':
+        saldo = first.Saldo - first.Net
+    else:
+        saldo = first.Saldo - first.NetForeign
+
+    for transactions, glt in zip(groupedtransactions, root.findall('.//GLTransaction')):
+        for line in glt.findall('.//GLTransactionLine'):
+            if line.find('GLAccount').attrib['code'] == "%s" % config.pp_account:
+                index = int((int(line.attrib['line'])-1)/3)
+                if config.currency == 'EUR':
+                    saldo += Decimal(line.find('./Amount/Value').text)
+                else:
+                    saldo += Decimal(line.find('./ForeignAmount/Value').text)
+                t = transactions[index]
+
+                offset = (int(line.attrib['line'])-1) % 3
+                if getattr(t, 'Remainder', 0):
+                    checknow = offset == 2
+                elif t.Fee:
+                    checknow = offset == 1
+                else:
+                    checknow = True
+
+                if checknow:
+                    # The saldo should be equal to the end saldo in the transaction.
+                    if saldo != t.Saldo:
+                        print("SALDO ERROR:", saldo, t.Saldo, saldo-t.Saldo, t)
+                        saldo = t.Saldo
+
+    # Second check: transaction balance
+    # We check the balance for all transactionlines with the same line number.
+    for glt in root.findall('.//GLTransaction'):
+        nr = '0'
+        saldo = Decimal(0)
+        for line in glt.findall('GLTransactionLine'):
+            if line.attrib['line'] != nr:
+                if saldo != Decimal(0):
+                    print('BALANCE ERROR', saldo, 'Before', line)
+                    saldo = Decimal(0)
+            nr = line.attrib['line']
+            saldo += Decimal(line.find('./Amount/Value').text)
+        if saldo != Decimal(0):
+            print('BALANCE ERROR', saldo, 'In', line)
+
+    # Third check: for non-euro accounts also check the balance in the foreign parts
+    if config.currency != 'EUR':
+        for glt in root.findall('.//GLTransaction'):
+            nr = '0'
+            saldo = Decimal(0)
+            for line in glt.findall('GLTransactionLine'):
+                if line.attrib['line'] != nr:
+                    if saldo != Decimal(0):
+                        print('FOREIGN BALANCE ERROR', saldo, 'Before', line)
+                        saldo = Decimal(0)
+                nr = line.attrib['line']
+                saldo += Decimal(line.find('./ForeignAmount/Value').text)
+            if saldo != Decimal(0):
+                print('FOREIGN BALANCE ERROR', saldo, 'In', line)
+
+
+def run(configpath, basedir, taskid, ofname, ifname):
     # Read the configuration
     taskid = int(taskid)
     data = DataReader(configpath)
     config = paypal_export_config(**data['TaskConfig'][taskid])
     home = os.path.join(basedir, 'task_%i' % taskid)
-    fname = home + '/Download.CSV'
+    ifname = ifname or (home+'/Download.CSV')
 
     # Read the VAT details
     if config.handle_vat:
@@ -109,7 +175,7 @@ def run(configpath, basedir, taskid, ofname):
                               for v in root.findall('*/VAT')),
                              index='code')
         # Check all vat codes are of the 'Inclusief' type
-        assert all(vatdetails[i].type in 'BI1' for i in config.vat_codes.values())
+        assert all(vatdetails[i].type in 'BI' for i in config.vat_codes.values())
     else:
         vatdetails = {}
 
@@ -124,7 +190,7 @@ def run(configpath, basedir, taskid, ofname):
     # Read and process the Paypal transactions
     # Process is performed by queries that add data to the transactions.
 
-    pp_transactions = pp_reader(fname)
+    pp_transactions = pp_reader(ifname)
     transactions = dataset(group_currency_conversions(pp_transactions, config))
 
     transactions.enrich(debitcredit=config.getType,
@@ -161,8 +227,10 @@ def run(configpath, basedir, taskid, ofname):
             result = dict(NetForeign=t.Net,
                         FeeForeign=t.Fee,
                         BrutoForeign=t.Bruto,
-                        Net=t.Net * rate,
-                        Fee=t.Fee * rate,
+                        RemainderForeign=getattr(t, 'Remainder', Decimal(0)),
+                        Net=(t.Net * rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+                        Fee=(t.Fee * rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+                        Remainder=(getattr(t, 'Remainder', Decimal(0)) * rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
                         ForeignValuta=t.Valuta,
                         Valuta='EUR',
                         ConversionRate=rate)
@@ -173,15 +241,19 @@ def run(configpath, basedir, taskid, ofname):
         # We need to add the details needed by Exact to handle the conversion to EUR.
         transactions.enrich(setDetails)
 
+    # When handling sales through the creditors account, add an unknown creditor.
     transactions.enrich_condition(condition=lambda t: t.glaccount == config.creditors_kruispost,
                                   true=lambda t: {'Customer': config.unknown_creditor},
                                   false={'Customer': None})
+
+    # Determine the note and comment texts
     transactions.enrich(Note=config.getNote,
                         Comment=config.getComment)
 
     # TODO: remove me. This is for testing only.
     transactions.enrich(Datum=lambda t: datetime.date(2019, t.Datum.month, t.Datum.day))
 
+    # Group the transactions per month: a single transaction is produced for a month.
     grouped_transactions = list(group_per_period(transactions))
 
     ###############################################################################
@@ -192,15 +264,19 @@ def run(configpath, basedir, taskid, ofname):
                       line_statement_prefix='%',
                       line_comment_prefix='%%')
 
-    env.globals.update(abs=abs, Decimal=Decimal, getattr=getattr, enumerate=enumerate)
+    env.globals.update(abs=abs, Decimal=Decimal, getattr=getattr, enumerate=enumerate,
+                       ROUND_HALF_UP=ROUND_HALF_UP)
 
     template = env.get_template('exacttransactions.jinja')
+    xml = template.render(transactions=grouped_transactions, config=config)
+
+    checker(grouped_transactions, xml, config)
 
     if ofname:
         with open(ofname, 'w') as out:
-            out.write(template.render(transactions=grouped_transactions, config=config))
+            out.write(xml)
     else:
-        sys.stdout.write(template.render(transactions=grouped_transactions, config=config))
+        sys.stdout.write(xml)
 
 
 if __name__ == '__main__':
@@ -208,8 +284,9 @@ if __name__ == '__main__':
     p.add_argument('-c', '--config',
                    default='/home/ehwaal/admingen/projects/paypal_exact/taskconfig.csv')
     p.add_argument('-b', '--basedir', default='/home/ehwaal/tmp/pp_export/test-data/')
-    p.add_argument('-t', '--taskid', default='1')
+    p.add_argument('-t', '--taskid', default='3')
     p.add_argument('-o', '--outfile', default='test2.xml')
     p.add_argument('-v', '--verify', action='store_true')
+    p.add_argument('-f', '--infile', default=None)
     args = p.parse_args()
-    run(args.config, args.basedir, args.taskid, args.outfile)
+    run(args.config, args.basedir, args.taskid, args.outfile, args.infile)

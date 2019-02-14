@@ -12,12 +12,20 @@ class User:
 class Team:
     pass
 
+class UserTeam:
+    user: User
+    team: Team
+
 class Task:
-    pass
+    team: Team
+    description: str
 
 class TaskSchedule:
-    pass
+    task: Task
+    duration: str
+    activation: str
 
 class UserTask:
-    pass
+    user: User
+    task: Task
 

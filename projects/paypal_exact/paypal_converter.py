@@ -930,26 +930,23 @@ def group_currency_conversions(reader, config):
                 assert valuta_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
                 assert foreign_details.ReferenceTxnID == sale.ReferenceTxnID or sale.Transactiereferentie
 
-                valuta_details.ConversionRate = (valuta_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
+                sale.ConversionRate = (valuta_details.Bruto / -foreign_details.Net).quantize(Decimal('.0000001'), rounding=ROUND_HALF_UP)
                 # The conversion rate goes from own currency to foreign currency
-                valuta_details.RemainderForeign = sale.Net + foreign_details.Bruto
-                valuta_details.Remainder = valuta_details.RemainderForeign / valuta_details.ConversionRate
-                valuta_details.ForeignValuta = valuta_details.OriginalValuta = sale.Valuta
-                valuta_details.NetForeign = valuta_details.NetOriginal = sale.Net
-                valuta_details.Net = valuta_details.Bruto
-                valuta_details.BrutoForeign = sale.Bruto
-                valuta_details.Bruto = valuta_details.ConversionRate * sale.Bruto
-                valuta_details.FeeForeign = sale.Fee
-                valuta_details.Fee = valuta_details.ConversionRate * sale.Fee
-                valuta_details.Type = sale.Type
-                valuta_details.Naam = sale.Naam
-                valuta_details.Vanemailadres = sale.Vanemailadres
-                valuta_details.Naaremailadres = sale.Naaremailadres
-                valuta_details.Transactiereferentie = sale.Transactiereferentie
-                if valuta_details.Remainder:
-                    print ('Remainder found:', valuta_details.Remainder, valuta_details)
+                sale.RemainderForeign = sale.Net + foreign_details.Bruto
+                sale.Remainder = sale.RemainderForeign * sale.ConversionRate
+                sale.ForeignValuta = sale.OriginalValuta = sale.Valuta
+                sale.Valuta = valuta_details.Valuta
+                sale.NetForeign = sale.NetOriginal = sale.Net
+                sale.Net *= sale.ConversionRate
+                sale.BrutoForeign = sale.Bruto
+                sale.Bruto *= sale.ConversionRate
+                sale.FeeForeign = sale.Fee
+                sale.Fee *= sale.ConversionRate
+                sale.Saldo = valuta_details.Saldo
+                if sale.Remainder:
+                    print('Remainder found:', sale.Remainder, sale)
 
-                yield valuta_details
+                yield sale
 
                 del conversions_stack[ref]
         else:

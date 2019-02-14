@@ -6,6 +6,7 @@ from decimal import Decimal
 import subprocess
 import argparse
 import xml.etree.ElementTree as ET
+import os, os.path
 
 
 from admingen.data import DataReader
