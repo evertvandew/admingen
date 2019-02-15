@@ -101,7 +101,7 @@
                 <!--Transaction for the Fee, balance side -->
                 {{datepart(line, 'S')}}
                 <GLAccount code="{{config.pp_account}}" type="12" />
-                <Description>{{line.Comment}}</Description>
+                <Description>Kosten {{line.Comment}}</Description>
                 % if line.Customer
                 <Account code="{{line.Customer}}" />
                 % endif
@@ -118,7 +118,7 @@
                 {{datepart(line, 'S')}}
                 <GLAccount code="{{config.pp_kruispost}}" type="90" />
                 <GLOffset code="{{config.pp_account}}" />
-                <Description>Kosten {{line.Comment}}</Description>
+                <Description>Restant {{line.Comment}}</Description>
                 <{{AmountType}}>
                     <Currency code="{{line.Valuta}}" />
                     <Value>{{ '%.2f'%(line.Remainder) }}</Value>
@@ -129,7 +129,7 @@
                 <!--Transaction for the Remainder, balance side -->
                 {{datepart(line, 'S')}}
                 <GLAccount code="{{config.pp_account}}" type="12" />
-                <Description>{{line.Comment}}</Description>
+                <Description>Restant {{line.Comment}}</Description>
                 % if line.Customer
                 <Account code="{{line.Customer}}" />
                 % endif

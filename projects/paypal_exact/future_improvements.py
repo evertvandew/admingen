@@ -96,10 +96,7 @@ def checker(groupedtransactions, xml, config):
 
     # First check: the main saldo.
     first = groupedtransactions[0][0]
-    if config.currency == 'EUR':
-        saldo = first.Saldo - first.Net
-    else:
-        saldo = first.Saldo - first.NetForeign
+    saldo = first.Saldo - first.Net
 
     for transactions, glt in zip(groupedtransactions, root.findall('.//GLTransaction')):
         for line in glt.findall('.//GLTransactionLine'):
@@ -136,7 +133,10 @@ def checker(groupedtransactions, xml, config):
                     print('BALANCE ERROR', saldo, 'Before', line)
                     saldo = Decimal(0)
             nr = line.attrib['line']
-            saldo += Decimal(line.find('./Amount/Value').text)
+            if config.currency == 'EUR':
+                saldo += Decimal(line.find('./Amount/Value').text)
+            else:
+                saldo += Decimal(line.find('./ForeignAmount/Value').text)
         if saldo != Decimal(0):
             print('BALANCE ERROR', saldo, 'In', line)
 
@@ -216,7 +216,7 @@ def run(configpath, basedir, taskid, ofname, ifname):
             false=lambda t: {'icpaccountnr': None}
         )
 
-    if config.currency != 'EUR':
+    if False and config.currency != 'EUR':
         # Non-euro accounts present a problem, as accounts in Exact are always EUR accounts
         # with some support for handling non-EUR currencies. So we need to generate the necessary
         # conversions to Euro without having a conversion read from the actual transaction.

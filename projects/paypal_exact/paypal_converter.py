@@ -95,7 +95,8 @@ class paypal_export_config:
                 d: Transaction involving a sale to a customer
                 b: Transaction with a bank
         """
-        if t.Type == 'algemene opname' or 'withdrawal' in t.Type.lower():
+        tt = t.Type.lower()
+        if tt in ['algemene opname', 'algemeen valutaomrekening'] or 'withdrawal' in tt:
             return 'b'
         elif t.ReferenceTxnID and t.Net < 0:
             return 'd'
@@ -119,8 +120,7 @@ class paypal_export_config:
             return SalesType.Unknown
 
     def getGLAccount(self, t: PPTransactionDetails):
-        if t.Type == 'algemene opname' or 'withdrawal' in t.Type.lower():
-            # A bank withdrawl goes directly to the kruispost
+        if t.debitcredit == 'b':
             return self.pp_kruispost
 
         # The transaction needs an invoice
@@ -899,7 +899,7 @@ def group_currency_conversions(reader, config):
             # We need to compress the next three transactions into a single, foreign valuta one.
             # The actual transaction is NOT a conversion and is in foreign valuta.
             # The two conversions refer to this transaction
-            if transaction.Type.strip() not in ['Algemeen valutaomrekening', 'Terugbetaling', 'Bank Deposit to PP Account']:
+            if transaction.Type.strip() not in ['Algemeen valutaomrekening', 'Terugbetaling', 'Bank Deposit to PP Account', 'Payment Reversal']:
                 ref = transaction.Transactiereferentie
             else:
                 ref = transaction.ReferenceTxnID
@@ -950,6 +950,14 @@ def group_currency_conversions(reader, config):
 
                 del conversions_stack[ref]
         else:
+            # Close any incomplete currency exchanges
+            for txs in conversions_stack.values():
+                logging.warning('Incomplete money exchange found: %s' % txs[0])
+                # Find any transaction changing the relevant saldo
+                for t in txs:
+                    if t.Valuta == config.currency:
+                        yield t
+                conversions_stack = {}
             yield transaction
 
 
