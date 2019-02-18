@@ -269,7 +269,7 @@ def run(configpath, basedir, taskid, ofname, ifname):
 
     # Group the transactions per month: a single transaction is produced for a month.
     grouped_transactions = list(group_per_period(transactions))
-    grouped_transactions = [[t] for t in transactions]
+    #grouped_transactions = [[t] for t in transactions]
 
     ###############################################################################
     # Create the output file.
