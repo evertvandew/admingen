@@ -136,24 +136,37 @@ def checker(groupedtransactions, xml, config):
             if config.currency == 'EUR':
                 saldo += Decimal(line.find('./Amount/Value').text)
             else:
-                saldo += Decimal(line.find('./ForeignAmount/Value').text)
+                d = line.find('./ForeignAmount/Value')
+                if d:
+                    saldo += Decimal(d.text)
         if saldo != Decimal(0):
             print('BALANCE ERROR', saldo, 'In', line)
 
-    # Third check: for non-euro accounts also check the balance in the foreign parts
+    # Third check: for non-euro accounts also check the balance in the euro parts
     if config.currency != 'EUR':
         for glt in root.findall('.//GLTransaction'):
             nr = '0'
             saldo = Decimal(0)
+            error = 0
             for line in glt.findall('GLTransactionLine'):
                 if line.attrib['line'] != nr:
+                    error += saldo - Decimal(0)
                     if saldo != Decimal(0):
-                        print('FOREIGN BALANCE ERROR', saldo, 'Before', line)
+                        #print('FOREIGN BALANCE ERROR', saldo, 'Before', line)
                         saldo = Decimal(0)
                 nr = line.attrib['line']
-                saldo += Decimal(line.find('./ForeignAmount/Value').text)
-            if saldo != Decimal(0):
-                print('FOREIGN BALANCE ERROR', saldo, 'In', line)
+                fa = line.find('./ForeignAmount')
+                if fa:
+                    rate = Decimal(line.find('./ForeignAmount/Rate').text)
+                    delta = Decimal(line.find('./ForeignAmount/Value').text) * rate
+                    saldo += delta.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                else:
+                    saldo += Decimal(line.find('./Amount/Value').text)
+            error += saldo - Decimal(0)
+            if error:
+                print('FOREIGN BALANCE ERROR', error, 'In', line)
+                print (ET.tostring(glt, method='xml').decode('utf8'))
+
 
 
 def run(configpath, basedir, taskid, ofname, ifname):
@@ -216,7 +229,7 @@ def run(configpath, basedir, taskid, ofname, ifname):
             false=lambda t: {'icpaccountnr': None}
         )
 
-    if False and config.currency != 'EUR':
+    if config.currency != 'EUR':
         # Non-euro accounts present a problem, as accounts in Exact are always EUR accounts
         # with some support for handling non-EUR currencies. So we need to generate the necessary
         # conversions to Euro without having a conversion read from the actual transaction.
@@ -239,7 +252,8 @@ def run(configpath, basedir, taskid, ofname, ifname):
             return result
 
         # We need to add the details needed by Exact to handle the conversion to EUR.
-        transactions.enrich(setDetails)
+        #transactions.enrich(setDetails)
+        transactions.enrich(ConversionRate=lambda t: 1 / getRate(t.Datum, config.currency))
 
     # When handling sales through the creditors account, add an unknown creditor.
     transactions.enrich_condition(condition=lambda t: t.glaccount == config.creditors_kruispost,
@@ -255,6 +269,7 @@ def run(configpath, basedir, taskid, ofname, ifname):
 
     # Group the transactions per month: a single transaction is produced for a month.
     grouped_transactions = list(group_per_period(transactions))
+    grouped_transactions = [[t] for t in transactions]
 
     ###############################################################################
     # Create the output file.
@@ -267,10 +282,13 @@ def run(configpath, basedir, taskid, ofname, ifname):
     env.globals.update(abs=abs, Decimal=Decimal, getattr=getattr, enumerate=enumerate,
                        ROUND_HALF_UP=ROUND_HALF_UP)
 
-    template = env.get_template('exacttransactions.jinja')
+    try:
+        template = env.get_template('exacttransactions.jinja')
+    except Exception as e:
+        e.translated = False
+        print (str(e))
+        raise
     xml = template.render(transactions=grouped_transactions, config=config)
-
-    checker(grouped_transactions, xml, config)
 
     if ofname:
         with open(ofname, 'w') as out:
@@ -278,13 +296,15 @@ def run(configpath, basedir, taskid, ofname, ifname):
     else:
         sys.stdout.write(xml)
 
+    checker(grouped_transactions, xml, config)
+
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('-c', '--config',
                    default='/home/ehwaal/admingen/projects/paypal_exact/taskconfig.csv')
     p.add_argument('-b', '--basedir', default='/home/ehwaal/tmp/pp_export/test-data/')
-    p.add_argument('-t', '--taskid', default='3')
+    p.add_argument('-t', '--taskid', default='1')
     p.add_argument('-o', '--outfile', default='test2.xml')
     p.add_argument('-v', '--verify', action='store_true')
     p.add_argument('-f', '--infile', default=None)
