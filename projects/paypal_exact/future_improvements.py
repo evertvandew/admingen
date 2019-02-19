@@ -169,59 +169,6 @@ def checker(groupedtransactions, xml, config):
                 print (ET.tostring(glt, method='xml').decode('utf8'))
 
 
-def correct_rounderrors(config, xml, env):
-    def text(node, tag):
-        return node.getElementsByTagName(tag)[0].childNodes[0].nodeValue
-    if config.currency == 'EUR':
-        return xml
-    fmt = """            <GLTransactionLine type="40" linetype="0" line="{{linenr}}" status="20">
-                <!--Line for the round-off error -->
-                <Date>{{date.strftime("%Y-%m-%d")}}</Date>
-                <VATType>S</VATType>
-                <FinYear number="{{date.year}}" />
-                <FinPeriod number="{{'%02i'%date.month}}" />
-                <GLAccount code="9200" type="120" />
-                <Description>Koersverschil</Description>
-                <ForeignAmount>
-                    <Currency code="USD" />
-                    <Value>{{ '%.2f'% (-roundoff_error) }}</Value>
-                    <Rate>1</Rate>
-                </ForeignAmount>
-            </GLTransactionLine>
-"""
-    tmplt = env.from_string(fmt)
-    root = dom.parseString(xml)
-    for glt in root.getElementsByTagName('GLTransaction'):
-        saldo = Decimal(0)
-        all_lines = list(glt.getElementsByTagName('GLTransactionLine'))
-        nrlines = len(all_lines)
-        for i, line in enumerate(all_lines):
-            v = line.getElementsByTagName('ForeignAmount')
-            if v:
-                amount = text(v[0], 'Value')
-                rate = text(v[0], 'Rate')
-                saldo += (Decimal(amount) * Decimal(rate)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-
-            if (i == nrlines - 1) or (text(line, 'Date') != text(all_lines[i+1], 'Date')):
-                if abs(saldo) >= Decimal(0.01):
-                    linenr = line.attributes['line'].value
-                    date = datetime.datetime.strptime(text(line, 'Date'), '%Y-%m-%d')
-                    r = tmplt.render(roundoff_error=saldo,
-                                     linenr=linenr,
-                                     date=date)
-                    round = dom.parseString(r)
-                    p = line.parentNode
-                    if i == nrlines - 1:
-                        # Append the new element at the end
-                        p.appendChild(round.childNodes[0])
-                    else:
-                        # insert the element
-                        l = all_lines[i+1]
-                        p.insertBefore(round.childNodes[0], l)
-
-                saldo = Decimal(0)
-    return root.toxml()
-
 
 def run(configpath, basedir, taskid, ofname, ifname):
     # Read the configuration
@@ -322,8 +269,12 @@ def run(configpath, basedir, taskid, ofname, ifname):
     transactions.enrich(Datum=lambda t: datetime.date(2019, t.Datum.month, t.Datum.day))
 
     # Group the transactions per month: a single transaction is produced for a month.
-    grouped_transactions = list(group_per_period(transactions))
-    #grouped_transactions = [[t] for t in transactions]
+    # Do NOT group transactions in non-euro accounts: the round-off errors accumulate too much
+    # and can not be compensated.
+    if config.currency == 'EUR':
+        grouped_transactions = list(group_per_period(transactions))
+    else:
+        grouped_transactions = [[t] for t in transactions]
 
 
     ###############################################################################
@@ -348,7 +299,6 @@ def run(configpath, basedir, taskid, ofname, ifname):
         print (str(e))
         raise
     xml = template.render(transactions=grouped_transactions, config=config)
-    xml = correct_rounderrors(config, xml, env)
 
     if ofname:
         with open(ofname, 'w') as out:
