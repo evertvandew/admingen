@@ -7,6 +7,7 @@ from decimal import Decimal, ROUND_HALF_UP
 import datetime
 from dataclasses import dataclass
 import xml.etree.ElementTree as ET
+import xml.dom.minidom as dom
 import sys
 import csv
 import re
@@ -143,7 +144,7 @@ def checker(groupedtransactions, xml, config):
             print('BALANCE ERROR', saldo, 'In', line)
 
     # Third check: for non-euro accounts also check the balance in the euro parts
-    if config.currency != 'EUR':
+    if False and config.currency != 'EUR':
         for glt in root.findall('.//GLTransaction'):
             nr = '0'
             saldo = Decimal(0)
@@ -167,6 +168,59 @@ def checker(groupedtransactions, xml, config):
                 print('FOREIGN BALANCE ERROR', error, 'In', line)
                 print (ET.tostring(glt, method='xml').decode('utf8'))
 
+
+def correct_rounderrors(config, xml, env):
+    def text(node, tag):
+        return node.getElementsByTagName(tag)[0].childNodes[0].nodeValue
+    if config.currency == 'EUR':
+        return xml
+    fmt = """            <GLTransactionLine type="40" linetype="0" line="{{linenr}}" status="20">
+                <!--Line for the round-off error -->
+                <Date>{{date.strftime("%Y-%m-%d")}}</Date>
+                <VATType>S</VATType>
+                <FinYear number="{{date.year}}" />
+                <FinPeriod number="{{'%02i'%date.month}}" />
+                <GLAccount code="9200" type="120" />
+                <Description>Koersverschil</Description>
+                <ForeignAmount>
+                    <Currency code="USD" />
+                    <Value>{{ '%.2f'% (-roundoff_error) }}</Value>
+                    <Rate>1</Rate>
+                </ForeignAmount>
+            </GLTransactionLine>
+"""
+    tmplt = env.from_string(fmt)
+    root = dom.parseString(xml)
+    for glt in root.getElementsByTagName('GLTransaction'):
+        saldo = Decimal(0)
+        all_lines = list(glt.getElementsByTagName('GLTransactionLine'))
+        nrlines = len(all_lines)
+        for i, line in enumerate(all_lines):
+            v = line.getElementsByTagName('ForeignAmount')
+            if v:
+                amount = text(v[0], 'Value')
+                rate = text(v[0], 'Rate')
+                saldo += (Decimal(amount) * Decimal(rate)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+            if (i == nrlines - 1) or (text(line, 'Date') != text(all_lines[i+1], 'Date')):
+                if abs(saldo) >= Decimal(0.01):
+                    linenr = line.attributes['line'].value
+                    date = datetime.datetime.strptime(text(line, 'Date'), '%Y-%m-%d')
+                    r = tmplt.render(roundoff_error=saldo,
+                                     linenr=linenr,
+                                     date=date)
+                    round = dom.parseString(r)
+                    p = line.parentNode
+                    if i == nrlines - 1:
+                        # Append the new element at the end
+                        p.appendChild(round.childNodes[0])
+                    else:
+                        # insert the element
+                        l = all_lines[i+1]
+                        p.insertBefore(round.childNodes[0], l)
+
+                saldo = Decimal(0)
+    return root.toxml()
 
 
 def run(configpath, basedir, taskid, ofname, ifname):
@@ -271,6 +325,7 @@ def run(configpath, basedir, taskid, ofname, ifname):
     grouped_transactions = list(group_per_period(transactions))
     #grouped_transactions = [[t] for t in transactions]
 
+
     ###############################################################################
     # Create the output file.
     # We use a Jinja2 template to create an XML file that can be loaded into Exact.
@@ -279,8 +334,12 @@ def run(configpath, basedir, taskid, ofname, ifname):
                       line_statement_prefix='%',
                       line_comment_prefix='%%')
 
-    env.globals.update(abs=abs, Decimal=Decimal, getattr=getattr, enumerate=enumerate,
-                       ROUND_HALF_UP=ROUND_HALF_UP)
+    env.globals.update(abs=abs,
+                       Decimal=Decimal,
+                       getattr=getattr,
+                       enumerate=enumerate,
+                       ROUND_HALF_UP=ROUND_HALF_UP,
+                       len=len)
 
     try:
         template = env.get_template('exacttransactions.jinja')
@@ -289,6 +348,7 @@ def run(configpath, basedir, taskid, ofname, ifname):
         print (str(e))
         raise
     xml = template.render(transactions=grouped_transactions, config=config)
+    xml = correct_rounderrors(config, xml, env)
 
     if ofname:
         with open(ofname, 'w') as out:
