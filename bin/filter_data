@@ -2,6 +2,7 @@
 
 import sys
 import argparse
+import logging
 
 tryonce = 1
 while True:
@@ -25,4 +26,8 @@ if __name__ == '__main__':
     script = open(args.script).read()
     defines_parts = [d.split('=') for d in args.defines]
     defines = {k:v for k, v in defines_parts}
-    filter(sys.stdin, script, sys.stdout, defines)
+    try:
+        filter(sys.stdin, script, sys.stdout, defines)
+    except AssertionError as e:
+        logging.error(e)
+        sys.exit(1)

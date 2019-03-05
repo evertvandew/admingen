@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from collections import Mapping
 import socket
 import cherrypy
+from croniter import croniter
 from .keyring import KeyRing, DecodeError
 import admingen.htmltools as html
 from dataclasses import dataclass, asdict, fields, is_dataclass
@@ -497,3 +498,31 @@ def run_model(model: ApplicationModel):
         print('Counts:', counts)
 
     html.runServer(ApplicationServer)
+
+
+def scheduler(schedule):
+    """ For use in a for loop, e.g.
+        for _ in schedule('* * * * * *'):
+            print ('Hello, world!')
+        This will print the famous text once per second.
+    """
+    repeat = None
+    if schedule:
+        repeat = croniter(schedule)
+        wakeup = next(repeat)
+    else:
+        wakeup = 0
+
+    while True:
+        while time.time() < wakeup:
+            time.sleep(1)
+        # Let the thing being scheduled execute once.
+        yield wakeup
+
+        # Without schedule, just execute once.
+        if repeat is None:
+            break
+
+        # Find the next wakeup time that is in the future.
+        while wakeup <= time.time():
+            wakeup = next(repeat)
