@@ -54,8 +54,8 @@ def sendmail(mailfrom, receivers, body, subject, smtp_c, attachments=[], cc=[], 
     msg = constructMail(body, attachments, To=to_adres, From=mailfrom,
                         Subject=subject,
                         **{'Reply-To': mailfrom},
-                        cc=', '.join(cc),
-                        bcc=', '.join(bcc))
+                        Cc=', '.join(cc),
+                        Bcc=', '.join(bcc))
 
     smtp_c.sendmail(mailfrom, to_adres, bytes(msg))
     logging.info('Sent email to %s' % to_adres)

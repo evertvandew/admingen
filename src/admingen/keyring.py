@@ -9,6 +9,7 @@ import shutil
 from Crypto.Cipher import AES
 import json
 import logging
+import socket
 
 from admingen.util import loads, dumps
 
@@ -105,6 +106,49 @@ class KeyRing:
     def setTheKeyring(ring):
         KeyRing.theKeyring = ring
 
+    @staticmethod
+    def open_from_socket(fname, server_address =  './opener.sock'):
+
+        try:
+            os.unlink(server_address)
+        except OSError:
+            if os.path.exists(server_address):
+                raise
+
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+        # Bind the socket to the port
+        print('starting up on %s' % server_address)
+        sock.bind(server_address)
+
+        # Listen for incoming connections
+        sock.listen(1)
+
+        while True:
+            # Wait for a connection
+            print('waiting for a connection')
+            connection, client_address = sock.accept()
+            try:
+                connection.send(b'Welcome to KeyRing\n')
+
+                # Receive the data in small chunks and retransmit it
+                while True:
+                    data = connection.recv(1024)
+                    if data:
+                        data = data.strip().decode('utf8')
+                        # Try to open the keyring using this password
+                        try:
+                            keyring = KeyRing(fname, data)
+                            connection.send(b'Password accepted, thank you.\n')
+                            return keyring
+                        except DecodeError:
+                            connection.send(b'Sorry, try again\n')
+                    else:
+                        break
+
+            finally:
+                # Clean up the connection
+                connection.close()
 
 
 def editor(fname=None):

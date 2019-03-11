@@ -284,9 +284,9 @@ class XMLapi:
             glaccounts.append(glaccount)
         return glaccounts
 
-    def getTransactions(self, division: str, **kwargs) -> TransactionLine:
+    def getTransactions(self, division: str, year=None, **kwargs) -> TransactionLine:
         # TODO: Make me variable!
-        year = '2018'
+        year = year or datetime.datetime.now().year
         filter = {'Params_EntryDate_From': '01-01-%s'%year,
                   'Params_EntryDate_To': '31-12-%s'%year}
         transactions = []

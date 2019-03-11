@@ -23,6 +23,7 @@ from admingen.clients.paypal import pp_reader
 from paypal_converter import (paypal_export_config, SalesType, group_currency_conversions,
                               classifiers)
 
+
 # FIXME: Bij Riverchurch worden meerdere USD transacties samengevoegd omgezet in EUR...
 #        Hier wordt verder niet naar verwezen in de transactie ID links.
 
@@ -266,7 +267,7 @@ def run(configpath, basedir, taskid, ofname, ifname):
                         Comment=config.getComment)
 
     # TODO: remove me. This is for testing only.
-    transactions.enrich(Datum=lambda t: datetime.date(2019, t.Datum.month, t.Datum.day))
+    #transactions.enrich(Datum=lambda t: datetime.date(2019, t.Datum.month, t.Datum.day))
 
     # Group the transactions per month: a single transaction is produced for a month.
     # Do NOT group transactions in non-euro accounts: the round-off errors accumulate too much
@@ -314,8 +315,8 @@ if __name__ == '__main__':
     p.add_argument('-c', '--config',
                    default='/home/ehwaal/admingen/projects/paypal_exact/taskconfig.csv')
     p.add_argument('-b', '--basedir', default='/home/ehwaal/tmp/pp_export/test-data/')
-    p.add_argument('-t', '--taskid', default='1')
-    p.add_argument('-o', '--outfile', default='test2.xml')
+    p.add_argument('-t', '--taskid', default='2')
+    p.add_argument('-o', '--outfile', default='test3.xml')
     p.add_argument('-v', '--verify', action='store_true')
     p.add_argument('-f', '--infile', default=None)
     args = p.parse_args()

@@ -98,7 +98,8 @@ class paypal_export_config:
         tt = t.Type.lower()
         if tt in ['algemene opname', 'algemeen valutaomrekening'] or 'withdrawal' in tt:
             return 'b'
-        elif t.ReferenceTxnID and t.Net < 0:
+        # TODO: find the Dutch translation of 'preapproved etc.'
+        elif t.ReferenceTxnID and t.Net < 0 and t.Type not in ['PreApproved Payment Bill User Payment']:
             return 'd'
         elif not t.ReferenceTxnID and t.Net > 0:
             return 'd'
@@ -107,7 +108,7 @@ class paypal_export_config:
 
     def getRegion(self, t: PPTransactionDetails):
         # The classifier could not handle this transaction, classify it directly
-        if self.purchase_needs_invoice and t.Net < 0:
+        if self.purchase_needs_invoice and t.debitcredit == 'c':
             return SalesType.Invoiced
         if t.Landcode == 'NL':
             return SalesType.Local
@@ -127,13 +128,13 @@ class paypal_export_config:
         if t.vatregion == SalesType.Invoiced:
             return self.creditors_kruispost
 
-        accounts = self.sale_accounts if t.Net > 0 else self.purchase_accounts
+        accounts = self.sale_accounts if t.debitcredit == 'd' else self.purchase_accounts
 
         if t.vatregion == SalesType.Unknown:
             if t.Valuta != 'EUR':
                 # non-euro transactions are assumed to be outside the EU
                 return accounts[SalesType.Other]
-            if t.Net > 0:
+            if t.debitcredit == 'd':
                 # Assume that we need to pay BTW
                 return self.sale_account_eu_vat
 
