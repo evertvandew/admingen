@@ -113,6 +113,7 @@ supported_types = {'str': str,
                    'json': json_loads
                    }
 
+supported_type_names = {v: k for k, v in supported_types.items()}
 
 def read_tablename(stream):
     for line in stream:
@@ -158,6 +159,8 @@ class dataline(Mapping):
         return iter(self.__dict__)
     def __len__(self):
         return len(self.__dict__)
+    def values(self):
+        return self.__dict__.values()
 
 
 
@@ -202,13 +205,19 @@ def CsvReader(stream: typing.TextIO, delimiter=';'):
 
 def CsvWriter(stream: typing.TextIO, collection, delimiter=';'):
     for table, columns in collection.items():
+        # Write the table name
         stream.write('%s\n'%table)
 
-        parts = [delimiter.join(d) for d in zip(*collection.__annotations__[table])]
-        stream.write('%s\n'%','.join(parts))
+        # Write the table header
+        parts = ['%s:%s'%(n, supported_type_names[t]) for n, t in zip(*collection.__annotations__[table])]
+        stream.write('%s\n'%delimiter.join(parts))
 
-        for line in columns:
-            stream.write('%s\n'%delimiter.join(line.values()))
+        # Write the table data
+        for line in (columns if isinstance(columns, list) else columns.values()):
+            stream.write('%s\n'%delimiter.join([str(v) for v in line.values()]))
+
+        # Write an empty line to signal the end of the table
+        stream.write('\n')
 
 
 def DataReader(url):
