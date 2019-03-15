@@ -123,7 +123,7 @@
             </GLTransactionLine>
             % endif
             % if getattr(line, 'Remainder', Decimal('0.00')) or getattr(line, 'RemainderForeign', Decimal('0.00'))
-            <GLTransactionLine type="40" line="{{linenr*3+2}}" status="20">
+            <GLTransactionLine type="40" line="{{linenr*3+3}}" status="20">
                 <!-- Transaction for the Remainer, kruispost side -->
                 {{datepart(line, '')}}
                 <GLAccount code="{{config.pp_kruispost}}" type="90" />
@@ -138,7 +138,7 @@
                 </{{AmountType}}>
                 {{note(line)}}
             </GLTransactionLine>
-            <GLTransactionLine type="40" line="{{linenr*3+2}}" status="20">
+            <GLTransactionLine type="40" line="{{linenr*3+3}}" status="20">
                 <!--Transaction for the Remainder, balance side -->
                 {{datepart(line, '')}}
                 <GLAccount code="{{config.pp_account}}" type="12" />

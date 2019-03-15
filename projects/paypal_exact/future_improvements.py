@@ -24,6 +24,9 @@ from paypal_converter import (paypal_export_config, SalesType, group_currency_co
                               classifiers)
 
 
+# FIXME: de saldo controle bij Riverchurch werkt niet goed. Alle fouten samen is nul...
+# FIXME: de maand september wordt niet geaccepteerd voor Riverchurch...
+
 # FIXME: Bij Riverchurch worden meerdere USD transacties samengevoegd omgezet in EUR...
 #        Hier wordt verder niet naar verwezen in de transactie ID links.
 
@@ -98,14 +101,15 @@ def checker(groupedtransactions, xml, config):
 
     # First check: the main saldo.
     first = groupedtransactions[0][0]
-    saldo = first.Saldo - first.Net
+    saldo = first.Saldo - first.Net + getattr(first, 'Remainder', 0)
 
     for transactions, glt in zip(groupedtransactions, root.findall('.//GLTransaction')):
         for line in glt.findall('.//GLTransactionLine'):
             if line.find('GLAccount').attrib['code'] == "%s" % config.pp_account:
                 index = int((int(line.attrib['line'])-1)/3)
                 if config.currency == 'EUR':
-                    saldo += Decimal(line.find('./Amount/Value').text)
+                    amount = Decimal(line.find('./Amount/Value').text)
+                    saldo += amount
                 else:
                     saldo += Decimal(line.find('./ForeignAmount/Value').text)
                 t = transactions[index]
@@ -266,12 +270,11 @@ def run(configpath, basedir, taskid, ofname, ifname):
     transactions.enrich(Note=config.getNote,
                         Comment=config.getComment)
 
-    # TODO: remove me. This is for testing only.
-    #transactions.enrich(Datum=lambda t: datetime.date(2019, t.Datum.month, t.Datum.day))
 
     # Group the transactions per month: a single transaction is produced for a month.
     # Do NOT group transactions in non-euro accounts: the round-off errors accumulate too much
-    # and can not be compensated.
+    # and can not be compensated by Exact.
+
     if config.currency == 'EUR':
         grouped_transactions = list(group_per_period(transactions))
     else:
