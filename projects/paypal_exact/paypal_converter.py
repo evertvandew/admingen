@@ -50,6 +50,7 @@ class paypal_export_config:
     ledger: str
     costs_account: str
     pp_account: str
+    refunds: str
     sale_account_nl: str
     sale_account_eu_vat: str
     sale_account_eu_no_vat: str
@@ -100,7 +101,10 @@ class paypal_export_config:
             return 'b'
         # TODO: find the Dutch translation of 'preapproved etc.'
         elif t.ReferenceTxnID and t.Net < 0 and t.Type not in ['PreApproved Payment Bill User Payment']:
-            return 'd'
+            if self.refunds:
+                print ('Found a refund!')
+                return 'r'      # Retour zending oid
+            return 'd'          # Just book it on the sales account.
         elif not t.ReferenceTxnID and t.Net > 0:
             return 'd'
         else:
@@ -123,6 +127,9 @@ class paypal_export_config:
     def getGLAccount(self, t: PPTransactionDetails):
         if t.debitcredit == 'b':
             return self.pp_kruispost
+
+        if t.debitcredit == 'r':
+            return self.refunds
 
         # The transaction needs an invoice
         if t.vatregion == SalesType.Invoiced:
@@ -893,7 +900,7 @@ def group_currency_conversions(reader, config):
     # For each transaction, extract the accounting details
     for transaction in reader:
         # Skip memo transactions.
-        if transaction.Effectopsaldo.lower() == 'memo':
+        if transaction.Effectopsaldo and transaction.Effectopsaldo.lower() == 'memo':
             continue
         if transaction.Type == 'Algemeen valutaomrekening' or \
            transaction.Valuta != config.currency:

@@ -51,6 +51,12 @@ class dataset:
     def __iter__(self):
         return iter(self.data.values())
 
+    def __bool__(self):
+        return bool(self.data)
+
+    def __len__(self):
+        return len(self.data)
+
     def enrich(self, func=None, **kwargs):
         for r in self.data.values():
             if callable(func):
@@ -131,7 +137,7 @@ def read_header(stream, delimiter):
             header_types = [p.split(':') for p in parts]
             headers = [p[0].strip() for p in header_types]
             types = [p[1].strip() if len(p)==2 else 'str' for p in header_types]
-            types = [supported_types[t] for t in types]
+            #types = [supported_types[t] for t in types]
             return headers, types
 
 class dataline(Mapping):
@@ -152,6 +158,13 @@ class dataline(Mapping):
                 raise RuntimeError(msg%(h, p, t.__name__))
         return result
 
+    @staticmethod
+    def getConstructor(headers, types):
+        types = [supported_types[t] for t in types]
+        def constructor(parts):
+            return dataline.create_instance(headers, types, parts)
+        return constructor
+
     # Implement the Mapping protocol
     def __getitem__(self, key):
         return getattr(self, key)
@@ -165,6 +178,7 @@ class dataline(Mapping):
 
 
 def read_lines(stream, headers, types, delimiter):
+    constructor = dataline.getConstructor(headers, types)
     for line in stream:
         line = line.strip()
         # Ignore comment lines.
@@ -174,17 +188,18 @@ def read_lines(stream, headers, types, delimiter):
         if not line:
             return
         parts = line.split(delimiter)
-        yield dataline.create_instance(headers, types, parts)
+        yield constructor(parts)
 
 
 def read_lines_id(stream, headers, types, delimiter):
-    id_key = 'id' if 'id' in headers else headers[types.index(id_type)]
+    id_key = 'id' if 'id' in headers else headers[types.index('id')]
     return {getattr(d, id_key):d for d in read_lines(stream, headers, types, delimiter)}
 
 
 class AnnotatedDict(dict):
     def __init__(self, *args, **kwargs):
         self.__annotations__ = {}
+        self.__constructors__ = {}
         dict.__init__(self, *args, **kwargs)
 
 
@@ -196,7 +211,7 @@ def CsvReader(stream: typing.TextIO, delimiter=';'):
     for table in read_tablename(stream):
         names, types = read_header(stream, delimiter)
         collection.__annotations__[table] = [names, types]
-        if 'id' in names or id_type in types:
+        if 'id' in names or 'id' in types:
             collection[table] = read_lines_id(stream, names, types, delimiter)
         else:
             collection[table] = list(read_lines(stream, names, types, delimiter))
@@ -209,7 +224,7 @@ def CsvWriter(stream: typing.TextIO, collection, delimiter=';'):
         stream.write('%s\n'%table)
 
         # Write the table header
-        parts = ['%s:%s'%(n, supported_type_names[t]) for n, t in zip(*collection.__annotations__[table])]
+        parts = ['%s:%s'%(n, t) for n, t in zip(*collection.__annotations__[table])]
         stream.write('%s\n'%delimiter.join(parts))
 
         # Write the table data

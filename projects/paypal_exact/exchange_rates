@@ -1,0 +1,10 @@
+#!/bin/bash
+
+cd $HOME/tmp/pp_export/test-data
+
+# Delete any existing downloads
+rm eurofxref-hist.zip
+# Download the latest rates
+wget https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip
+# Unzip them for use by the paypal conversion tool.
+unzip eurofxref-hist.zip

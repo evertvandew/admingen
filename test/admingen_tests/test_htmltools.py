@@ -25,7 +25,7 @@ class HtmlTests(TestCase):
 
 
 
-        def validator():
+        def validator(request):
             return {'field_a': 1234, 'field_b': 'test'}, {}
 
         def success(field_a, field_b):

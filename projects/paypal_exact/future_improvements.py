@@ -66,6 +66,7 @@ def group_per_period(transactions):
 def readConversionRates():
     # Load the current conversion table
     # Download the table from: https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip
+    # The script exchange_rates will do that.
     reader = csv.reader(open('/home/ehwaal/tmp/pp_export/test-data/eurofxref-hist.csv'))
     # Create a lookup table for determining the right exchange rate.
     keys = next(reader)
@@ -310,7 +311,8 @@ def run(configpath, basedir, taskid, ofname, ifname):
     else:
         sys.stdout.write(xml)
 
-    checker(grouped_transactions, xml, config)
+    if transactions:
+        checker(grouped_transactions, xml, config)
 
 
 if __name__ == '__main__':
@@ -318,7 +320,7 @@ if __name__ == '__main__':
     p.add_argument('-c', '--config',
                    default='/home/ehwaal/admingen/projects/paypal_exact/taskconfig.csv')
     p.add_argument('-b', '--basedir', default='/home/ehwaal/tmp/pp_export/test-data/')
-    p.add_argument('-t', '--taskid', default='2')
+    p.add_argument('-t', '--taskid', default='4')
     p.add_argument('-o', '--outfile', default='test3.xml')
     p.add_argument('-v', '--verify', action='store_true')
     p.add_argument('-f', '--infile', default=None)
