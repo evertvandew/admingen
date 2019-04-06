@@ -13,15 +13,17 @@ import csv
 import re
 import argparse
 import os.path
+from dataclasses import asdict
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from admingen.clients.exact_xml import findattrib
-from admingen.data import DataReader
+from admingen.data import DataReader, CsvWriter
 from admingen.data import dataset
 from admingen.clients.paypal import pp_reader
 from paypal_converter import (paypal_export_config, SalesType, group_currency_conversions,
-                              classifiers)
+                              classifiers, match_transaction_type, TransactionTypes,
+                              add_transactionTypes, filter_foreign_references)
 
 
 # FIXME: de saldo controle bij Riverchurch werkt niet goed. Alle fouten samen is nul...
@@ -211,7 +213,9 @@ def run(configpath, basedir, taskid, ofname, ifname):
     # Process is performed by queries that add data to the transactions.
 
     pp_transactions = pp_reader(ifname)
-    transactions = dataset(group_currency_conversions(pp_transactions, config))
+    transactions = add_transactionTypes(pp_transactions)
+    transactions = filter_foreign_references(transactions)
+    transactions = dataset(group_currency_conversions(transactions, config))
 
     transactions.enrich(debitcredit=config.getType,
                         vatregion=classifier,
@@ -231,7 +235,7 @@ def run(configpath, basedir, taskid, ofname, ifname):
     # Fill-in the ICP details, where necessary
     if hasattr(classifier, 'getBtwAccount'):
         transactions.enrich_condition(
-            condition=lambda t: t.vatregion == SalesType.EU_ICP,
+            condition='vatregion == SalesType.EU_ICP',
             true={'icpaccountnr': classifier.getBtwAccount},
             false=lambda t: {'icpaccountnr': None}
         )
@@ -282,6 +286,10 @@ def run(configpath, basedir, taskid, ofname, ifname):
         grouped_transactions = [[t] for t in transactions]
 
 
+
+    # Save the transactions for testing & comparison
+    CsvWriter(open(home+'/test2.csv', 'w'), {'Transactions': transactions})
+
     ###############################################################################
     # Create the output file.
     # We use a Jinja2 template to create an XML file that can be loaded into Exact.
@@ -306,7 +314,7 @@ def run(configpath, basedir, taskid, ofname, ifname):
     xml = template.render(transactions=grouped_transactions, config=config)
 
     if ofname:
-        with open(ofname, 'w') as out:
+        with open(os.path.join(home, ofname), 'w') as out:
             out.write(xml)
     else:
         sys.stdout.write(xml)
@@ -320,8 +328,8 @@ if __name__ == '__main__':
     p.add_argument('-c', '--config',
                    default='/home/ehwaal/admingen/projects/paypal_exact/taskconfig.csv')
     p.add_argument('-b', '--basedir', default='/home/ehwaal/tmp/pp_export/test-data/')
-    p.add_argument('-t', '--taskid', default='4')
-    p.add_argument('-o', '--outfile', default='test3.xml')
+    p.add_argument('-t', '--taskid', default='3')
+    p.add_argument('-o', '--outfile', default='upload.xml')
     p.add_argument('-v', '--verify', action='store_true')
     p.add_argument('-f', '--infile', default=None)
     args = p.parse_args()

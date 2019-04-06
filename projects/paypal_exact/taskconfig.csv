@@ -1,6 +1,8 @@
 
+# TODO: een grootboek gebruiken voor onbekende transactie types...
+
 CustomerConfig
-customerid:int;name:str
+customerid:id;name:str
 1;twease
 2;riverchurch
 3;retrofit
@@ -9,11 +11,11 @@ customerid:int;name:str
 6;kintaro
 
 TaskConfig
-taskid:id;customerid:CustomerConfig;administration_hid:int;ledger:str;costs_account:str;pp_account:str;refunds:str;sale_account_nl:str;sale_account_eu_vat:str;sale_account_eu_no_vat: str;sale_account_world: str;purchase_account_nl: str;purchase_account_eu_vat: str;purchase_account_eu_no_vat: str;purchase_account_world: str;purchase_needs_invoice:bool;creditors_kruispost:str;unknown_creditor:str;pp_kruispost: str;vat_code_nl:str;vat_code_eu:str;vat_code_icp:str;vat_code_world:str;vat_code_unknown:str;handle_vat:bool;currency: str
-1;1;4;21;5561;1101;;8000;8102;8100;8101;7100;7102;7103;7102;True;1600;86;2000;4;4;7;6;6;True;USD
-2;2;1006;294;5561;1102;;8000;8102;8100;8101;7100;7102;7103;7102;True;1600;109;2000;6;6;6;6;6;False;EUR
+taskid:id;customerid:CustomerConfig;administration_hid:int;ledger:str;costs_account:str;pp_account:str;refunds:str;sale_account_nl:str;sale_account_eu_vat:str;sale_account_eu_no_vat: str;sale_account_world: str;purchase_account_nl: str;purchase_account_eu_vat: str;purchase_account_eu_no_vat: str;purchase_account_world: str;purchase_needs_invoice:bool;creditors_kruispost:str;unknown_creditor:str;pp_kruispost: str;vat_code_nl:str;vat_code_eu:str;vat_code_icp:str;vat_code_world:str;vat_code_unknown:str;handle_vat:bool;currency: str;unknown_transaction_gla:str
+1;1;4;21;5561;1101;;8000;8102;8100;8101;7100;7102;7103;7102;True;1600;86;2000;4;4;7;6;6;False;USD
+2;2;1006;294;5561;1102;;9110;9110;9110;9110;7100;7102;7103;7102;True;1600;109;2002;6;6;6;6;6;False;EUR
 3;3;33;21;5561;1101;7141;2010;2010;2010;2010;7100;7102;7103;7102;True;1600;73;2000;4;4;7;6;4;False;EUR
-4;4;18;26;5561;1106;;8000;8102;8100;8101;7100;7102;7103;7102;True;1600;91;2000;4;4;7;6;4;True;EUR
+4;4;18;26;5561;1106;;8000;8102;8100;8101;7100;7102;7103;7102;True;1600;91;2000;4;4;7;6;4;False;EUR
 5;5;32;22;5561;1102;7103;2010;2010;2010;2010;1600;1600;1600;1600;True;1600;108;2000;4;4;7;6;4;False;EUR
 6;6;1;21;55611;1101;;2081;2081;2081;2081;1600;1600;1600;1600;True;1600;341;2000;4;4;7;6;4;False;USD
 

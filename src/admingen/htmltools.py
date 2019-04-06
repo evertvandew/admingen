@@ -467,7 +467,8 @@ def PaginatedTable(line: Callable[[Any], Iterable[str]],
         if header:
             head = '<thead><tr>{}</tr></thead>'.format('\n'.join('<th>{}</th>'.format(h) for h in header))
         parts = []
-        for d in data:
+        thedata = data() if callable(data) else data
+        for d in thedata:
             l = line(d) if line else d
             p = '\n'.join(['<td>{}</td>'.format(c) for c in l])
             oc = ''
@@ -636,12 +637,11 @@ def generateFields(table: TableDetails, hidden=None):
                 yield String(name, name)
 
 
-def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=None, acm=dummyacm,
-                    index_show=None, tablename=None):
+def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=None, acm=dummyacm, index_show=None):
     """ Generate a CRUD server on a database table. """
     table_hmi_details = getHmiDetails(table) if isinstance(table, EntityMeta) else table
 
-    tablename = tablename or table_hmi_details.name
+    tablename = table_hmi_details.name
     columns = list(generateFields(table_hmi_details, hidden))
     column_names = table_hmi_details.columns.keys()
     index_show = index_show or column_names
@@ -796,128 +796,9 @@ def simpleCrudServer(tables, page):
     class Server: pass
 
     for name, table in tables.items():
-        setattr(Server, name, generateCrud(table, tablename=name))
+        setattr(Server, name, generateCrud(table))
 
     return Server
-
-
-
-def generateDictCrud(data_source, tablename, table_details, Page=Page, hidden=None,
-                     index_show=None):
-    column_names = table_details[0]
-    columns = list(generateFields(dict(zip(*table_details)), hidden))
-    index_show = index_show or column_names
-    defaults = {}
-    class Crud:
-        @cherrypy.expose
-        def index(self, *, add=True, **kwargs):
-            def row_data(data):
-                d = [getattr(data, k) for k in column_names if k in index_show]
-                return d
-
-            def row_select_url(data):
-                return 'view?id={}'.format(data.id)
-
-            with sessionScope:
-                if 'query' in kwargs:
-                    query = kwargs['query']
-                    # TODO: Check this is safe! Is it possible to change data from within the select?
-                    if ';' in query:
-                        raise cherrypy.HTTPError(400, 'Illegal query %s'%query)
-                    data = table._database_.select('select * from %s where %s'%(tablename, query))
-                else:
-                    data = table.select()
-                parts = [Title('{} overzicht'.format(tablename)),
-                            PaginatedTable(row_data, data, row_select_url=row_select_url)]
-                if add:
-                    parts.append(Button('Toevoegen <i class="fa fa-plus"></i>', target='add'))
-                return Page(*parts)
-
-        @cherrypy.expose
-        def view(self, id, **kwargs):
-            with sessionScope:
-                details = {k: getattr(table[id], k) for k in column_names}
-            return Page(Title('{} details'.format(tablename)),
-                        SimpleForm(*columns,
-                                   defaults=details,
-                                   readonly=True),
-                        ButtonBar(
-                            Button('Verwijderen <i class="fa fa-times"></i>', btn_type=['danger'],
-                                   target='delete?id={}'.format(id)),
-                            Button('Aanpassen <i class="fa fa-pencil"></i>',
-                                   target='edit?id={}'.format(id)),
-                            Button('Sluiten', target='index')
-                            ))
-
-        @cherrypy.expose
-        def edit(self, id, **kwargs):
-            with sessionScope:
-                details = table[id]
-
-                def success(**kwargs):
-                    for k in column_names:
-                        if k not in kwargs:
-                            continue
-                        v = kwargs[k]
-                        if getattr(details, k) != v:
-                            setattr(details, k, v)
-                    commit()
-                    raise cherrypy.HTTPRedirect('view?id={}'.format(kwargs['id']))
-
-                return Page(Title('{} aanpassen'.format(tablename)),
-                            SimpleForm(*columns,
-                                       validator=validate,
-                                       defaults={k: getattr(details, k) for k in column_names},
-                                       success=success,
-                                       cancel='view?id={}'.format(id)))
-
-        @cherrypy.expose
-        def add(self, **kwargs):
-            def success(**details):
-                # Ensure there is no id
-                if 'id' in details:
-                    del details['id']
-                with sessionScope:
-                    print('Adding', details)
-                    table(**details)
-                return 'Success!'
-
-            return Page(Title('{} toevoegen'.format(tablename)),
-                        SimpleForm(*columns,
-                                   validator=validate,
-                                   defaults=defaults,
-                                   success=success))
-
-        @cherrypy.expose
-        def delete(self, **kwargs):
-            id = kwargs.get('id', None)
-            if id is None:
-                raise cherrypy.HTTPError(400, 'Missing argument "id"')
-            with sessionScope:
-                def delete(**_):
-                    table[id].delete()
-                    commit()
-                    raise cherrypy.HTTPRedirect('index')
-
-                return Page(Title('Weet u zeker dat u {} wilt verwijderen?'.format(tablename)),
-                            SimpleForm(*columns,
-                                       defaults={k: getattr(table[id], k) for k in column_names},
-                                       readonly=True,
-                                       submit='Verwijderen <i class="fa fa-times"></i>',
-                                       success=delete,
-                                       cancel='view?id={}'.format(id)))
-    return Crud
-
-
-def dictCrudServer(data_source, page):
-    class Server: pass
-
-    for name, table in data_source.__annotations__.items():
-        setattr(Server, name, generateDictCrud(data_source, name, table))
-
-    return Server
-
-
 
 
 def runServer(server, config={}):

@@ -7,6 +7,7 @@ from admingen.data import CsvReader, CsvWriter, dataline
 from admingen.util import isoweekno2day
 import re
 
+import argparse
 
 calendarId = 'h66vatlgj8e3lh2fkd5p2arvps@group.calendar.google.com'
 week = (2018, 51)

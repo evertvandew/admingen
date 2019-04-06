@@ -46,7 +46,9 @@ class EmptyClass:
 
 
 def isoweekno2day(year:int, week:int, dow:int=0):
-    """ Return the datetime for a specific iso week """
+    """ Return the datetime for a specific iso week.
+        This function is the inverse of date.isocalendar.
+    """
     # Use the (non-iso) strptime, then correct for the right week.
     # The strptime week starts at sunday, ISO's at monday.
     d = datetime.datetime.strptime('%i%i%i'%(year, week, dow+1), '%Y%W%w')

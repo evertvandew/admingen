@@ -89,26 +89,65 @@ class paypal_export_config:
                               SalesType.Unknown: self.vat_code_unknown}
         self.classifier = None
         self.persist = None
+        self.known_transactions = {}
 
     def getType(self, t: PPTransactionDetails):
         """ The following transaction types are used:
                 c: Transaction involving buying something from a supplier.
                 d: Transaction involving a sale to a customer
                 b: Transaction with a bank
+                u: Transaction is 'Unknown', and is booked at a kruispost.
         """
-        tt = t.Type.lower()
-        if tt in ['algemene opname', 'algemeen valutaomrekening'] or 'withdrawal' in tt:
-            return 'b'
-        # TODO: find the Dutch translation of 'preapproved etc.'
-        elif t.ReferenceTxnID and t.Net < 0 and t.Type not in ['PreApproved Payment Bill User Payment']:
-            if self.refunds:
-                print ('Found a refund!')
-                return 'r'      # Retour zending oid
-            return 'd'          # Just book it on the sales account.
-        elif not t.ReferenceTxnID and t.Net > 0:
-            return 'd'
+        if True:
+            code = 'u'
+            tt = t.TT
+
+            if tt == TT.UNKNOWN:
+                pass
+            elif tt in [TT.Withdrawal, TT.CurrencyConversion, TT.BankDeposit,
+                        TT.CreditCardWithdrawal, TT.CreditCardDeposit]:
+                code = 'b'
+            elif tt == TT.Refund and t.ReferenceTxnID in self.known_transactions:
+                code = self.known_transactions[t.ReferenceTxnID]
+            else:
+                # Determine if we are dealing with a purchase or sale.
+                dont_invert = tt in [TT.CancelHold, TT.PreApprovedPayment, TT.AuthorizationHoldReversal,
+                                     TT.ChargeBackReversal, TT.ReleaseAfterReview]
+                no_refund = tt in [TT.HoldForDispute, TT.AuthorizationHold, TT.HoldForReview]
+
+                invert = t.ReferenceTxnID and not dont_invert
+
+                if invert:
+                    if t.Net < 0:
+                        if self.refunds and not no_refund:
+                            code = 'r'
+                        else:
+                            code = 'd'
+                    else:
+                        code = 'c'
+                elif t.Net > 0:
+                    code = 'd'
+                else:
+                    code = 'c'
+
+            self.known_transactions[t.Transactiereferentie] = code
+            return code
+
         else:
-            return 'c'
+            tt = t.Type.lower()
+            if tt in ['algemene opname', 'algemeen valutaomrekening'] or 'withdrawal' in tt:
+                return 'b'
+            # TODO: find the Dutch translation of 'preapproved etc.'
+            elif t.ReferenceTxnID and t.Net < 0 and t.Type not in ['PreApproved Payment Bill User Payment']:
+                if self.refunds:
+                    print ('Found a refund!')
+                    return 'r'      # Retour zending oid
+                return 'd'          # Just book it on the sales account.
+            elif not t.ReferenceTxnID and t.Net > 0:
+                return 'd'
+            else:
+                return 'c'
+
 
     def getRegion(self, t: PPTransactionDetails):
         # The classifier could not handle this transaction, classify it directly
@@ -334,53 +373,86 @@ class paypal_export_config:
         return illegal_xml_re.sub('', note)
 
 
+class TransactionTypes(Enum):
+    AccountCorrection = 'General Account Correction'
+    AuthorizationHold = 'Account Hold for Open Authorization'
+    AuthorizationHoldReversal = 'Reversal of General Account Hold'
+    BankDeposit = 'Bank Deposit to PP Account'
+    CancelHold = 'Cancellation of Hold for Dispute Resolution'
+    ChargeBack = 'Chargeback'
+    ChargeBackFee = 'Chargeback Fee'
+    ChargeBackReversal = 'Chargeback Reversal'
+    CreditCardDeposit = 'General Credit Card Deposit'
+    CreditCardWithdrawal = 'General Credit Card Withdrawal'
+    CurrencyConversion = 'General Currency Conversion'
+    Donation = 'Donation Payment'
+    eBayPayment = 'eBay Auction Payment'
+    ExpressPayment = 'Express Checkout Payment'
+    HoldForDispute = 'Hold on Balance for Dispute Investigation'
+    HoldForReview = 'Payment Review Hold'
+    MassPayment = 'Mass Pay Payment'
+    MobilePayment = 'Mobile Payment'
+    Refund = 'Payment Refund'
+    Reversal = 'Payment Reversal'
+    ReleaseAfterReview = 'Payment Review Release'
+    Payment = 'General Payment'
+    PostagePayment = 'Postage Payment'
+    PreApprovedPayment = 'PreApproved Payment Bill User Payment'
+    SubscriptionPayment = 'Subscription Payment'
+    WebsitePayment = 'Website Payment'
+    Withdrawal = 'General Withdrawal'
+    UNKNOWN = ''
 
-TransactionTypes = Enum('TransactionTypes', """AddFundsfromaBankAccount
-    ATMWithdrawal
-    ATMWithdrawalReversal
-    AuctionPaymentReceived
-    AuctionPaymentSent
-    CanceledFee
-    CanceledPayment
-    CanceledTransfer
-    ChargebackSettlement
-    CheckWithdrawalfromPayPal
-    CurrencyConversion
-    DebitCardCashAdvance
-    DebitCardPurchase
-    DividendFromPayPalMoneyMarket
-    DonationReceived
-    DonationSent
-    eCheckReceived
-    eCheckSent
-    FundsAddedwithaPersonalCheck
-    GuaranteeReimbursement
-    PaymentReceived
-    PaymentSent
-    PayPal
-    PayPalBalanceAdjustment
-    ReferralBonus
-    Refund
-    ShoppingCartItem
-    ShoppingCartPaymentReceived
-    ShoppingCartPaymentSent
-    SubscriptionPaymentReceived
-    SubscriptionPaymentSent
-    TransferUpdatetoAddFundsfromaBankAccount
-    UpdatetoDebitCardCredit
-    UpdatetoeCheckReceived
-    UpdatetoPaymentReceived
-    UpdatetoPaymentSent
-    UpdatetoReversal
-    UpdatetoWebAcceptPaymentReceived
-    VirtualDebitCardAuthorization
-    VirtualDebitCardCreditReceived
-    VirtualDebitCardPurchase
-    VirtualDebtCardCreditReceived
-    WebAcceptPaymentReceived
-    WebAcceptPaymentSent
-    WithdrawFundstoaBankAccount""")
 
+TT = TransactionTypes
+
+known_types_dutch = {
+    TT.CancelHold: 'Annulering van blokkering voor geschillenoplossing',
+    TT.CreditCardDeposit: 'Algemene creditcardstorting',
+    TT.CreditCardWithdrawal: 'Algemene creditcardopname',
+    TT.CurrencyConversion: 'Algemeen valutaomrekening',
+    TT.BankDeposit: 'Creditcardstorting ter aanvulling saldo verschuldigd bedrag',
+    TT.eBayPayment: 'Betaling eBay-veiling',
+    TT.ExpressPayment: 'Express Checkout betaling',
+    TT.HoldForDispute: 'Geblokkeerd saldo wegens onderzoek naar geschil',
+    TT.Payment: 'Algemene betaling',
+    TT.PreApprovedPayment: 'Vooraf goedgekeurde betaling gebruiker betaalfactuur',
+    TT.SubscriptionPayment: 'Abonnementsbetaling',
+    TT.Refund: 'Terugbetaling',
+    TT.Reversal: 'Terugboeking betaling',
+    TT.WebsitePayment: 'Websitebetaling'
+}
+
+known_types_rev = {v.value.replace(' ', '').lower(): v for k, v in TT.__members__.items()}
+known_types_dutch_rev = {v.replace(' ', '').lower(): k for k, v in known_types_dutch.items()}
+
+def match_transaction_type(tt):
+    """ Look for the TransactionType matching this text.
+    """
+    # Remove spaces and make lower-key
+    tt_filt = tt.replace(' ', '').lower()
+    if tt_filt in known_types_rev:
+        return known_types_rev[tt_filt]
+    if tt_filt in known_types_dutch_rev:
+        return known_types_dutch_rev[tt_filt]
+    return TT.UNKNOWN
+
+
+def add_transactionTypes(transactions):
+    """ Set the TT field in each transaction
+    """
+    for t in transactions:
+        t.TT = match_transaction_type(t.Type)
+        yield t
+
+
+def filter_foreign_references(transactions):
+    for t in transactions:
+        # Find references outside PayPal and move them to the factuur number.
+        if '-' in t.ReferenceTxnID:
+            t.Factuurnummer += t.ReferenceTxnID
+            t.ReferenceTxnID = ''
+        yield t
 
 
 class GLAccountTypes(IntEnum):
@@ -892,22 +964,22 @@ def handleDir(path, task_index):
 
 
 
-def group_currency_conversions(reader, config):
+def group_currency_conversions(transactions, config):
     """ Generator that reads a list of PayPal transactions, and yields ExactTransactions """
     conversions_stack = {}  # Used to find the three transactions related to a valuta conversion
     # Download the PayPal Transactions
     transaction: PPTransactionDetails
     # For each transaction, extract the accounting details
-    for transaction in reader:
+    for transaction in transactions:
         # Skip memo transactions.
         if transaction.Effectopsaldo and transaction.Effectopsaldo.lower() == 'memo':
             continue
-        if transaction.Type == 'Algemeen valutaomrekening' or \
+        if transaction.TT == TT.CurrencyConversion or \
            transaction.Valuta != config.currency:
             # We need to compress the next three transactions into a single, foreign valuta one.
             # The actual transaction is NOT a conversion and is in foreign valuta.
             # The two conversions refer to this transaction
-            if transaction.Type.strip() not in ['Algemeen valutaomrekening', 'Terugbetaling', 'Bank Deposit to PP Account', 'Payment Reversal']:
+            if transaction.TT not in [TT.CurrencyConversion, TT.Refund, TT.BankDeposit, TT.Reversal]:
                 ref = transaction.Transactiereferentie
             else:
                 ref = transaction.ReferenceTxnID
@@ -916,20 +988,20 @@ def group_currency_conversions(reader, config):
             if len(txs) == 3:
                 # Classify the transactions and extract the useful bits
                 s = [t for t in txs if
-                     t.Type != 'Algemeen valutaomrekening' and t.Valuta != config.currency]
+                     t.TT != TT.CurrencyConversion and t.Valuta != config.currency]
                 if not s:
                     logging.warning('Could not find original transaction, %s' % txs)
                     raise RuntimeError('Could not find original transaction')
                 sale: PPTransactionDetails = s[0]
                 s = [t for t in txs if
-                     t.Type == 'Algemeen valutaomrekening' and t.Valuta == config.currency]
+                     t.TT == TT.CurrencyConversion and t.Valuta == config.currency]
                 if not s:
                     logging.warning('Ignoring conversion between foreign valuta, %s' % txs)
                     txs = []
                     continue
                 valuta_details: PPTransactionDetails = s[0]
                 s = [t for t in txs if
-                     t.Type == 'Algemeen valutaomrekening' and t.Valuta != config.currency]
+                     t.TT == TT.CurrencyConversion and t.Valuta != config.currency]
                 if not s:
                     logging.warning('Could not find foreign valuta part, %s' % transactions)
                     raise RuntimeError('Could not find foreign valuta part')
@@ -960,14 +1032,26 @@ def group_currency_conversions(reader, config):
         else:
             # Close any incomplete currency exchanges
             for txs in conversions_stack.values():
-                logging.warning('Incomplete money exchange found: %s' % txs[0])
-                # Find any transaction changing the relevant saldo
+                # If the transaction is too old (older than a day), throw it away
                 for t in txs:
-                    if t.Valuta == config.currency:
-                        yield t
-                conversions_stack = {}
+                    if t.Datum != transaction.Datum:
+                        logging.warning('Incomplete money exchange found: %s' % txs[0])
+                        # Find any transaction changing the relevant saldo
+                        if t.Valuta == config.currency:
+                            yield t
+                        txs.remove(t)
             yield transaction
 
+    # Clean up remaining currency exchanges.
+    for txs in conversions_stack.values():
+        if not txs:
+            continue
+        logging.warning('Incomplete money exchange found: %s' % txs[0])
+        # If the transaction is too old (older than a day), throw it away
+        for t in txs:
+            # Find any transaction changing the relevant saldo
+            if t.Valuta == config.currency:
+                yield t
 
 
 if __name__ == '__main__':

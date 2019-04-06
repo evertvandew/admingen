@@ -8,6 +8,8 @@ import logging
 from admingen.util import isoweekno2day
 from yaml import load, dump
 from collections.abc import Mapping
+from typing import Dict
+from dataclasses import is_dataclass
 
 import json
 try:
@@ -72,6 +74,8 @@ class dataset:
         return self
 
     def enrich_condition(self, condition, true=None, false=None):
+        if isinstance(condition, str):
+            condition = lambda r: eval(condition, None, r.__dict__)
         for r in self.data.values():
             update = {}
             if condition(r):
@@ -107,9 +111,22 @@ class dataset:
                 setattr(r, k, v)
         return self
 
+    def select(self, condition):
+        """ Return a new dataset containing only selected records.
+            The condition is either a callable, or a string containing a Python expression.
+            In the Python expression, both the names of data fields and global Python names
+            can be used.
+        """
+        if isinstance(condition, str):
+            condition = lambda r: eval(condition, None, r.__dict__)
+        return dataset(r for r in self.data.values() if condition(r))
 
-supported_types = {'str': str,
+
+
+
+basic_types = {'str': str,
                    'decimal': mkDecimal,
+                   'Decimal': mkDecimal,
                    'date': mkdate,
                    'datetime': mkdatetime,
                    'int': int,
@@ -118,6 +135,8 @@ supported_types = {'str': str,
                    'id': id_type,
                    'json': json_loads
                    }
+
+supported_types = basic_types.copy()
 
 supported_type_names = {v: k for k, v in supported_types.items()}
 
@@ -160,20 +179,25 @@ class dataline(Mapping):
 
     @staticmethod
     def getConstructor(headers, types):
-        types = [supported_types[t] for t in types]
+        pytypes = [supported_types[t] for t in types]
         def constructor(parts):
-            return dataline.create_instance(headers, types, parts)
+            dl = dataline.create_instance(headers, pytypes, parts)
+            return dl
         return constructor
 
     # Implement the Mapping protocol
     def __getitem__(self, key):
         return getattr(self, key)
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
     def __iter__(self):
         return iter(self.__dict__)
     def __len__(self):
         return len(self.__dict__)
     def values(self):
         return self.__dict__.values()
+    def __str__(self):
+        return str(self.__dict__)
 
 
 
@@ -188,6 +212,7 @@ def read_lines(stream, headers, types, delimiter):
         if not line:
             return
         parts = line.split(delimiter)
+        parts = [p.strip('"') for p in parts]
         yield constructor(parts)
 
 
@@ -224,12 +249,20 @@ def CsvWriter(stream: typing.TextIO, collection, delimiter=';'):
         stream.write('%s\n'%table)
 
         # Write the table header
-        parts = ['%s:%s'%(n, t) for n, t in zip(*collection.__annotations__[table])]
+        if hasattr(collection, '__annotations__'):
+            annotations = zip(*collection.__annotations__[table])
+        elif is_dataclass(columns[0]):
+            names = [k for k, v in columns[0].__dict__.items() if not callable(v)]
+            annotations = [(k, type(v).__name__) for k, v in columns[0].__dict__.items() if not callable(v)]
+            columns = [{k: getattr(c, k) for k in names} for c in columns]
+        else:
+            annotations = [(k, type(v).__name__) for k, v in columns[0].items()]
+        parts = ['%s:%s'%(n, t) for n, t in annotations]
         stream.write('%s\n'%delimiter.join(parts))
 
         # Write the table data
         for line in (columns if isinstance(columns, list) else columns.values()):
-            stream.write('%s\n'%delimiter.join([str(v) for v in line.values()]))
+            stream.write('%s\n'%delimiter.join([str(v).replace(delimiter, r'\d') for v in line.values()]))
 
         # Write an empty line to signal the end of the table
         stream.write('\n')

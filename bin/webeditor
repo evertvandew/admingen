@@ -10,12 +10,115 @@ import os, os.path
 import sys
 
 from admingen.htmltools import *
-from admingen.data import CsvReader, CsvWriter
+from admingen.data import CsvReader, CsvWriter, basic_types
+import admingen.htmltools as html
 
 
 tmpdir = '/run/user/%s/webedit/'%os.getuid()
 if not os.path.exists(tmpdir):
     os.mkdir(tmpdir, 0o700)
+
+
+def makeGetter(tables, tablename):
+    def getter():
+        result = tables[tablename]
+        if not result and details.required:
+            raise cherrypy.HTTPError(424,
+                                     "Please define an {} first".format(details.type.__name__))
+        return result
+    return getter
+
+
+def generateFields(tables, tablename):
+    for name, t in zip(*tables.__annotations__[tablename]):
+        if 'id' in [name, t]:
+            yield html.Hidden(name)
+        elif t == 'bool':
+            yield Tickbox(name, name)
+        elif t in basic_types:
+            yield String(name, name)
+        else:
+            # This must be a reference to another table
+            yield Selection(name, makeGetter(tables, t), name)
+
+
+def generateTableEditor(tables, tablename):
+    column_names = tables.__annotations__[tablename][0]
+    columns = list(generateFields(tables, tablename))
+    id_name = [c[0] for c in zip(tables.__annotations__[tablename]) if 'id' in c]
+    associated_tables = [t for t in tables if tablename in tables.__annotations__[t][1]]
+    associated_columns = {t:list(generateFields(tables, t)) for t in associated_tables}
+    class TableEditor:
+        @html.cherrypy.expose()
+        def index(self):
+            table = tables[tablename]
+            # View key : name pairs for all entries
+            def getdata():
+                return [list(r.values()) for r in table.values()]
+
+            def row_select_url(data):
+                if id_name:
+                    i = getattr(data, id_name[0])
+                else:
+                    i = data[0]
+                return 'view?id={}'.format(i)
+
+            parts = [Title('{} overzicht'.format(tablename)),
+                     PaginatedTable(None, getdata, row_select_url=row_select_url)]
+            parts.append(Button('Toevoegen <i class="fa fa-plus"></i>', target='add'))
+
+            return Page(*parts)
+
+        @html.cherrypy.expose()
+        def view(self, id):
+            def associated(id, details):
+                if associated_tables:
+                    parts = []
+                    for t in associated_tables:
+                        e = [k for k, ty in zip(*tables.__annotations__[t]) if ty==tablename][0]
+                        ass = [v for k, v in tables[t].items() if v[e] == id]
+                        if ass:
+                            parts.append(SimpleForm(*associated_columns[t],
+                                       defaults=ass[0],
+                                       readonly=True))
+                        return '\n<BR>\n'.join(parts)
+                else:
+                    return ''
+            id = int(id) # row IDs are always integers here.
+            table = tables[tablename]
+            details = {k: getattr(table[id], k) for k in column_names}
+            return Page(Title('{} details'.format(tablename)),
+                        SimpleForm(*columns,
+                                   defaults=details,
+                                   readonly=True),
+                        associated(id, details),
+                        ButtonBar(
+                            Button('Verwijderen <i class="fa fa-times"></i>', btn_type=['danger'],
+                                   target='delete?id={}'.format(id)),
+                            Button('Aanpassen <i class="fa fa-pencil"></i>',
+                                   target='edit?id={}'.format(id)),
+                            Button('Sluiten', target='index')
+                            ))
+
+    return TableEditor
+
+
+def generateEditor(data):
+
+    class RootServer:
+        @html.cherrypy.expose()
+        def index(self):
+            # View the first table
+            raise html.cherrypy.HTTPRedirect('/%s'%list(data.keys())[0])
+
+    for k in data:
+        setattr(RootServer, k, generateTableEditor(data, k)())
+
+    return RootServer
+
+
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
@@ -35,5 +138,4 @@ if __name__ == '__main__':
     # Create an in-RAM copy for buffering web edits
     CsvWriter(open(buffername, 'w'), data)
 
-
-    runServer(dictCrudServer(data, Page()))
+    runServer(generateEditor(data))
