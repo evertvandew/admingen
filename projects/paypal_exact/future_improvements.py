@@ -26,12 +26,6 @@ from paypal_converter import (paypal_export_config, SalesType, group_currency_co
                               add_transactionTypes, filter_foreign_references)
 
 
-# FIXME: de saldo controle bij Riverchurch werkt niet goed. Alle fouten samen is nul...
-# FIXME: de maand september wordt niet geaccepteerd voor Riverchurch...
-
-# FIXME: Bij Riverchurch worden meerdere USD transacties samengevoegd omgezet in EUR...
-#        Hier wordt verder niet naar verwezen in de transactie ID links.
-
 # TODO: Bij de configuratie ook dicts & lists ondersteunen?
 
 

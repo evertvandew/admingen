@@ -32,11 +32,13 @@ from .model import SystemStates
 
 # FIXME: make the download files un-guessable (use crypto hash with salt as file name)
 # FIXME: store financial details in encrypted files.
-# FIXME: store smtp login details in keychain, unlocked with in-process password
+# FIXME: store smtp login details in keychain, unlocked with in-process password (?)
 # FIXME: add a delay to downloading an overview to defeat brute-force attacks
 # FIXME: require a login to download overzichten
-
+# FIXME: check exact user has rights to the current administration
+# FIXME: exact user has direct access to the admin site, but can not change admin number.
 # FIXME: smtp host selectie in organisaties laat geen dropdown menu zien.
+# FIXME: cherrypy toont nog veel debug informatie.
 
 # TODO: allow the year to be entered as $jaar oid.
 # TODO: Selections alleen de waarde laten zien wanneer readonly
