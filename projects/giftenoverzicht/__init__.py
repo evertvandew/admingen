@@ -20,19 +20,21 @@ from cherrypy.lib.static import serve_file
 import calendar
 
 from admingen.clients.exact_rest import (authenticateExact, getUsers, getTransactions, getDivisions,
-                                         getAccounts, config)
+                                         getAccounts)
 from admingen.htmltools import *
 from admingen import config
 from admingen.clients import smtp
-from .giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
+from admingen.keyring import KeyRing
+from giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
                     odataDate2Datetime, generate_pdfs, pdfName, PDF_DIR)
-from . import model
-from .model import SystemStates
+import model
+from model import SystemStates
 
+from dataclasses import dataclass, asdict, fields
 
+# FIXME: store smtp login details in keychain, unlocked with in-process password (?)
 # FIXME: make the download files un-guessable (use crypto hash with salt as file name)
 # FIXME: store financial details in encrypted files.
-# FIXME: store smtp login details in keychain, unlocked with in-process password (?)
 # FIXME: add a delay to downloading an overview to defeat brute-force attacks
 # FIXME: require a login to download overzichten
 # FIXME: check exact user has rights to the current administration
@@ -51,6 +53,16 @@ logging.getLogger().setLevel(logging.DEBUG)
 USERS_FILE = '{}/{}.users.json'
 TRANSACTIONS_FILE = '{}/{}.transactions.json'
 ACCOUNTS_FILE = '{}/{}.accounts.json'
+
+
+@dataclass
+class SmtpDetails:
+    id       : str
+    name     : str
+    smtphost : str
+    user     : str
+    password : str
+
 
 
 def constructMail(md_msg, fname, **headers):
@@ -137,7 +149,7 @@ def verstuur_overzicht(**extra):
     usersfname = USERS_FILE.format(config.opsdir, org_id)
 
     def sendSingleMail(to_adres, name, fname):
-        if config.TESTMODE:
+        if config.testmode():
             to_adres = 'evert.vandewaal@axians.com'
         md_msg = msg_template % {'voornaam': name, 'jaar': year, 'van': start, 'tot': end}
         msg = constructMail(md_msg, fname, To=to_adres, From=mailfrom,
@@ -253,6 +265,8 @@ def handle_login(**kwargs):
     return Page(Title('Login voor de overzichtgenerator'), form)
 
 
+smtp_key = 'smtp_%s'
+
 class Worker(threading.Thread):
     workers = {}
 
@@ -361,8 +375,47 @@ def check_token(func):
     return doIt
 
 
+class SmtpDetailsData:
+    table = SmtpDetails
+    name = 'SmtpDetails'
+
+    def __init__(self, keychain):
+        self.keychain = keychain
+
+    @contextmanager
+    def scope(self):
+        yield
+
+    def column_details(self):
+        details = {
+        f.name: ColumnDetails(f.name, False, f.type, False, None, False, True, None, f.default)
+            for f in fields(SmtpDetails)}
+        return details
+
+    def query(self, rid=None):
+        if rid:
+            details = self.keychain.get(smtp_key % rid, None)
+            if details:
+                return SmtpDetails(**details)
+            return None
+        return [SmtpDetails(**v) for k, v in self.keychain.items() if k.startswith('smtp_')]
+
+    def add(self, **kwargs):
+        rid = kwargs.get('id', None)
+        if not rid:
+            raise RuntimeError('Can not add new records this way')
+        self.keychain[smtp_key % rid] = kwargs
+
+    def update(self, rid, details):
+        if isinstance(details, SmtpDetailsData.table):
+            details = asdict(details)
+        self.keychain[smtp_key % rid] = details
+
+
 class Overzichten:
     acm = ACM({}, handle_login)
+    keychain = KeyRing('%s/data.bin'%config.opsdir, 'Giften Overzicht datafile')
+    smtp_data = SmtpDetailsData(keychain)
 
     @staticmethod
     def getState():
@@ -540,8 +593,9 @@ class Overzichten:
     @check_token
     def versturen(self, **kwargs):
         with model.sessionScope():
-            org = model.Organisation[cherrypy.session['org_id']]
-            params = org.smtp_details.to_dict()
+            sid = cherrypy.session['org_id']
+            org = model.Organisation[sid]
+            params = keychain[smtp_key % sid]
             params['period_start'] = org.period_start
             params['period_end'] = org.period_end
             params['mailfrom'] = org.mailfrom
@@ -552,32 +606,58 @@ class Overzichten:
     crud_acm = ACM(
         {'view': ['Admin', 'User'], 'index': ['Admin'], 'edit': ['Admin'], 'delete': ['Admin']},
         handle_login)
-    smtp_details = generateCrud(model.SmtpDetails, adminPage, acm=crud_acm,
-                                index_show=['id', 'name', 'mailfrom'])
-    organisaties = generateCrud(model.Organisation, adminPage, acm=crud_acm,
+    organisaties = generateCrud(DataInterface(model.Organisation), adminPage, acm=crud_acm,
                                 index_show=['id', 'name', 'description'],
                                 hidden=['period_start', 'period_end', 'status']
                                 )
 
-    gebruikers = generateCrud(model.User, adminPage, acm=crud_acm,
+    gebruikers = generateCrud(DataInterface(model.User), adminPage, acm=crud_acm,
                               index_show=['id', 'name', 'fullname', 'role'])
+
+    smtp_details = generateCrud(smtp_data, adminPage, acm=crud_acm,
+                                index_show=['id', 'name', 'mailfrom'])
+
+    def new_index(wrapped):
+        @cherrypy.expose
+        def doit(*args, **kwargs):
+            # First check that records exist for all organisations
+            with sessionScope:
+                for organisation in model.Organisation.select():
+                    if Overzichten.smtp_data.query(organisation.id) is None:
+                        details = SmtpDetails(
+                            id = organisation.id,
+                            name = organisation.name,
+                            smtphost='',
+                            user='',
+                            password=''
+                        )
+                        Overzichten.smtp_data.add(**asdict(details))
+            return wrapped(*args, **kwargs)
+        return doit
+    smtp_details.index = new_index(smtp_details.index)
 
 
 def run(static_dir=None):
     model.openDb('sqlite://%s/overzichtgen.db' % config.opsdir)
 
-    # Ensure there is a 'test' user with password 'testingtesting'
-    # When deploying the giftenoverzicht app, remember to delete this user!
-    with sessionScope():
-        if orm.count(u for u in model.User) == 0:
-            test_user = model.User(name='test', fullname='test user',
-                                   password=password2str('testingtesting'),
-                                   role='Admin',
-                                   email='pietje.puk@sesamstraat.nl')
+    if config.testmode():
+        # Ensure there is a 'test' user with password 'testingtesting'
+        # When deploying the giftenoverzicht app, remember to delete this user!
+        with sessionScope():
+            if orm.count(u for u in model.User) == 0:
+                test_user = model.User(name='test', fullname='test user',
+                                       password=password2str('testingtesting'),
+                                       role='Admin',
+                                       email='pietje.puk@sesamstraat.nl')
 
     # cherrypy.log.access_log.propagate = False
     logging.getLogger('cherrypy_error').setLevel(logging.ERROR)
     conf = config.getConfig('server')
+
+    if not conf and config.testmode():
+        conf = {'global': {
+            "tools.sessions.on": True
+        }}
 
     cherrypy.quickstart(Overzichten(), '/', conf)
 

@@ -10,7 +10,7 @@ from enum import IntEnum
 import sqlite3
 from pony import orm
 
-from admingen.db_api import openDb, the_db, DbaseVersion
+from admingen.db_api import openDb, the_db
 
 
 VERSION = 3
@@ -48,13 +48,6 @@ class ImagePath(str):
 ## The elements stored in the database
 db = the_db
 
-class SmtpDetails(db.Entity):
-    name = orm.Required(str)
-    smtphost=orm.Required(str)
-    user=orm.Optional(str)
-    password=orm.Optional(str)
-    organisations=orm.Set(lambda: Organisation)
-
 
 class Organisation(db.Entity):
     name = orm.Required(str, unique=True)
@@ -68,7 +61,6 @@ class Organisation(db.Entity):
     exact_division = orm.Required(int)
     admin_id = orm.Required(int)
     logo = orm.Optional(ImagePath)
-    smtp_details=orm.Optional(SmtpDetails)
     status = orm.Required(int, default=SystemStates.Start.value)
     period_start = orm.Optional(datetime.datetime)
     period_end   = orm.Optional(datetime.datetime)

@@ -87,13 +87,15 @@ def url2path(url):
         return path
     return None
 
+
+class DbaseVersion(the_db.Entity):  # pylint:disable=W0232
+    ''' Stores the version number of the database. '''
+    version = orm.Required(int)
+
+
 def openDb(url, version=1, update=None, create=True):
     ''' Create a new database from the URL
     '''
-    class DbaseVersion(the_db.Entity):  # pylint:disable=W0232
-        ''' Stores the version number of the database. '''
-        version = orm.Required(int)
-
     if the_db.provider is not None:
         logging.error('Trying to initialise the database twice!')
         return

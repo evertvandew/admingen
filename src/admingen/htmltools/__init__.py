@@ -7,14 +7,16 @@ import logging
 import json
 import re
 import os.path
+from contextlib import contextmanager
 from urllib.parse import urlparse
-from typing import Union, Callable, Any, Iterable
+from typing import Dict, Callable, Any, Iterable
 import bcrypt
-from .db_api import sessionScope, commit, getHmiDetails, TableDetails, ColumnDetails
+from ..db_api import sessionScope, commit, getHmiDetails, TableDetails, ColumnDetails
 from pony.orm.core import EntityMeta
 
 UNAME_FIELD_NAME = 'username'
 PWD_FIELD_NAME = 'password'
+
 
 # TODO: port to the Quart framework. https://gitlab.com/pgjones/quart
 # TODO: make forms so that the contents are not re-evaluated each time?
@@ -25,8 +27,10 @@ def password2str(value):
     hash = bcrypt.hashpw(value, salt)
     return hash
 
+
 def checkpasswd(clear, hashed):
     return bcrypt.checkpw(clear, hashed)
+
 
 def ispwencrypted(p):
     return bool(re.match(r'^\$2a\$\d\d\$', p))
@@ -103,6 +107,7 @@ def IsEmailaddress(a):
 def IsUrl(a, host=True, scheme=True):
     """ if host and/or scheme is True, a host and/or scheme is required
     """
+
     def check(params):
         try:
             parts = urlparse(params[a])
@@ -112,6 +117,7 @@ def IsUrl(a, host=True, scheme=True):
                 return 'A scheme is required in the URL'
         except:
             return 'Not a correct URL'
+
     return check
 
 
@@ -131,15 +137,18 @@ def Verify(*rules):
 def joinElements(*args):
     return '\n'.join([a() if callable(a) else a for a in args])
 
+
 def parseArguments(**kwargs):
     if 'klasse' in kwargs:
         kwargs['class'] = kwargs['klasse']
         del kwargs['klasse']
     return ' '.join('{}="{}"'.format(k, v) for k, v in kwargs.items())
 
+
 def Link(target, label, **kwargs):
     args = parseArguments(**kwargs)
     return '<A {} HREF={}>{}</A>'.format(args, target, label)
+
 
 def Container(tag, *children, **kwargs):
     options = parseArguments(**kwargs)
@@ -178,7 +187,8 @@ def Page(*args, refresh=None):
         </body>
         </html>
         '''.format(body=body,
-               header='\n'.join(headers))
+                   header='\n'.join(headers))
+
 
 def Title(text, tag='H1'):
     return '<{1} style="margin-top:0px">{0}</{1}>'.format(text, tag)
@@ -205,10 +215,11 @@ def Lines(*args):
     """
     return '\n<BR>'.join(args)
 
+
 def Pars(*args):
     """ Render the arguments as seperate paragraphs
     """
-    return ''.join('<P>%s</P>\n'%a for a in args)
+    return ''.join('<P>%s</P>\n' % a for a in args)
 
 
 def Collapsibles(bodies, headers=None):
@@ -216,15 +227,16 @@ def Collapsibles(bodies, headers=None):
         nonlocal headers
         if not headers:
             headers = ['>>>' for _ in bodies]
-        hs = [Div(Link('#collapse%i'%i, header, **{'data-toggle' :'collapse'}),
-                 klasse='panel-heading')
-             for i, header in enumerate(headers)]
+        hs = [Div(Link('#collapse%i' % i, header, **{'data-toggle': 'collapse'}),
+                  klasse='panel-heading')
+              for i, header in enumerate(headers)]
         bs = [Div(Div(a, klasse='panel-body'),
-                 klasse='panel-colapse collapse',
-                 id='collapse%i'%i) for i, a in enumerate(bodies)]
+                  klasse='panel-colapse collapse',
+                  id='collapse%i' % i) for i, a in enumerate(bodies)]
         return Div(*[Div(h, b, klasse="panel panel-default")
-                    for h, b in zip(hs, bs)],
+                     for h, b in zip(hs, bs)],
                    klasse='panel-group')
+
     return get
 
 
@@ -263,7 +275,8 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
     if not success:
         btn = ''
     else:
-        btns = ['<button class="btn btn-primary" type="submit" value="Submit">{}</button>'.format(submit)]
+        btns = ['<button class="btn btn-primary" type="submit" value="Submit">{}</button>'.format(
+            submit)]
         if cancel:
             btns.insert(0, Button('Cancel', target=cancel))
         btn = ButtonBar(*btns)
@@ -306,7 +319,7 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
         row = row.format(**input)
         rows.append(row)
     return base.format(rows='\n'.join(rows), action=path,
-                   enctype=enctype, btn=btn)
+                       enctype=enctype, btn=btn)
 
 
 def Hidden(name):
@@ -337,8 +350,9 @@ def form_input(name, text, input_type, tmpl=None):
         if error:
             base += '<div class="errmsg">{error}</div>'
         print(input_type)
-        result = base.format(**{'input_type': input_type, 'name': name, 'error': error, 'default': default,
-                         'options': ' '.join(options)})
+        result = base.format(
+            **{'input_type': input_type, 'name': name, 'error': error, 'default': default,
+               'options': ' '.join(options)})
         return {'label': text, 'input': result}
 
     return gen
@@ -380,6 +394,7 @@ def Tickbox(name, text=None):
 
 
 Server = Email = String
+
 
 def EnterPassword(name, text=None):
     return form_input(PWD_FIELD_NAME, text, name)
@@ -437,11 +452,13 @@ def Selection(name, options, text=None):
 
         option_tags = ['<option value="{}">{}</option>'.format(*o) for o in final_options]
         if index:
-            option_tags[i] = '<option selected="selected" value="{}">{}</option>'.format(final_options[i])
+            option_tags[i] = '<option selected="selected" value="{}">{}</option>'.format(
+                final_options[i])
         args = 'name="{}"'.format(name)
         if readonly:
             args += ' readonly'
-        return {'label': text, 'input': '<select {}>'.format(args) + '\n'.join(option_tags) + '</select>'}
+        return {'label': text,
+                'input': '<select {}>'.format(args) + '\n'.join(option_tags) + '</select>'}
 
     return gen
 
@@ -452,8 +469,8 @@ def DownloadLink(name, path):
 
 def PaginatedTable(line: Callable[[Any], Iterable[str]],
                    data: Iterable[Any],
-                   header: Iterable[str]=None,
-                   row_select_url: Callable[[Any], str]=None):
+                   header: Iterable[str] = None,
+                   row_select_url: Callable[[Any], str] = None):
     ''' Shows a table. `line` is a function called with each record to return the columns for a row. It is
         called for each iteration from data.
         `data` is an iterable that is passed to the line generator.
@@ -465,7 +482,8 @@ def PaginatedTable(line: Callable[[Any], Iterable[str]],
     def get():
         head = ''
         if header:
-            head = '<thead><tr>{}</tr></thead>'.format('\n'.join('<th>{}</th>'.format(h) for h in header))
+            head = '<thead><tr>{}</tr></thead>'.format(
+                '\n'.join('<th>{}</th>'.format(h) for h in header))
         parts = []
         thedata = data() if callable(data) else data
         for d in thedata:
@@ -544,13 +562,14 @@ field_factory = {int: Integer,
                  str: String,
                  bool: Tickbox}
 
+
 def annotationsForm(cls, validator=None, success=None, readonly=False, extra_fields=None,
                     getter=None, prefix=''):
     """ Generate a form from the annotations in a data (message) class """
-    fields = [field_factory[t](prefix+n, n) for n, t in cls.__annotations__.items()]
+    fields = [field_factory[t](prefix + n, n) for n, t in cls.__annotations__.items()]
     if extra_fields:
         fields += extra_fields
-    defaults = {n:getattr(cls, n) for n in cls.__annotations__ if hasattr(cls, n)}
+    defaults = {n: getattr(cls, n) for n in cls.__annotations__ if hasattr(cls, n)}
 
     def gen():
         if getter:
@@ -560,12 +579,14 @@ def annotationsForm(cls, validator=None, success=None, readonly=False, extra_fie
                           defaults=defaults,
                           success=success,
                           readonly=readonly)
+
     return gen
 
 
 def configEditor(*elements, validator=None, success=None, readonly=False, extra_fields=None,
-                  getter:Callable, prefix=''):
+                 getter: Callable, prefix=''):
     pass
+
 
 def dummyacm(func):
     return func
@@ -599,6 +620,7 @@ def ACM(permissions, login_func):
 
 def makeGetter(details):
     """ Generate a function that retrieves possible values for a field """
+
     def options_getter():
         with sessionScope:
             cols = details.related_columns.entity._columns_
@@ -612,9 +634,9 @@ def makeGetter(details):
     return options_getter
 
 
-def generateFields(table: TableDetails, hidden=None):
+def generateFields(columns: Dict[str, ColumnDetails], hidden=None):
     hidden = hidden or []
-    for name, details in table.columns.items():
+    for name, details in columns.items():
         if details.primarykey or details.name in hidden:
             yield Hidden(details.name)
         else:
@@ -637,21 +659,78 @@ def generateFields(table: TableDetails, hidden=None):
                 yield String(name, name)
 
 
-def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=None, acm=dummyacm, index_show=None):
-    """ Generate a CRUD server on a database table. """
-    table_hmi_details = getHmiDetails(table) if isinstance(table, EntityMeta) else table
 
-    tablename = table_hmi_details.name
-    columns = list(generateFields(table_hmi_details, hidden))
-    column_names = table_hmi_details.columns.keys()
+class DataInterface:
+    def __init__(self, table):
+        self.table = table
+        self.name = table.__name__
+
+    def column_details(self) -> Dict[str, ColumnDetails]:
+        colum_names = [a.name for a in self.table._attrs_ if not a.is_collection]
+
+        columndetails = {}
+        for name in colum_names:
+            a = getattr(self.table, name)
+            default = a.default if a.default is not None else ''
+            d = ColumnDetails(name=name,
+                              primarykey=a.is_pk,
+                              type=a.py_type,
+                              # For now, relations are known by cols 0 and 1 (id and name)
+                              related_columns=(a.py_type._attrs_[0]) if a.is_relation else None,
+                              nullable=a.is_required,
+                              collection=a.is_collection,
+                              options=getattr(a.py_type, 'options', None),
+                              required=a.is_required,
+                              default=default)
+            columndetails[name] = d
+        return columndetails
+
+    @contextmanager
+    def scope(self):
+        with sessionScope:
+            yield
+
+    def query(self, rid=None, query=''):
+        if rid:
+            return self.table[rid]
+        if query:
+            if ';' in query:
+                raise cherrypy.HTTPError(400, 'Illegal query %s' % query)
+            # TODO: Check this is safe! Is it possible to change data from within the select?
+            q = 'select * from %s where %s' % (self.table.name, query)
+            return self.table._database_.select(query)
+        return self.table.select()
+
+    def add(self, **kwargs):
+        with sessionScope:
+            self.table(**kwargs)
+
+    def delete(self, rid):
+        with sessionScope:
+            self.table[rid].delete()
+            commit()
+
+    def commit(self):
+        commit()
+
+
+
+def generateCrudCls(interface: DataInterface, Page=Page, hidden=None, acm=dummyacm,
+                    index_show=None):
+    """ Generate a CRUD server on a database table. """
+
+    column_details = interface.column_details()
+
+    columns = list(generateFields(column_details, hidden))
+    column_names = column_details.keys()
     index_show = index_show or column_names
-    defaults = {n:c.default for n, c in table_hmi_details.columns.items()}
+    defaults = {n: c.default for n, c in column_details.items()}
 
     def validate(kwargs):
         """ Validate the values submitted for storage in the database """
         result = {}
         errors = {}
-        for n, c in table_hmi_details.columns.items():
+        for n, c in column_details.items():
             # Check if a specific column has a value
             v = kwargs.get(n, '')
             if v:
@@ -674,10 +753,10 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
                 result[n] = converted
                 if c.options:
                     if converted not in c.options:
-                        errors[n] = 'Not a valid option: %s'%converted
+                        errors[n] = 'Not a valid option: %s' % converted
             else:
                 if c.required and not c.primarykey:
-                    errors[n] = 'Please supply a value for %s'%n
+                    errors[n] = 'Please supply a value for %s' % n
         return result, errors
 
     class Crud:
@@ -691,43 +770,41 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
             def row_select_url(data):
                 return 'view?id={}'.format(data.id)
 
-            with sessionScope:
+            with interface.scope():
                 if 'query' in kwargs:
-                    query = kwargs['query']
-                    # TODO: Check this is safe! Is it possible to change data from within the select?
-                    if ';' in query:
-                        raise cherrypy.HTTPError(400, 'Illegal query %s'%query)
-                    data = table._database_.select('select * from %s where %s'%(tablename, query))
+                    data = interface.query(query=kwargs['query'])
                 else:
-                    data = table.select()
-                parts = [Title('{} overzicht'.format(tablename)),
-                            PaginatedTable(row_data, data, row_select_url=row_select_url)]
+                    data = interface.query()
+                parts = [Title('{} overzicht'.format(interface.name)),
+                         PaginatedTable(row_data, data, row_select_url=row_select_url)]
                 if add:
                     parts.append(Button('Toevoegen <i class="fa fa-plus"></i>', target='add'))
                 return Page(*parts)
 
         @cherrypy.expose
         @acm
-        def view(self, id, **kwargs):
-            with sessionScope:
-                details = {k: getattr(table[id], k) for k in column_names}
-            return Page(Title('{} details'.format(tablename)),
+        def view(self, **kwargs):
+            rid = kwargs.get('id', None)
+            with interface.scope():
+                details = {k: getattr(interface.query(rid), k) for k in column_names}
+                return Page(Title('{} details'.format(interface.name)),
                         SimpleForm(*columns,
                                    defaults=details,
                                    readonly=True),
                         ButtonBar(
                             Button('Verwijderen <i class="fa fa-times"></i>', btn_type=['danger'],
-                                   target='delete?id={}'.format(id)),
+                                   target='delete?id={}'.format(rid)),
                             Button('Aanpassen <i class="fa fa-pencil"></i>',
-                                   target='edit?id={}'.format(id)),
+                                   target='edit?id={}'.format(rid)),
                             Button('Sluiten', target='index')
-                            ))
+                        ))
 
         @cherrypy.expose
         @acm
-        def edit(self, id, **kwargs):
-            with sessionScope:
-                details = table[id]
+        def edit(self, **kwargs):
+            rid = kwargs.get('id', None)
+            with interface.scope():
+                details = interface.query(rid)
 
                 def success(**kwargs):
                     for k in column_names:
@@ -736,15 +813,15 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
                         v = kwargs[k]
                         if getattr(details, k) != v:
                             setattr(details, k, v)
-                    commit()
+                    interface.update(rid, details)
                     raise cherrypy.HTTPRedirect('view?id={}'.format(kwargs['id']))
 
-                return Page(Title('{} aanpassen'.format(tablename)),
+                return Page(Title('{} aanpassen'.format(interface.name)),
                             SimpleForm(*columns,
                                        validator=validate,
                                        defaults={k: getattr(details, k) for k in column_names},
                                        success=success,
-                                       cancel='view?id={}'.format(id)))
+                                       cancel='view?id={}'.format(rid)))
 
         @cherrypy.expose
         @acm
@@ -753,12 +830,11 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
                 # Ensure there is no id
                 if 'id' in details:
                     del details['id']
-                with sessionScope:
-                    print('Adding', details)
-                    table(**details)
+                print('Adding', details)
+                interface.add(**details)
                 return 'Success!'
 
-            return Page(Title('{} toevoegen'.format(tablename)),
+            return Page(Title('{} toevoegen'.format(interface.name)),
                         SimpleForm(*columns,
                                    validator=validate,
                                    defaults=defaults,
@@ -767,22 +843,21 @@ def generateCrudCls(table: Union[TableDetails, EntityMeta], Page=Page, hidden=No
         @cherrypy.expose
         @acm
         def delete(self, **kwargs):
-            id = kwargs.get('id', None)
-            if id is None:
+            rid = kwargs.get('id', None)
+            if rid is None:
                 raise cherrypy.HTTPError(400, 'Missing argument "id"')
             with sessionScope:
                 def delete(**_):
-                    table[id].delete()
-                    commit()
+                    interface.delete(rid)
                     raise cherrypy.HTTPRedirect('index')
 
-                return Page(Title('Weet u zeker dat u {} wilt verwijderen?'.format(tablename)),
+                return Page(Title('Weet u zeker dat u {} wilt verwijderen?'.format(interface.name)),
                             SimpleForm(*columns,
-                                       defaults={k: getattr(table[id], k) for k in column_names},
+                                       defaults={k: getattr(interface.query(rid), k) for k in column_names},
                                        readonly=True,
                                        submit='Verwijderen <i class="fa fa-times"></i>',
                                        success=delete,
-                                       cancel='view?id={}'.format(id)))
+                                       cancel='view?id={}'.format(rid)))
 
     return Crud
 
@@ -793,22 +868,23 @@ def generateCrud(*args, **kwargs):
 
 def simpleCrudServer(tables, page):
     """ Implement a simple CRUD interface for a Server class """
+
     class Server: pass
 
     for name, table in tables.items():
-        setattr(Server, name, generateCrud(table))
+        setattr(Server, name, generateCrud(DataInterface(table)))
 
     return Server
 
 
 def runServer(server, config={}):
-    initial_config = {  "/": {
-            "tools.staticdir.debug": True,
-            "tools.staticdir.root": os.path.join(os.path.dirname(__file__),'../../'),
-            "tools.trailing_slash.on": True,
-            "tools.staticdir.on": True,
-            "tools.staticdir.dir": "./html"
-          }}
+    initial_config = {"/": {
+        "tools.staticdir.debug": True,
+        "tools.staticdir.root": os.path.join(os.path.dirname(__file__), '../../'),
+        "tools.trailing_slash.on": True,
+        "tools.staticdir.on": True,
+        "tools.staticdir.dir": "./html"
+    }}
     if config:
         initial_config.update(config)
 
@@ -816,4 +892,3 @@ def runServer(server, config={}):
     logging.getLogger('cherrypy_error').setLevel(logging.ERROR)
 
     cherrypy.quickstart(server(), '/', initial_config)
-

@@ -94,6 +94,9 @@ class KeyRing:
             shutil.move(self.fname, self.fname+'.bak')
             shutil.move(self.fname+'.new', self.fname)
 
+    def get(self, key, default=None):
+        return self.data.get(key, default)
+
     def __iter__(self):
         return iter(self.keys())
 

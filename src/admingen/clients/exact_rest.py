@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 import json
 import threading
 import time
-from admingen.config import configtype
+from admingen.config import configtype, testmode
 
 
 
@@ -18,7 +18,6 @@ class ExactClientConfig:
     webhook_secret = ''
     client_id = ''
     redirect_uri = ''
-    TESTMODE = False
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -31,7 +30,7 @@ class ExactClientConfig:
         self.btwcodes_url = self.base + r"/v1/%(division)i/financial/VATs"
 
 
-config = ExactClientConfig()
+eoconfig = ExactClientConfig()
 
 
 def binquote(value):
@@ -101,18 +100,18 @@ def getTransactions(exact_division, token, start: datetime, end: datetime):
 
 def getUsers(exact_division, token):
     options = {'$select': 'Code,Name,Email'}
-    users = request(config.users_url % {'division': exact_division}, token, query=options)
+    users = request(eoconfig.users_url % {'division': exact_division}, token, query=options)
     return users
 
 
 def getAccounts(exact_division, token):
     options = {'$select': 'Code,Description'}
-    users = request(config.accounts_url % {'division': exact_division}, token, query=options)
+    users = request(eoconfig.accounts_url % {'division': exact_division}, token, query=options)
     return users
 
 
 def get_current_division(token):
-    url = config.base + '/v1/current/Me?$select=CurrentDivision'
+    url = eoconfig.base + '/v1/current/Me?$select=CurrentDivision'
     response = request(url, token)
     return response[0]['CurrentDivision']
 
@@ -122,7 +121,7 @@ def getDivisions(token):
     Get the "current" division and return a dictionary of divisions
     so the user can select the right one.
     """
-    if config.TESTMODE:
+    if testmode():
         return 15972, [15972, 1621446]
     # The detection of divisions does not work when current is 1621446
     # TODO: This needs to be implemented!
@@ -137,22 +136,22 @@ def getDivisions(token):
 
 def getBtwCodes(division, token):
     options = {}
-    users = request(config.accounts_url % {'division': exact_division}, token, query=options)
+    users = request(eoconfig.accounts_url % {'division': exact_division}, token, query=options)
     return users
 
 
 def getAccessToken(code):
     params = {'code': code,
-              'client_id': binquote(config.client_id),
+              'client_id': binquote(eoconfig.client_id),
               'grant_type': 'authorization_code',
-              'client_secret': binquote(config.client_secret),
-              'redirect_uri': binquote(config.redirect_uri)}
-    response = request(config.token_url, method='POST', params=params)
+              'client_secret': binquote(eoconfig.client_secret),
+              'redirect_uri': binquote(eoconfig.redirect_uri)}
+    response = request(eoconfig.token_url, method='POST', params=params)
     return response
 
 
 def authenticateExact(func):
-    if config.TESTMODE:
+    if testmode():
         def request(*args, **kwargs):
             if 'token' not in kwargs:
                 kwargs['token'] = 'dummy'
@@ -171,11 +170,11 @@ def authenticateExact(func):
                 return func(*args, **kwargs)
             # Otherwise let the user login and get the OAUTH token.
             values = '&'.join(['%s=%s'%(k, binquote(v)) \
-                           for k, v in dict(client_id=config.client_id,
-                                            redirect_uri=config.redirect_uri,
+                           for k, v in dict(client_id=eoconfig.client_id,
+                                            redirect_uri=eoconfig.redirect_uri,
                                             response_type='code',
                                             force_login='0').items()])
-            url = config.auth_url + '?' + values
+            url = eoconfig.auth_url + '?' + values
             raise cherrypy.HTTPRedirect(url)
     return request
 

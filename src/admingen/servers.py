@@ -457,7 +457,7 @@ def run_model(model: ApplicationModel):
         table_name, column_name = varpath.split('.')
         table = getattr(the_db, table_name)
 
-        baseclass = html.generateCrudCls(table, hidden=[column_name])
+        baseclass = html.generateCrudCls(html.DataInterface(table), hidden=[column_name])
 
         class FsmHandler(baseclass):
             @expose
