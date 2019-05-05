@@ -32,16 +32,16 @@ from model import SystemStates
 
 from dataclasses import dataclass, asdict, fields
 
-# FIXME: store smtp login details in keychain, unlocked with in-process password (?)
+# FIXME: check exact user has rights to the current administration
 # FIXME: make the download files un-guessable (use crypto hash with salt as file name)
 # FIXME: store financial details in encrypted files.
 # FIXME: add a delay to downloading an overview to defeat brute-force attacks
 # FIXME: require a login to download overzichten
-# FIXME: check exact user has rights to the current administration
 # FIXME: exact user has direct access to the admin site, but can not change admin number.
 # FIXME: smtp host selectie in organisaties laat geen dropdown menu zien.
 # FIXME: cherrypy toont nog veel debug informatie.
 
+# TODO: unlock keychain with in-process password (?)
 # TODO: allow the year to be entered as $jaar oid.
 # TODO: Selections alleen de waarde laten zien wanneer readonly
 # TODO: Uploaden van logo's
@@ -655,9 +655,15 @@ def run(static_dir=None):
     conf = config.getConfig('server')
 
     if not conf and config.testmode():
+        projdir = os.path.dirname(__file__)
         conf = {'global': {
             "tools.sessions.on": True
-        }}
+               }, '/': {
+            "tools.staticdir.root": projdir,
+            "tools.staticdir.on": True,
+            "tools.staticdir.dir": './public'
+        }
+        }
 
     cherrypy.quickstart(Overzichten(), '/', conf)
 

@@ -710,7 +710,9 @@ class DataInterface:
             self.table[rid].delete()
             commit()
 
-    def commit(self):
+    def update(self, rid, details):
+        if isinstance(details, dict):
+            raise RuntimeError('Not supported yet')
         commit()
 
 
@@ -747,6 +749,9 @@ def generateCrudCls(interface: DataInterface, Page=Page, hidden=None, acm=dummya
                     else:
                         converted = c.type(v)
                 except:
+                    if not column_details[n].required:
+                        result[n] = None
+                        continue
                     result[n] = v
                     errors[n] = 'Not a valid value for a %s' % c.type.__name__
                     continue

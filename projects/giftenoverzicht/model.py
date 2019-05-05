@@ -57,7 +57,6 @@ class Organisation(db.Entity):
     consolidated = orm.Optional(bool, default=True)
     template = orm.Optional(orm.LongStr, default='')
     mail_body = orm.Optional(orm.LongStr, default='')
-    admin_email = orm.Required(Email)
     exact_division = orm.Required(int)
     admin_id = orm.Required(int)
     logo = orm.Optional(ImagePath)
