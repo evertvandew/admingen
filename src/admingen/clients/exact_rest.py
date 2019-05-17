@@ -120,12 +120,12 @@ def getDivisions(token):
     """
     Get the "current" division and return a dictionary of divisions
     so the user can select the right one.
+
+    WARNING: Exact does NOT return all possible divisions, due to bugs.
     """
     if testmode():
-        return 15972, [15972, 1621446]
+        return 15972, {15972: 'Life Connexion', 1621446: 'C3 Church'}
     # The detection of divisions does not work when current is 1621446
-    # TODO: This needs to be implemented!
-    return 15972, [15972, 1621446]
     current = get_current_division(token)
     url = base + '/v1/%(division)i/hrm/Divisions?$select=Code,Description'
     url = url % {'division': current}
@@ -139,6 +139,21 @@ def getBtwCodes(division, token):
     users = request(eoconfig.accounts_url % {'division': exact_division}, token, query=options)
     return users
 
+
+def checkAuthorization(divisions, token):
+    """ Check to which divisions the supplied token gives access.
+
+        To check authorization, try to get the BTW codes for the division.
+    """
+    authorized = []
+    for division in divisions:
+        try:
+            result = getBtwCodes(division, token)
+            authorized.append(division)
+        except:
+            print('Not authorized', division)
+            pass
+    return authorized
 
 def getAccessToken(code):
     params = {'code': code,

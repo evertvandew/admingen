@@ -19,8 +19,8 @@ import cherrypy
 from cherrypy.lib.static import serve_file
 import calendar
 
-from admingen.clients.exact_rest import (authenticateExact, getUsers, getTransactions, getDivisions,
-                                         getAccounts)
+from admingen.clients.exact_rest import (authenticateExact, getUsers, getTransactions,
+                                         checkAuthorization, getAccounts)
 from admingen.htmltools import *
 from admingen import config
 from admingen.clients import smtp
@@ -32,15 +32,16 @@ from model import SystemStates
 
 from dataclasses import dataclass, asdict, fields
 
+
 # FIXME: check exact user has rights to the current administration
 # FIXME: make the download files un-guessable (use crypto hash with salt as file name)
-# FIXME: store financial details in encrypted files.
 # FIXME: add a delay to downloading an overview to defeat brute-force attacks
 # FIXME: require a login to download overzichten
 # FIXME: exact user has direct access to the admin site, but can not change admin number.
 # FIXME: smtp host selectie in organisaties laat geen dropdown menu zien.
 # FIXME: cherrypy toont nog veel debug informatie.
 
+# TODO: store financial details in encrypted files.
 # TODO: unlock keychain with in-process password (?)
 # TODO: allow the year to be entered as $jaar oid.
 # TODO: Selections alleen de waarde laten zien wanneer readonly
@@ -450,14 +451,13 @@ class Overzichten:
             raise cherrypy.HTTPRedirect('/process')
 
         def getOptions():
-            current, divisions = getDivisions(token=cherrypy.session['token'])
-            filtered_div = []
             with model.sessionScope():
-                for o in model.Organisation.select():
-                    if o.exact_division in divisions:
-                        filtered_div.append(o)
-            options = [(o.id, o.name) for o in filtered_div]
-            return options
+                organisations = [o for o in model.Organisation.select()]
+                divisions = [o.exact_division for o in organisations]
+                authorized = checkAuthorization(divisions, cherrypy.session['token'])
+                filtered_div = [o for o in organisations if o.exact_division in authorized]
+                options = [(o.id, o.name) for o in filtered_div]
+                return options
 
         return Page(Title('Overzicht Generator'),
                     SimpleForm(Selection('administratie', getOptions, 'Kies een administratie'),
@@ -570,7 +570,12 @@ class Overzichten:
     def all(self, fname):
         p = os.path.join(PDF_DIR.format(config.opsdir, cherrypy.session['org_id']), fname)
         print('REQUESTED', fname, os.path.exists(p))
+        # Always add a delay to hinder brute-force attacks.
+        # It is useless to only add it when an error occurred, then they just wait 0.1 second
+        # and interpret lack of response as failure.
+        time.sleep(3)
         return serve_file(os.path.abspath(p), "application/x-pdf", fname)
+
 
     @cherrypy.expose
     def logout(self):

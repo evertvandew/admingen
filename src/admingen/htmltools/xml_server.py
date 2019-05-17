@@ -8,10 +8,12 @@ import re
 import sys
 import io
 import argparse
-
+import markdown
+import cherrypy
 
 TAG_CLOSE_MSG = '__TAG_CLOSE__'
 
+acm = None
 
 def filterComment(instream, outstream):
     line = ''
@@ -61,6 +63,9 @@ def argument_parser():
 
 
 def Tag(handler):
+    """ Collect all lines (if any) that are, wrap them in the handler,
+        then yield them.
+    """
     def generator():
         arguments = None
         lines = []
@@ -80,6 +85,35 @@ def Tag(handler):
 
 
 
+def ContextTag(context):
+    """ When entering this tag, call a handler with the arguments.
+        Then handle the lines. Finally call the leave handler.
+    """
+    def generator():
+        lines = []
+        tagcontext = context()
+        tagcontext.send(None)
+        while True:
+            # Get either a line encapsulated by the tag, or...
+            # a dictionary with the arguments for the tag
+            line = yield None
+            # if the arguments were received, call the enter with it.
+            if isinstance(line, dict):
+                tagcontext.send(line)
+                continue
+
+            # Check if we are done
+            if line and line[0] == TAG_CLOSE_MSG:
+                _ = tagcontext.send(''.join(lines))
+                yield tagcontext.send(None)
+                return
+
+            # If we got here, the line is just a string.
+            lines.append(line)
+
+    return generator
+
+
 def handle_form(args, lines):
     return '''<form>
     {0}
@@ -97,6 +131,8 @@ def handle_field(args, lines):
 
 
 def handle_page(args, lines):
+    assert 'url' in args
+    server.add_page(args['url'], ''.join(lines))
     return 'Pagina: {0}'.format(''.join(lines))
 
 def handle_resourceeditor(args, lines):
@@ -105,17 +141,33 @@ def handle_resourceeditor(args, lines):
 def handle_largebutton(args, lines):
     return 'Hier komt een grote knop: %s' % args
 
+def ACMContext():
+    print('starting acmcontext')
+    arguments = yield None
+    print('Got arguments')
+    server.set_acm(**arguments)
+    lines = yield None
+    print ('Got lines')
+    server.acm = None
+    _ = yield lines
+    print ('acncontext done')
 
 
 generators = {'Page': Tag(handle_page),
               'LargeButton': Tag(handle_largebutton),
               'ResourceEditor': Tag(handle_resourceeditor),
               'Field': Tag(handle_field),
-              'Form': Tag(handle_form)}
+              'Form': Tag(handle_form),
+              'Acm': ContextTag(ACMContext)}
 
 my_tags = list(generators.keys())
 
 def processor(istream, ostream):
+    """ Parses the server definition file.
+
+        Scans the file for XML tags that we handle, and
+        executes the associated actions.
+    """
     without_comments = io.StringIO()
     filterComment(istream, without_comments)
     # Make the stream readable
@@ -225,6 +277,33 @@ def test():
     assert result == ''' Line 1  line 2
  line 3'''
 
+
+
+class Server:
+    acm = None
+    def set_acm(self, variable_name, redirect):
+        def wrap(func):
+            def checker(*args, **kwargs):
+                if not cherrypy.session.get(userid_key, False):
+                    raise cherrypy.HTTPRedirect(redirect_url)
+                return func(*args, **kwargs)
+            return checker
+        self.acm = wrap
+
+    def add_page(self, url, page):
+        # expand any markdown
+        html = markdown.markdown(page)
+        def page_server(*args, **kwargs):
+            return html
+        func = page_server
+        if self.acm is not None:
+            func = self.acm(func)
+        func = cherrypy.expose(func)
+        setattr(self, url, func)
+
+server = Server()
+
+
 if __name__ == '__main__':
     if False:
         test()
@@ -233,5 +312,11 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--input', default='-')
     args = parser.parse_args()
 
-    instream = sys.stdin if args.input == '-' else open(args.input)
+    if False:
+        instream = sys.stdin if args.input == '-' else open(args.input)
+    else:
+        instream = open('/home/ehwaal/admingen/projects/paypal_exact/hmi.md')
+
     processor(instream, sys.stdout)
+
+    cherrypy.quickstart(server, '/')
