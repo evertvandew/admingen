@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.6
+#!/usr/bin/env python3.7
 """ Run a specific project """
 
 import sys
@@ -9,6 +9,8 @@ root = os.path.abspath(os.path.dirname(__file__))
 srcdir = root + '/src'
 sys.path.append(os.path.join(root, 'projects'))
 sys.path.append(srcdir)
+
+print('System path:', '\n'.join(sys.path))
 
 paths = os.environ.get('PYTHONPATH', '').split(os.pathsep)
 paths.append(os.pathsep+srcdir)

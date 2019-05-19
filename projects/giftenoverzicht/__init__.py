@@ -25,10 +25,10 @@ from admingen.htmltools import *
 from admingen import config
 from admingen.clients import smtp
 from admingen.keyring import KeyRing
-from giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
+from .giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
                     odataDate2Datetime, generate_pdfs, pdfName, PDF_DIR)
-import model
-from model import SystemStates
+from . import model
+from .model import SystemStates
 
 from dataclasses import dataclass, asdict, fields
 
@@ -645,15 +645,15 @@ class Overzichten:
 def run(static_dir=None):
     model.openDb('sqlite://%s/overzichtgen.db' % config.opsdir)
 
-    if config.testmode():
-        # Ensure there is a 'test' user with password 'testingtesting'
-        # When deploying the giftenoverzicht app, remember to delete this user!
-        with sessionScope():
-            if orm.count(u for u in model.User) == 0:
-                test_user = model.User(name='test', fullname='test user',
-                                       password=password2str('testingtesting'),
-                                       role='Admin',
-                                       email='pietje.puk@sesamstraat.nl')
+    # Ensure there is a 'test' user with password 'testingtesting'
+    # This should be changed immediatly after deployment!
+    # When deploying the giftenoverzicht app, remember to delete this user!
+    with sessionScope():
+        if orm.count(u for u in model.User) == 0:
+            test_user = model.User(name='test', fullname='test user',
+                                   password=password2str('testingtesting'),
+                                   role='Admin',
+                                   email='pietje.puk@sesamstraat.nl')
 
     # cherrypy.log.access_log.propagate = False
     logging.getLogger('cherrypy_error').setLevel(logging.ERROR)

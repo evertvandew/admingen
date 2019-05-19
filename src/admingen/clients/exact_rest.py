@@ -7,6 +7,7 @@ import json
 import threading
 import time
 from admingen.config import configtype, testmode
+import traceback
 
 
 
@@ -136,7 +137,7 @@ def getDivisions(token):
 
 def getBtwCodes(division, token):
     options = {}
-    users = request(eoconfig.accounts_url % {'division': exact_division}, token, query=options)
+    users = request(eoconfig.accounts_url % {'division': division}, token, query=options)
     return users
 
 
@@ -151,6 +152,7 @@ def checkAuthorization(divisions, token):
             result = getBtwCodes(division, token)
             authorized.append(division)
         except:
+            traceback.print_exc('GetBtwCodes Error')
             print('Not authorized', division)
             pass
     return authorized
