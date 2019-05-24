@@ -607,7 +607,9 @@ def ACM(permissions, login_func):
                     return result
                 # The user logged-in, we need to move to a fresh 'GET' request
                 cherrypy.request.method = 'GET'
-                kwargs = eval(kwargs['org_arg'])  # FIXME: I am dangerous...
+                # Eval the arguments to allow Python-syntax arguments,
+                # but do not allow access to local or global variables.
+                kwargs = eval(kwargs['org_arg'], {}, {})
             role = cherrypy.session['role']
             if not acm or role in acm:
                 return func(*args, **kwargs)

@@ -87,12 +87,21 @@ class KeyRing:
         if self[key] == value:
             return
         self.data[key] = value
+        self.update_file()
+
+    def __delitem__(self, key):
+        if key not in self.data:
+            return
+        del self.data[key]
+        self.update_file()
+
+    def update_file(self):
         if self.fname:
             # Make a backup to protect against file corruption due to crashes
-            logging.debug('Writing to keyring %s'%self.fname)
-            writeFile(self.fname+'.new', self.passwd, self.data)
-            shutil.move(self.fname, self.fname+'.bak')
-            shutil.move(self.fname+'.new', self.fname)
+            logging.debug('Writing to keyring %s' % self.fname)
+            writeFile(self.fname + '.new', self.passwd, self.data)
+            shutil.move(self.fname, self.fname + '.bak')
+            shutil.move(self.fname + '.new', self.fname)
 
     def get(self, key, default=None):
         return self.data.get(key, default)

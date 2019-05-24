@@ -32,22 +32,23 @@ from .model import SystemStates
 
 from dataclasses import dataclass, asdict, fields
 
-
-# FIXME: check exact user has rights to the current administration
 # FIXME: make the download files un-guessable (use crypto hash with salt as file name)
-# FIXME: add a delay to downloading an overview to defeat brute-force attacks
-# FIXME: require a login to download overzichten
-# FIXME: exact user has direct access to the admin site, but can not change admin number.
-# FIXME: smtp host selectie in organisaties laat geen dropdown menu zien.
 # FIXME: cherrypy toont nog veel debug informatie.
 
 # TODO: store financial details in encrypted files.
 # TODO: unlock keychain with in-process password (?)
 # TODO: allow the year to be entered as $jaar oid.
 # TODO: Selections alleen de waarde laten zien wanneer readonly
-# TODO: Uploaden van logo's
 # TODO: Maak loggen configureerbaar via de settings.json
 # TODO: selecteren / deselecteren van mensen om te mailen
+
+# DONE: exact en SMTP secrets worden opgeslagen in een versleuteld file.
+# DONE: Either allow an Exact or Local login for administration.
+# DONE: check exact user has rights to the current administration
+# DONE: Uploaden van logo's
+# DONE: add a delay to downloading an overview to defeat brute-force attacks
+# DONE: require a login to download overzichten
+
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -412,6 +413,13 @@ class SmtpDetailsData:
             details = asdict(details)
         self.keychain[smtp_key % rid] = details
 
+    def delete(self, rid):
+        key = smtp_key % rid
+        if key in self.keychain:
+            del self.keychain[key]
+
+
+
 
 class Overzichten:
     acm = ACM({}, handle_login)
@@ -437,7 +445,14 @@ class Overzichten:
     @cherrypy.expose
     @authenticateExact
     def index(self, **kwargs):
+        # Everytime a person is authenticated through Exact, they go through here.
+        # Set the Exact token in the session
         cherrypy.session['token'] = kwargs['token']
+        # Also set a default userid and role for the administrative part of the website
+        if not cherrypy.session.get('user_id', False):
+            cherrypy.session['user_id'] = 'exact'
+        if not cherrypy.session.get('role'):
+            cherrypy.session['role'] = 'Admin'
         if 'org_id' in cherrypy.session:
             raise cherrypy.HTTPRedirect('/process')
         else:
@@ -620,7 +635,7 @@ class Overzichten:
                               index_show=['id', 'name', 'fullname', 'role'])
 
     smtp_details = generateCrud(smtp_data, adminPage, acm=crud_acm,
-                                index_show=['id', 'name', 'mailfrom'])
+                                index_show=['id', 'name', 'mailfrom'], hidden='id')
 
     def new_index(wrapped):
         @cherrypy.expose
