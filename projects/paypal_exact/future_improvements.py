@@ -174,7 +174,7 @@ def checker(groupedtransactions, xml, config):
 
 def run(configpath, basedir, taskid, ofname, ifname):
     # Read the configuration
-    taskid = int(taskid)
+    print('HANDLING TASK', taskid)
     data = DataReader(configpath)
     config = paypal_export_config(**data['TaskConfig'][taskid])
     home = os.path.join(basedir, 'task_%i' % taskid)
@@ -327,4 +327,8 @@ if __name__ == '__main__':
     p.add_argument('-v', '--verify', action='store_true')
     p.add_argument('-f', '--infile', default=None)
     args = p.parse_args()
-    run(args.config, args.basedir, args.taskid, args.outfile, args.infile)
+
+    taskids = [int(t) for t in args.taskid.split()]
+
+    for taskid in taskids:
+        run(args.config, args.basedir, taskid, args.outfile, args.infile)

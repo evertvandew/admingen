@@ -104,8 +104,8 @@ def ContextTag(context):
 
             # Check if we are done
             if line and line[0] == TAG_CLOSE_MSG:
-                _ = tagcontext.send(''.join(lines))
-                yield tagcontext.send(None)
+                result = tagcontext.send(''.join(lines))
+                yield result
                 return
 
             # If we got here, the line is just a string.
@@ -142,15 +142,11 @@ def handle_largebutton(args, lines):
     return 'Hier komt een grote knop: %s' % args
 
 def ACMContext():
-    print('starting acmcontext')
     arguments = yield None
-    print('Got arguments')
     server.set_acm(**arguments)
     lines = yield None
-    print ('Got lines')
     server.acm = None
     _ = yield lines
-    print ('acncontext done')
 
 
 generators = {'Page': Tag(handle_page),
@@ -284,8 +280,8 @@ class Server:
     def set_acm(self, variable_name, redirect):
         def wrap(func):
             def checker(*args, **kwargs):
-                if not cherrypy.session.get(userid_key, False):
-                    raise cherrypy.HTTPRedirect(redirect_url)
+                if not cherrypy.session.get(variable_name, False):
+                    raise cherrypy.HTTPRedirect(redirect)
                 return func(*args, **kwargs)
             return checker
         self.acm = wrap
@@ -309,14 +305,11 @@ if __name__ == '__main__':
         test()
         sys.exit(0)
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', default='-')
+    parser.add_argument('-i', '--input', default='/home/ehwaal/admingen/projects/paypal_exact/hmi.md')
     args = parser.parse_args()
 
-    if False:
-        instream = sys.stdin if args.input == '-' else open(args.input)
-    else:
-        instream = open('/home/ehwaal/admingen/projects/paypal_exact/hmi.md')
+    instream = sys.stdin if (not args.input) or args.input == '-' else open(args.input)
 
     processor(instream, sys.stdout)
 
-    cherrypy.quickstart(server, '/')
+    cherrypy.quickstart(server, '/', {'/': {'tools.sessions.on': True}})
