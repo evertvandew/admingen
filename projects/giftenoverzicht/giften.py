@@ -191,7 +191,7 @@ def pdfName(org_id, user_name, user_code):
     salt = b'EenGedrukte,Geschudde,OverlopendeMaat'
 
     upart = (user_name.translate(REMOVE_PUNC) + '_%s' % user_code.strip('_ ')).encode('utf8')
-    m = hashlib.sha512()
+    m = hashlib.sha1()
     m.update(salt)
     m.update(upart)
     return os.path.join(PDF_DIR.format(vardir, org_id),
@@ -209,7 +209,9 @@ def generate_pdfs(org, users, transactions):
         with open(temp_file, 'w') as f:
             f.write(rst)
         fname = pdfName(org['id'], name, code)
-        subprocess.call([RST2PDF, temp_file, '-o', fname, '-s', 'stylesheet.txt'])
+        cmnd = [RST2PDF, temp_file, '-o', fname, '-s', 'stylesheet.txt']
+        print ('Executing:', cmnd)
+        subprocess.call(cmnd)
 
 
 if __name__ == '__main__':

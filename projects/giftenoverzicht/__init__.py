@@ -209,7 +209,8 @@ def adminPage(*args, **kwargs):
     phase = Overzichten.getState() or 1
     texts = [('Organisaties', '/organisaties'),
              ('Gebruikers', '/gebruikers'),
-             ('Smtp Instellingen', '/smtp_details')
+             ('Smtp Instellingen', '/smtp_details'),
+             ('Testen', '/testing')
              ]
 
     buttons = [Button(txt, style='width:100%',
@@ -458,6 +459,15 @@ class Overzichten:
         else:
             raise cherrypy.HTTPRedirect('/select_division')
 
+    def getOptions(self):
+        with model.sessionScope():
+            organisations = [o for o in model.Organisation.select()]
+            divisions = [o.exact_division for o in organisations]
+            authorized = checkAuthorization(divisions, cherrypy.session['token'])
+            filtered_div = [o for o in organisations if o.exact_division in authorized]
+            options = [(o.id, o.name) for o in filtered_div]
+            return options
+
     @cherrypy.expose
     @check_token
     def select_division(self, **kwargs):
@@ -465,17 +475,8 @@ class Overzichten:
             cherrypy.session['org_id'] = int(kwargs['administratie'])
             raise cherrypy.HTTPRedirect('/process')
 
-        def getOptions():
-            with model.sessionScope():
-                organisations = [o for o in model.Organisation.select()]
-                divisions = [o.exact_division for o in organisations]
-                authorized = checkAuthorization(divisions, cherrypy.session['token'])
-                filtered_div = [o for o in organisations if o.exact_division in authorized]
-                options = [(o.id, o.name) for o in filtered_div]
-                return options
-
         return Page(Title('Overzicht Generator'),
-                    SimpleForm(Selection('administratie', getOptions, 'Kies een administratie'),
+                    SimpleForm(Selection('administratie', self.getOptions, 'Kies een administratie'),
                                defaults=kwargs,
                                success=onChoice))
 
@@ -623,9 +624,73 @@ class Overzichten:
 
         return verstuur_overzicht(**params)
 
+
+    ### The administration pages
+
     crud_acm = ACM(
         {'view': ['Admin', 'User'], 'index': ['Admin'], 'edit': ['Admin'], 'delete': ['Admin']},
         handle_login)
+
+
+    test_report_name = 'testoverzicht'
+
+    def check_testmail(self, **kwargs):
+        p = os.path.join(PDF_DIR.format(config.opsdir, 0, self.test_report_name))
+        if not os.path.exists(p):
+            return Verify
+
+
+    def send_testmail(self):
+        pass
+
+
+    @cherrypy.expose
+    @crud_acm
+    def show_testtemplate(self, *args):
+        fname = pdfName('0', 'Puk, Pietje', '              1661')
+        print('Trying', fname)
+        return serve_file(os.path.abspath(fname), "application/x-pdf", 'testreport.pdf')
+
+    def render_template(self, org_id):
+        with model.sessionScope():
+            org = model.Organisation[org_id].to_dict(with_lazy=True)
+        home = os.path.join(os.path.dirname(__file__), '../..')
+        org['id'] = 0
+        org['gift_accounts'] = '8000 8100'
+
+        transactions = json.load(open(os.path.join(home, 'test/giftenoverzicht_tests/1.transactions.json')))
+        users = json.load(open(os.path.join(home, 'test/giftenoverzicht_tests/1.users.json')))
+        generate_pdfs(org, users, transactions)
+        raise cherrypy.HTTPRedirect('/show_testtemplate')
+
+
+    def getOrganisations(self):
+        with model.sessionScope():
+            orgs = model.Organisation.select()
+            return [(o.id, o.name) for o in orgs]
+
+
+
+    @cherrypy.expose
+    @crud_acm
+    def generate_testreport(self, **kwargs):
+        if 'org_id' in cherrypy.session:
+            orgid = Hidden('org_id')
+        else:
+            orgid = Selection('org_id', self.getOrganisations, 'Kies een administratie')
+        return adminPage(SimpleForm(orgid,
+                                    submit='Genereer Testdocument',
+                                    success=self.render_template
+                                    )
+                         )
+
+    @cherrypy.expose
+    @crud_acm
+    def testing(self, **kwargs):
+        return adminPage(Button('Genereer een testrapport', 'generate_testreport'))
+
+
+
     organisaties = generateCrud(DataInterface(model.Organisation), adminPage, acm=crud_acm,
                                 index_show=['id', 'name', 'description'],
                                 hidden=['period_start', 'period_end', 'status']
@@ -638,6 +703,7 @@ class Overzichten:
                                 index_show=['id', 'name', 'mailfrom'], hidden='id')
 
     def new_index(wrapped):
+        """ Function for editing the SMTP details """
         @cherrypy.expose
         def doit(*args, **kwargs):
             # First check that records exist for all organisations

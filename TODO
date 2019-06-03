@@ -1,5 +1,9 @@
 PROJECT ADMINGEN TODO
 
+INTERESTING:
+
+Try to use WebDAV to map internal programming resources to the file system (by mounting dav.fs). Thus we can try to experiment with some of the Plan 9 ideas... Problem is that WebDAV is oriented to files, not so much streams... No real-time support? 
+
 BUGS:
 De template engine van het mailtje struikelt over het percentage teken. Gebruik iets dat robuster is!
 

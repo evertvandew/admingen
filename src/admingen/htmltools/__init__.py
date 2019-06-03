@@ -243,7 +243,6 @@ def Collapsibles(bodies, headers=None):
 def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
                submit='Opslaan', enctype="multipart/form-data", readonly=False, cancel=None):
     # Handle the POST
-    print('FORM GOT A REQUEST', cherrypy.request.method)
     errors = {}
     if cherrypy.request.method == 'POST':
         # Call the global validator
