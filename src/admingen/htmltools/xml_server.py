@@ -287,6 +287,7 @@ class Server:
         self.acm = wrap
 
     def add_page(self, url, page):
+        print('Adding page', url)
         # expand any markdown
         html = markdown.markdown(page)
         def page_server(*args, **kwargs):
@@ -305,11 +306,11 @@ if __name__ == '__main__':
         test()
         sys.exit(0)
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', default='/home/ehwaal/admingen/projects/paypal_exact/hmi.md')
+    parser.add_argument('-i', '--input', default='/home/ehwaal/admingen/projects/xml_server/hmi.xml')
     args = parser.parse_args()
 
     instream = sys.stdin if (not args.input) or args.input == '-' else open(args.input)
 
-    processor(instream, sys.stdout)
+    processor(instream, open('/dev/null', 'w'))
 
     cherrypy.quickstart(server, '/', {'/': {'tools.sessions.on': True}})

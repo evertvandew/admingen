@@ -7,9 +7,10 @@ requests
 pycrypto
 configobj
 jinja2
+mako
 selenium
 markdown
-rst2pdf
+# rst2pdf -- can not be installed in Python3
 Babel
 caldav
 python-dateutil

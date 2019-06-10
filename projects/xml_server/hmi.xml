@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+
+<Datamodel name="giftenoverzicht">
+table: Organisation
+    name: str, required, unique
+    description: longstr
+    mailfrom: email
+    gift_accounts: str
+    consolidated: bool, default=1
+    template: longstr
+    mail_body: longstr
+    exact_division: int, required, unique
+    admin_id: int
+    logo: ImagePath
+    status: int, default=1
+    period_start: datetime
+    perdiod_end: datetime
+table: User
+    name: str, required, unique
+    fullname: str
+    password: password, required
+    role: str, required
+    email: email
+</Datamodel>
+
+
+<Template tag="LargeButton" args="url">
+    <A HREF="${url}" class="btn btn-large">${lines}</A>
+</Template>
+
+<Template tag="Form" args="submit='/data/login'">
+    <form>
+        ${lines}
+        <input type="submit" value="${submit}" />
+    </form>
+</Template>
+
+<Template tag="Field" args="name,text,type='text'">
+    <label>${text} <input name="${name}" type="${type}" /></label>
+</Template>
+
+<Template tag="AutoField" args="datafield,hidden">
+    <%
+        input_types = ['str', 'email', 'password', 'bool', 'date', 'datetime',
+                       'int']
+
+        source, table, column = datafield.split('/')
+        dataitem = datamodels[source][table][column]
+        coltype = dataitem[0]
+        details = {k.split('=')[0]: (k.split('=', maxsplit=1)[1] if '=' in k else None) 
+                for k in dataitem[1:]}
+        
+        if coltype in input_types:
+            translator = {'str': 'text', 'int': 'number', 'bool': 'checkbox'}
+            inputtype = translator.get(coltype, coltype)
+    %>
+    <label> ${column} </label>
+    <input type="${inputtype}" name="${source}.${table}.${column}" />
+</Template>
+
+<Template tag="AutoForm" args="datasource,hidden">
+    <% 
+        source, table = datasource.split('/')
+        table_data = datamodels[source][table]
+        column_paths = ['%s/%s'%(datasource, col) for col in table_data.keys()]
+    %>
+    <form>
+            % for column in column_paths:
+            <AutoField datafield="${column}" />
+            % endfor
+    </form>
+</Template>
+
+<Acm redirect="login" variable_name="user">
+<Page url="index">
+
+# Welkom bij de beheerinterface van de Giftenoverzicht generator
+
+<LargeButton url="manage_organisation">Beheer Organisaties</LargeButton>
+<LargeButton url="manage_users" auth="admin">Beheer Gebruikers</LargeButton>
+
+</Page>
+<Page url="manage_organisation">
+
+<AutoForm datasource="giftenoverzicht/Organisation"/>
+
+</Page>
+<Page url="manage_users">
+
+</Page>
+</Acm>
+
+<Page url="login">
+## Please login to use the website
+<Form submit="/data/login">
+<Field name="username" text="Gebuikersnaam" />
+<Field name="password" text="Paswoord" type="password" />
+</Form>
+</Page>
