@@ -11,28 +11,6 @@ TAG_CLOSE_MSG = '__TAG_CLOSE__'
 
 data_models = {}
 
-def handle_Template(args, lines):
-    tag = args['tag']
-    kwargsdef = {}
-    for adef in args.get('args', '').split(','):
-        parts = adef.split('=', maxsplit=1)
-        if len(parts) > 1:
-            kwargsdef[parts[0]] = eval(parts[1])
-        else:
-            kwargsdef[parts[0]] = ''
-    #template = env.from_string(lines)
-    template = Template(lines)
-
-    def expand_template(args, lines):
-        arguments = kwargsdef.copy()
-        for k, v in args.items():
-            arguments[k] = v
-        return template.render(lines=lines, datamodels=data_models, **arguments)
-
-    generators[tag] = Tag(expand_template)
-    update_res()
-    return ''
-
 
 def handle_Datamodel(args, lines):
     """ Analyse and store data model definitions """
@@ -83,11 +61,6 @@ def Tag(handler):
 
             lines.append(line)
     return generator
-
-
-
-generators = {'Template': Tag(handle_Template),
-              'Datamodel': Tag(handle_Datamodel)}
 
 
 
@@ -145,29 +118,64 @@ argsend = re.compile(r'([^"/>]|("[^"]*?"))*(/?>)')
 template_end = re.compile(r'</\s*Template\s*>')
 
 
-def update_res():
+def update_res(generators):
     global tag_start, tag_end
     # Prepare a RE to find all custom tags
     wrapped_tags = '|'.join('(%s)' % t for t in generators.keys())
     tag_start = re.compile(r'<(%s)' % wrapped_tags)
     tag_end = re.compile(r'</(%s)>' % wrapped_tags)
+    print ('Searching for tags', wrapped_tags, file=sys.stderr)
 
 
 
+generators = {'Datamodel': Tag(handle_Datamodel)}
 
 
-def processor(istream, ostream):
+def processor(generators=generators, istream=sys.stdin, ostream=sys.stdout):
     """ Parses the server definition file.
 
         Scans the file for XML tags that we handle, and
         executes the associated actions.
     """
+
+    def handle_Template(args, lines):
+        tag = args['tag']
+        kwargsdef = {}
+        for adef in args.get('args', '').split(','):
+            parts = adef.split('=', maxsplit=1)
+            if len(parts) > 1:
+                kwargsdef[parts[0]] = eval(parts[1])
+            else:
+                kwargsdef[parts[0]] = ''
+        # template = env.from_string(lines)
+        template = Template(lines)
+
+        def expand_template(args, lines):
+            arguments = kwargsdef.copy()
+            for k, v in args.items():
+                arguments[k] = v
+            expand_self = io.StringIO(
+                template.render(lines=lines, datamodels=data_models, **arguments))
+            expand_others = io.StringIO()
+            processor(istream=expand_self, ostream=expand_others)
+            return expand_others.getvalue()
+
+        generators[tag] = Tag(expand_template)
+        update_res(generators)
+        return ''
+
+    generators['Template'] = Tag(handle_Template)
+
+    update_res(generators)
+
+    print('Handling tags:', generators.keys(), file=sys.stderr)
+
     without_comments = io.StringIO()
     filterComment(istream, without_comments)
     # Make the stream readable
     without_comments.seek(0)
 
-    update_res()
+    update_res(generators)
 
     line = ''
     tag_stack = []
@@ -181,6 +189,7 @@ def processor(istream, ostream):
         parts = tag_start.split(line, maxsplit=1)
         if len(parts) > 1:
             # We found one!
+            print ('Found a tag', parts[1], file=sys.stderr)
             # Feed the bit before the tag to the current tag / document
             if tag_stack:
                 tag_stack[-1].send(parts[0])
@@ -255,4 +264,7 @@ def processor(istream, ostream):
             line = ''
 
 
-processor(open('/home/ehwaal/admingen/projects/xml_server/hmi.xml'), sys.stdout)
+if __name__ == '__main__':
+
+    processor(generators,
+              open('/home/ehwaal/admingen/projects/xml_server/hmi.xml'))

@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""
+Take a XML-server definition, and take out the Page tags, add some HTML overhead and
+write them to the file system as static pages.
+"""
+
+from admingen.htmltools.xml_template import generators, processor, Tag, Template
+import os, os.path
+
+
+page_template = Template("""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+        <title>Admingen</title>
+    {header}
+    <link rel="stylesheet" type="text/css" href="/static/css/bootstrap.min.css" />
+    <link rel="stylesheet" type="text/css" href="/static/css/font-awesome.min.css" />
+    <link rel="stylesheet" type="text/css" href="/static/css/custom-theme/jquery-ui-1.10.0.custom.css" />
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css" />
+    <script src="/static/js/jquery/jquery-1.11.2.min.js"></script>
+    <script src="/static/js/bootstrap/bootstrap.js"></script>
+
+
+</head>
+<body style="margin-top:0px">
+${lines}
+</body>
+</html>""")
+
+
+created_pages = []
+
+def handle_Page(args, lines):
+    url = args['url']
+    assert ':' not in url
+    if url in created_pages:
+        raise RuntimeError('Creating page', url, 'for the second time')
+    text = page_template.render(lines=lines)
+    dirname, fname = os.path.split('html/'+url)
+    print (dirname, fname)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    with open(os.path.join(dirname, fname), 'w') as out:
+        out.write(text)
+    return ''
+
+
+processor({'Page': Tag(handle_Page)})

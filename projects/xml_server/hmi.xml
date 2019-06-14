@@ -49,13 +49,23 @@ table: User
         coltype = dataitem[0]
         details = {k.split('=')[0]: (k.split('=', maxsplit=1)[1] if '=' in k else None) 
                 for k in dataitem[1:]}
-        
+        name = ".".join([source, table, column])
         if coltype in input_types:
             translator = {'str': 'text', 'int': 'number', 'bool': 'checkbox'}
             inputtype = translator.get(coltype, coltype)
     %>
-    <label> ${column} </label>
-    <input type="${inputtype}" name="${source}.${table}.${column}" />
+    <div class="form-group">
+        <label class="col col-md-3 control-label">${column}</label>
+        <div class="col col-md-9">
+          % if coltype in input_types:
+            <input type="${inputtype}" name="${name}" />
+          % elif coltype == 'longstr':
+            <textarea name="${name}" ></textarea>
+          % else:
+                Column type ${coltype} is not supported
+          % endif
+        </div>
+    </div>
 </Template>
 
 <Template tag="AutoForm" args="datasource,hidden">
@@ -64,33 +74,42 @@ table: User
         table_data = datamodels[source][table]
         column_paths = ['%s/%s'%(datasource, col) for col in table_data.keys()]
     %>
-    <form>
-            % for column in column_paths:
-            <AutoField datafield="${column}" />
-            % endfor
-    </form>
+      <div id="div_${datasource}" class="container">
+        <div class="row">
+          <div class="col col-md-12">
+            <form id="form_${datasource}" action="{action}" method="post" enctype="{enctype}" class="form-horizontal">
+              % for column in column_paths:
+                <AutoField datafield="${column}" />
+              % endfor
+              <div class="col col-md-9 col-md-offset-3">
+                  <input type="submit">Opslaan</input>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
 </Template>
 
 <Acm redirect="login" variable_name="user">
-<Page url="index">
+<Page url="index.html">
 
 # Welkom bij de beheerinterface van de Giftenoverzicht generator
 
-<LargeButton url="manage_organisation">Beheer Organisaties</LargeButton>
-<LargeButton url="manage_users" auth="admin">Beheer Gebruikers</LargeButton>
+<LargeButton url="manage_organisation.html">Beheer Organisaties</LargeButton>
+<LargeButton url="manage_users.html" auth="admin">Beheer Gebruikers</LargeButton>
 
 </Page>
-<Page url="manage_organisation">
+<Page url="manage_organisation.html">
 
 <AutoForm datasource="giftenoverzicht/Organisation"/>
 
 </Page>
-<Page url="manage_users">
+<Page url="manage_users.html">
 
 </Page>
 </Acm>
 
-<Page url="login">
+<Page url="login.html">
 ## Please login to use the website
 <Form submit="/data/login">
 <Field name="username" text="Gebuikersnaam" />

@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+
+from admingen.htmltools.xml_template import processor
+
+
+processor()
