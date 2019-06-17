@@ -2,6 +2,7 @@ import sys
 import io
 import re
 from mako.template import Template
+from mako import exceptions
 
 
 TAG_CLOSE_MSG = '__TAG_CLOSE__'
@@ -137,6 +138,7 @@ def processor(generators=generators, istream=sys.stdin, ostream=sys.stdout):
         Scans the file for XML tags that we handle, and
         executes the associated actions.
     """
+    istream = open(istream) if isinstance(istream, str) else istream
 
     def handle_Template(args, lines):
         tag = args['tag']
@@ -154,8 +156,15 @@ def processor(generators=generators, istream=sys.stdin, ostream=sys.stdout):
             arguments = kwargsdef.copy()
             for k, v in args.items():
                 arguments[k] = v
-            expand_self = io.StringIO(
-                template.render(lines=lines, datamodels=data_models, **arguments))
+            if 'id' not in arguments:
+                # 'id' is much used in HTML. Ensure it exists.
+                arguments['id'] = None
+            try:
+                expand_self = io.StringIO(
+                    template.render(lines=lines, datamodels=data_models, **arguments))
+            except:
+                print(exceptions.text_error_template().render(), file=sys.stderr)
+                return '<An error occurred when rendering template for %s'%tag
             expand_others = io.StringIO()
             processor(istream=expand_self, ostream=expand_others)
             return expand_others.getvalue()
@@ -177,24 +186,26 @@ def processor(generators=generators, istream=sys.stdin, ostream=sys.stdout):
 
     update_res(generators)
 
+    buffer = io.StringIO()
+
     line = ''
     tag_stack = []
     while True:
         if not line:
             line = without_comments.readline()
         if not line:
-            return
+            break
 
         # See if a new tag is being started
         parts = tag_start.split(line, maxsplit=1)
         if len(parts) > 1:
             # We found one!
-            print ('Found a tag', parts[1], file=sys.stderr)
+            print ('Found a tag', parts[1], line, file=sys.stderr)
             # Feed the bit before the tag to the current tag / document
             if tag_stack:
                 tag_stack[-1].send(parts[0])
             else:
-                ostream.write(parts[0])
+                buffer.write(parts[0])
             # Create the new tag
             new_tag = generators[parts[1]]()
             tag_stack.append(new_tag)
@@ -220,7 +231,7 @@ def processor(generators=generators, istream=sys.stdin, ostream=sys.stdout):
                         if tag_stack:
                             tag_stack[-1].send(result)
                         else:
-                            ostream.write(result)
+                            buffer.write(result)
 
                     # parse the remainder of the line
                     line = line[m.span()[1]:]
@@ -252,7 +263,7 @@ def processor(generators=generators, istream=sys.stdin, ostream=sys.stdout):
             if tag_stack:
                 tag_stack[-1].send(result)
             else:
-                ostream.write(result)
+                buffer.write(result)
             line = parts[-1]
 
         # Write the rest of the line
@@ -260,11 +271,15 @@ def processor(generators=generators, istream=sys.stdin, ostream=sys.stdout):
             if tag_stack:
                 tag_stack[-1].send(line)
             else:
-                ostream.write(line)
+                buffer.write(line)
             line = ''
 
 
-if __name__ == '__main__':
+    # Write the contents of the buffer to the ostream
 
-    processor(generators,
-              open('/home/ehwaal/admingen/projects/xml_server/hmi.xml'))
+    ostream = open(ostream, 'w') if isinstance(ostream, str) else ostream
+    ostream.write(buffer.getvalue())
+
+
+if __name__ == '__main__':
+    processor(istream=open('/home/ehwaal/admingen/projects/xml_server/hmi.xml'))

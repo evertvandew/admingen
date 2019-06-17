@@ -28,6 +28,29 @@ table: User
     <A HREF="${url}" class="btn btn-large">${lines}</A>
 </Template>
 
+<Template tag="SmartTable" args="header,data=[],tid">
+
+    <%
+    header = eval(pageargs['header'])
+    %>
+    <table ${'id="%s"'%id if id else ''} class="table table-hover table-bordered">
+        % if header:
+            <thead><tr>
+                % for h in header:
+                    <th>${h}</th>
+                % endfor
+            </tr></thead>
+        % endif
+        % for line in data:
+            <tr>
+                % for part in line:
+                    <td>${part}</td>
+                % endfor
+            </tr>
+        % endfor
+    </table>
+</Template>
+
 <Template tag="Form" args="submit='/data/login'">
     <form>
         ${lines}
@@ -35,16 +58,16 @@ table: User
     </form>
 </Template>
 
-<Template tag="Field" args="name,text,type='text'">
+<Template tag="Field" args="name,text,type='text',id">
     <label>${text} <input name="${name}" type="${type}" /></label>
 </Template>
 
-<Template tag="AutoField" args="datafield,hidden">
+<Template tag="AutoField" args="datafield,id">
     <%
         input_types = ['str', 'email', 'password', 'bool', 'date', 'datetime',
                        'int']
 
-        source, table, column = datafield.split('/')
+        source, table, column = datafield.split('.')
         dataitem = datamodels[source][table][column]
         coltype = dataitem[0]
         details = {k.split('=')[0]: (k.split('=', maxsplit=1)[1] if '=' in k else None) 
@@ -68,11 +91,11 @@ table: User
     </div>
 </Template>
 
-<Template tag="AutoForm" args="datasource,hidden">
+<Template tag="AutoForm" args="datasource">
     <% 
-        source, table = datasource.split('/')
+        source, table = datasource.split('.')
         table_data = datamodels[source][table]
-        column_paths = ['%s/%s'%(datasource, col) for col in table_data.keys()]
+        column_paths = ['%s.%s'%(datasource, col) for col in table_data.keys()]
     %>
       <div id="div_${datasource}" class="container">
         <div class="row">
@@ -82,13 +105,71 @@ table: User
                 <AutoField datafield="${column}" />
               % endfor
               <div class="col col-md-9 col-md-offset-3">
-                  <input type="submit">Opslaan</input>
+                  <button class="btn btn-primary" type="submit" value="Submit">Opslaan</button>
               </div>
             </form>
           </div>
         </div>
       </div>
 </Template>
+
+
+<Template tag="AutoEditor" args="datasource,url">
+    <!-- We need several pages: an overview, a details view, a details edit and a delete page. -->
+    <% 
+        source, table = datasource.split('.')
+        table_data = datamodels[source][table]
+        column_paths = ['%s.%s'%(datasource, col) for col in table_data.keys()]
+    %>
+    <Page url="${url}/index.html">
+        <script>
+        /* Get the listing of the resource */
+        $( document ).ready(function() {
+            $.get("/data/${table}/index", function(data) {
+                /* Update the list showing the all elements in the resource. */
+                var table = $( "table[id|='${url}']" )[0]
+                data.forEach(function(line) {
+                    var row = table.insertRow(-1);
+                    % for col in table_data.keys():
+                        var cell = row.insertCell(-1);
+                        cell.innerHTML = line.${col};
+                    % endfor
+                    row.onclick = function() {
+                        location.href='edit?id='+line.id;
+                    };
+                });
+            }, "json");
+
+        });
+        </script>
+        <SmartTable id="${url}" header="${list(table_data.keys())}"/>
+    </Page>
+    <Page url="${url}/view">
+        ${lines}
+    </Page>
+    <Page url="${url}/edit">
+        <script>
+            <!-- if relevant, get & fill values from the resource. -->
+            const urlParams = new URLSearchParams(window.location.search);
+            const myId = urlParams.get('id');
+            if (myId) {
+                /* Get the current values using an Ajax call */
+                $.get("/data/${table}/"+myId, function(data) {
+                    Object.keys(data).forEach(function(key,index) {
+                        var value = data[key];
+                        $( "*[name|='${datasource}."+key+"']" ).val(value);
+                    });
+                }, "json");
+            }
+        </script>
+        <AutoForm datasource="${datasource}" />
+        ${lines}
+    </Page>
+    <Page url="${url}/delete.html">
+        ${lines}
+    </Page>
+</Template>
+
 
 <Acm redirect="login" variable_name="user">
 <Page url="index.html">
@@ -101,13 +182,16 @@ table: User
 </Page>
 <Page url="manage_organisation.html">
 
-<AutoForm datasource="giftenoverzicht/Organisation"/>
+<AutoForm datasource="giftenoverzicht.Organisation"/>
 
 </Page>
-<Page url="manage_users.html">
 
+<Page url="user2">
+    <AutoForm datasource="giftenoverzicht.User"/>
 </Page>
-</Acm>
+
+
+<AutoEditor url="manage_users" datasource="giftenoverzicht.User" />
 
 <Page url="login.html">
 ## Please login to use the website
