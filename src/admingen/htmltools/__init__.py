@@ -122,8 +122,10 @@ def IsUrl(a, host=True, scheme=True):
 
 
 def Verify(*rules):
-    def check(params):
-        errors = {}
+    def check(params, errors=None):
+        if errors is None:
+            errors = {}
+
         results = dict(params)
         for r in rules:
             name_err = r(results)
@@ -245,18 +247,23 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
     # Handle the POST
     errors = {}
     if cherrypy.request.method == 'POST':
-        # Call the global validator
-        if validator:
-            # Do NOT pass as keyword parameter: the validators will
-            # change the values in request.params.
-            values, errors = validator(cherrypy.request.params)
-        else:
-            values, errors = cherrypy.request.params, {}
+        # First call the validators linked to the individual inputs
+        errors = {}
+        values = cherrypy.request.params.copy()
 
-        # Then call the validators linked to the individual inputs
         for a in args:
             if hasattr(a, 'validator'):
                 values, errors = a.validator(values, errors)
+
+        # Then call the global validator
+        if validator:
+            # Do NOT pass as keyword parameter: the validators will
+            # change the values in request.params.
+            values, errors2 = validator(values)
+        else:
+            values, errors2 = cherrypy.request.params, {}
+
+        errors.update(errors2)
 
         if not errors:
             # Call the success handler for each element

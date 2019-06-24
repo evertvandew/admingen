@@ -1,5 +1,10 @@
 <?xml version="1.0"?>
 
+<!-- Use me as follows:
+        ~/admingen/bin/xml_template -i hmi.xml |/admingen/bin/page_writer
+        webfs.py --root-path html
+-->
+
 <Datamodel name="giftenoverzicht">
 table: Organisation
     name: str, required, unique
@@ -105,7 +110,7 @@ table: User
                 <AutoField datafield="${column}" />
               % endfor
               <div class="col col-md-9 col-md-offset-3">
-                  <button class="btn btn-primary" type="submit" value="Submit">Opslaan</button>
+                  <div id="submit-${datasource}" class="btn btn-large" >Opslaan <i class="fa fa-save"></i></div>
               </div>
             </form>
           </div>
@@ -135,7 +140,7 @@ table: User
                         cell.innerHTML = line.${col};
                     % endfor
                     row.onclick = function() {
-                        location.href='edit?id='+line.id;
+                        location.href='${url}/edit?id='+line.id;
                     };
                 });
             }, "json");
@@ -143,6 +148,8 @@ table: User
         });
         </script>
         <SmartTable id="${url}" header="${list(table_data.keys())}"/>
+
+        <LargeButton url="edit">Toevoegen <i class="fa fa-plus"></i></LargeButton>
     </Page>
     <Page url="${url}/view">
         ${lines}
@@ -150,19 +157,31 @@ table: User
     <Page url="${url}/edit">
         <script>
             <!-- if relevant, get & fill values from the resource. -->
-            const urlParams = new URLSearchParams(window.location.search);
-            const myId = urlParams.get('id');
-            if (myId) {
-                /* Get the current values using an Ajax call */
-                $.get("/data/${table}/"+myId, function(data) {
+            $( document ).ready(function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const myId = urlParams.get('id');
+                if (myId) {
+                    /* Get the current values using an Ajax call */
+                    $.get("/data/${table}/"+myId, function(data) {
+                        Object.keys(data).forEach(function(key,index) {
+                            var value = data[key];
+                            $( "*[name|='${datasource}."+key+"']" ).val(value);
+                        });
+                    }, "json");
+                }
+                var btn = $( "#submit-giftenoverzicht.User" );
+                btn.onclick = function() {
+                    var data;
                     Object.keys(data).forEach(function(key,index) {
-                        var value = data[key];
-                        $( "*[name|='${datasource}."+key+"']" ).val(value);
+                        var value = $( "*[name|='${datasource}."+key+"']" ).val();
+                        data[key] = value;
                     });
-                }, "json");
-            }
+                    $.post("/data/${table}/"+myId, data);
+                }
+            });
         </script>
-        <AutoForm datasource="${datasource}" />
+        <AutoForm datasource="${datasource}">
+        </AutoForm>
         ${lines}
     </Page>
     <Page url="${url}/delete.html">
@@ -176,13 +195,8 @@ table: User
 
 # Welkom bij de beheerinterface van de Giftenoverzicht generator
 
-<LargeButton url="manage_organisation.html">Beheer Organisaties</LargeButton>
-<LargeButton url="manage_users.html" auth="admin">Beheer Gebruikers</LargeButton>
-
-</Page>
-<Page url="manage_organisation.html">
-
-<AutoForm datasource="giftenoverzicht.Organisation"/>
+<LargeButton url="manage_organisation">Beheer Organisaties</LargeButton>
+<LargeButton url="manage_users" auth="admin">Beheer Gebruikers</LargeButton>
 
 </Page>
 
@@ -192,6 +206,8 @@ table: User
 
 
 <AutoEditor url="manage_users" datasource="giftenoverzicht.User" />
+
+<AutoEditor url="manage_organisation" datasource="giftenoverzicht.Organisation" />
 
 <Page url="login.html">
 ## Please login to use the website
