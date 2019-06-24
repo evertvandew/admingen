@@ -758,7 +758,10 @@ def generateCrudCls(interface: DataInterface, Page=Page, hidden=None, acm=dummya
                     continue
                 result[n] = converted
                 if c.options:
-                    if converted not in c.options:
+                    options = c.options
+                    if callable(options):
+                        options = options()
+                    if converted not in options:
                         errors[n] = 'Not a valid option: %s' % converted
             else:
                 if c.required and not c.primarykey:
