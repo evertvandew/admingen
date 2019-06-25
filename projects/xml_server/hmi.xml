@@ -2,7 +2,7 @@
 
 <!-- Use me as follows:
         ~/admingen/bin/xml_template -i hmi.xml |/admingen/bin/page_writer
-        webfs.py --root-path html
+        webfs --root-path html
 -->
 
 <Datamodel name="giftenoverzicht">
@@ -109,9 +109,6 @@ table: User
               % for column in column_paths:
                 <AutoField datafield="${column}" />
               % endfor
-              <div class="col col-md-9 col-md-offset-3">
-                  <div id="submit-${datasource}" class="btn btn-large" >Opslaan <i class="fa fa-save"></i></div>
-              </div>
             </form>
           </div>
         </div>
@@ -130,17 +127,24 @@ table: User
         <script>
         /* Get the listing of the resource */
         $( document ).ready(function() {
-            $.get("/data/${table}/index", function(data) {
+            $.get("/data/${table}", function(data) {
                 /* Update the list showing the all elements in the resource. */
                 var table = $( "table[id|='${url}']" )[0]
-                data.forEach(function(line) {
+                Object.keys(data).forEach(function(key,index) {
+                    var line = data[key];
                     var row = table.insertRow(-1);
                     % for col in table_data.keys():
                         var cell = row.insertCell(-1);
                         cell.innerHTML = line.${col};
                     % endfor
+                    var cell = row.insertCell(-1);
+                    cell.innerHTML = '<i class="fa fa-times" />';
+                    cell.onclick = function() {
+                        location.href='${url}/delete?id='+key;
+                        event.stopPropagation()
+                    };
                     row.onclick = function() {
-                        location.href='${url}/edit?id='+line.id;
+                        location.href='${url}/edit?id='+key;
                     };
                 });
             }, "json");
@@ -156,8 +160,8 @@ table: User
     </Page>
     <Page url="${url}/edit">
         <script>
-            <!-- if relevant, get & fill values from the resource. -->
             $( document ).ready(function() {
+                <!-- if relevant, get & fill values from the resource. -->
                 const urlParams = new URLSearchParams(window.location.search);
                 const myId = urlParams.get('id');
                 if (myId) {
@@ -169,22 +173,49 @@ table: User
                         });
                     }, "json");
                 }
-                var btn = $( "#submit-giftenoverzicht.User" );
-                btn.onclick = function() {
-                    var data;
-                    Object.keys(data).forEach(function(key,index) {
-                        var value = $( "*[name|='${datasource}."+key+"']" ).val();
-                        data[key] = value;
-                    });
+                <!-- Gather and save the data when click on the button -->
+                $( "#confirm" ).on("click", function() {
+                    var data = {};
+                    var value;
+                    % for key in table_data.keys():
+                        value = $( "*[name|='${datasource + '.' + key}']" ).val();
+                        data["${key}"] = value;
+                    % endfor
                     $.post("/data/${table}/"+myId, data);
-                }
+                });
             });
         </script>
-        <AutoForm datasource="${datasource}">
-        </AutoForm>
+        <AutoForm datasource="${datasource}" />
+        <div class="col col-md-9 col-md-offset-3">
+            <div id="confirm" class="btn btn-large" >Opslaan <i class="fa fa-save"></i></div>
+        </div>
+
         ${lines}
     </Page>
-    <Page url="${url}/delete.html">
+    <Page url="${url}/delete">
+        <script>
+            <!-- Create a custom handler for the Delete button. -->
+            $( document ).ready(function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const myId = urlParams.get('id');
+                var url = "/data/${table}/"+myId;
+                $( "#confirm" ).on("click", function() {
+                    $.ajax({
+                        type: "DELETE",
+                        url: url,
+                        success: function(){
+                            location.href="${url}";
+                        },
+                        });
+                    event.stopPropagation();
+                });
+            });
+            
+        </script>
+        <div>Delete the record?
+            <LargeButton url="${url}" >Cancel </LargeButton>
+            <div id="confirm" class="btn btn-large">Delete </div>
+        </div>
         ${lines}
     </Page>
 </Template>
@@ -195,8 +226,8 @@ table: User
 
 # Welkom bij de beheerinterface van de Giftenoverzicht generator
 
-<LargeButton url="manage_organisation">Beheer Organisaties</LargeButton>
-<LargeButton url="manage_users" auth="admin">Beheer Gebruikers</LargeButton>
+<LargeButton url="/manage_organisation">Beheer Organisaties</LargeButton>
+<LargeButton url="/manage_users" auth="admin">Beheer Gebruikers</LargeButton>
 
 </Page>
 
@@ -205,9 +236,9 @@ table: User
 </Page>
 
 
-<AutoEditor url="manage_users" datasource="giftenoverzicht.User" />
+<AutoEditor url="/manage_users" datasource="giftenoverzicht.User" />
 
-<AutoEditor url="manage_organisation" datasource="giftenoverzicht.Organisation" />
+<AutoEditor url="/manage_organisation" datasource="giftenoverzicht.Organisation" />
 
 <Page url="login.html">
 ## Please login to use the website
