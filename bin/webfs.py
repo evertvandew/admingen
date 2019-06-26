@@ -157,7 +157,8 @@ def put(path):
         and not path_components[-1].isnumeric():
         # There is no ID field, create one.
         ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
-        path_components.append(str(max(ids) + 1))
+        fullpath = '/'.join([fullpath, str(max(ids) + 1)])
+        print ('Created ID', str(max(ids) + 1))
 
     if not request.data and not request.values:
         os.mkdir(fullpath)
@@ -172,6 +173,7 @@ def put(path):
         # The data is encoded as form data. Just save them as JSON
         data = json.dumps(request.values.to_dict())
 
+    print ('Saving', fullpath)
     with open(fullpath, "wb") as dest_file:
         dest_file.write(data)
     return flask.make_response('', 201)

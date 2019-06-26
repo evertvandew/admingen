@@ -2,7 +2,7 @@
 
 <!-- Use me as follows:
         ~/admingen/bin/xml_template -i hmi.xml |/admingen/bin/page_writer
-        webfs --root-path html
+        webfs.py --root-path html
 -->
 
 <Datamodel name="giftenoverzicht">
@@ -181,7 +181,11 @@ table: User
                         value = $( "*[name|='${datasource + '.' + key}']" ).val();
                         data["${key}"] = value;
                     % endfor
-                    $.post("/data/${table}/"+myId, data);
+                    if (!myId) {
+                        $.post("/data/${table}", data);
+                    } else {
+                        $.post("/data/${table}/"+myId, data);
+                    }
                 });
             });
         </script>
