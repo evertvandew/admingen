@@ -15,7 +15,7 @@ page_template = Template("""<!DOCTYPE html>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
         <title>Admingen</title>
-    {header}
+    ${header}
     <link rel="stylesheet" type="text/css" href="/batic/css/bootstrap.min.css" />
     <link rel="stylesheet" type="text/css" href="/batic/css/font-awesome.min.css" />
     <link rel="stylesheet" type="text/css" href="/batic/css/custom-theme/jquery-ui-1.10.0.custom.css" />
@@ -33,12 +33,14 @@ ${lines}
 
 created_pages = []
 
+current_page_context = {}
+
 def handle_Page(args, lines):
     url = args['url']
     assert ':' not in url
     if url in created_pages:
         raise RuntimeError('Creating page', url, 'for the second time')
-    text = page_template.render(lines=lines)
+    text = page_template.render(lines=lines, **current_page_context)
     dirname, fname = os.path.split('html/'+url)
     print (dirname, fname)
     if not os.path.exists(dirname):
@@ -48,4 +50,11 @@ def handle_Page(args, lines):
     return ''
 
 
-processor({'Page': Tag(handle_Page)})
+def handle_PageContextValue(args, lines):
+    assert 'name' in args
+    current_page_context[args['name']] = lines
+    return ''
+
+
+processor({'Page': Tag(handle_Page),
+           'PageContextValue': Tag(handle_Page)})

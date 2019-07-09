@@ -2,6 +2,7 @@
 import sys
 from urllib.parse import urlparse
 import typing
+from typing import List, Union, Dict, Any
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 import logging
@@ -28,8 +29,15 @@ def mkdate(s):
 
 def mkdatetime(s):
     ''' Assume the format YYYY-MM-DD HH:MM:SS '''
-    return datetime.strftime('%Y-%m-%d %H:%M:%S')
-
+    if ':' in s and '-' in s:
+        return datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
+    if '-' in s:
+        return datetime.strptime(s, '%Y-%m-%d')
+    if len(s) == 8:
+        return datetime.strptime(s, '%Y%m%d')
+    if 'T' in s:
+        return datetime.strptime(s, '%Y%m%dT%H%M%S')
+    return datetime.strptime(s, '%Y%m%d%H%M%S')
 
 def id_type(s):
     return int(s)
@@ -58,6 +66,15 @@ class dataset:
 
     def __len__(self):
         return len(self.data)
+
+    def items(self):
+        return self.data.items()
+
+    def values(self):
+        return self.data.values()
+
+    def keys(self):
+        return self.data.keys()
 
     def enrich(self, func=None, **kwargs):
         for r in self.data.values():
@@ -243,7 +260,7 @@ def CsvReader(stream: typing.TextIO, delimiter=';'):
     return collection
 
 
-def CsvWriter(stream: typing.TextIO, collection, delimiter=';'):
+def CsvWriter(stream: typing.TextIO, collection: Dict[str, Union[List[Any], Dict[str, Any]]], delimiter=';'):
     for table, columns in collection.items():
         # Write the table name
         stream.write('%s\n'%table)

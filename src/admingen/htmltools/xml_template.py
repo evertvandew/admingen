@@ -57,7 +57,12 @@ def Tag(handler):
                 continue
 
             if line and line[0] == TAG_CLOSE_MSG:
-                yield handler(arguments, ''.join(lines))
+                try:
+                    yield handler(arguments, ''.join(lines))
+                except:
+                    print("An error occured when handling tag in %s with arguments %s"
+                   "\nand lines %s" % (handler.__name__, arguments, ''.join(lines)), file=sys.stderr)
+                    raise
                 return
 
             lines.append(line)
@@ -121,8 +126,12 @@ template_end = re.compile(r'</\s*Template\s*>')
 
 def update_res(generators):
     global tag_start, tag_end
+    # We need to ensure long tags are matched before short tags,
+    # to prevent 'PageContextValue' to be matched to 'Page'.
+    # The simplest way is to reverse-sort the tags.
+    tags = sorted(generators.keys(), reverse=True)
     # Prepare a RE to find all custom tags
-    wrapped_tags = '|'.join('(%s)' % t for t in generators.keys())
+    wrapped_tags = '|'.join(r'(%s)[ /]' % t for t in tags)
     tag_start = re.compile(r'<(%s)' % wrapped_tags)
     tag_end = re.compile(r'</(%s)>' % wrapped_tags)
     print ('Searching for tags', wrapped_tags, file=sys.stderr)
@@ -207,7 +216,7 @@ def processor(generators=generators, istream=sys.stdin, ostream=sys.stdout):
             else:
                 buffer.write(parts[0])
             # Create the new tag
-            new_tag = generators[parts[1]]()
+            new_tag = generators[parts[1].strip(r' /')]()
             tag_stack.append(new_tag)
             new_tag.send(None)              # Start the co-routine
             line = parts[-1]

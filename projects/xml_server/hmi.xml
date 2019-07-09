@@ -225,6 +225,12 @@ table: User
 </Template>
 
 
+<PageContextValue name="header">
+    <div>Hier komt het main work-flow menu...</div>
+</PageContextValue>
+
+
+
 <Acm redirect="login" variable_name="user">
 <Page url="index.html">
 
@@ -239,10 +245,13 @@ table: User
     <AutoForm datasource="giftenoverzicht.User"/>
 </Page>
 
+<PageContextValue name="header">
+    <div>Hier komt het beheer menu...</div>
+</PageContextValue>
 
 <AutoEditor url="/manage_users" datasource="giftenoverzicht.User" />
-
 <AutoEditor url="/manage_organisation" datasource="giftenoverzicht.Organisation" />
+
 
 <Page url="login.html">
 ## Please login to use the website
