@@ -1,4 +1,5 @@
-
+""" Library with tools and functions for converting PayPal data into Exact transactions.
+"""
 from io import StringIO
 from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN, ROUND_UP
 from dataclasses import dataclass, asdict
@@ -1052,36 +1053,3 @@ def group_currency_conversions(transactions, config):
             # Find any transaction changing the relevant saldo
             if t.Valuta == config.currency:
                 yield t
-
-
-if __name__ == '__main__':
-    handleDir('/home/ehwaal/tmp/pp_export/test-data', 1)
-    sys.exit(0)
-
-
-    from admingen.data import DataReader
-
-    with open('/home/ehwaal/tmp/pp_export/test-data/twease/Accounts_1.xml') as f:
-        accounts = processAccounts(f)
-    email_2_accounts = {email:account for account in accounts for email in account.email}
-
-    data = DataReader('/home/ehwaal/admingen/projects/paypal_exact/taskconfig.csv')
-    config = data['TaskConfig'][1]
-    config = paypal_export_config(**config.__dict__)
-    converter = PaypalExactConverter(config)
-    if False:
-        testtrans = '''"Date","Time","TimeZone","Name","Type","Status","Currency","Gross","Fee","Net","From Email Address","To Email Address","Transaction ID","Shipping Address","Address Status","Item Title","Item ID","Shipping and Handling Amount","Insurance Amount","Sales Tax","Option 1 Name","Option 1 Value","Option 2 Name","Option 2 Value","Reference Txn ID","Invoice Number","Custom Number","Quantity","Receipt ID","Balance","Address Line 1","Address Line 2/District/Neighborhood","Town/City","State/Province/Region/County/Territory/Prefecture/Republic","Zip/Postal Code","Country","Contact Phone Number","Subject","Note","Country Code","Balance Impact"
-"01/01/2017","22:55:16","CET","Avangate B.V.","Express Checkout Payment","Completed","USD","-470.25","0.00","-470.25","info@tim-productions.tv","paypal@avangate.com","2Y150470VV899273M","","Non-Confirmed","telestream.net purchase (Order #55659461)","","0.00","","0.00","","","","","30L77916RN3828012","55659461","","1","","-470.25","","","","","","","","telestream.net purchase (Order #55659461)","","","Debit"
-'''
-        test1 = StringIO(testtrans)
-        transactions = converter.groupedDetailsGenerator(test1, email_2_accounts, None)
-    else:
-        testfname = '/home/ehwaal/tmp/pp_export/test-data/123products/Download.CSV'
-        transactions = converter.groupedDetailsGenerator(testfname, email_2_accounts, None)
-    if False:
-        converter.generateExactTransactionsFile(transactions, sys.stdout)
-    else:
-        fname = 'test_transactions.xml'
-        with open(fname, 'w') as of:
-            converter.generateExactTransactionsFile(transactions, of)
-

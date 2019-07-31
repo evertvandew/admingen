@@ -2,10 +2,11 @@
 import logging
 import os.path
 import shutil
-from collections import namedtuple
+from dataclasses import dataclass
 from typing import Tuple
 from urllib.parse import urlparse
 from pony import orm
+from typing import Any
 from inspect import getmembers, Signature, Parameter
 from pony.orm import Required, Set, select, Optional, delete, desc, commit
 
@@ -14,13 +15,23 @@ sessionScope = orm.db_session
 commit = orm.commit
 
 
+@dataclass
+class ColumnDetails:
+    name: str
+    primarykey: int
+    type: Any
+    nullable: bool
+    collection: Any
+    options: Any
+    required: bool
+    related_columns: Any
+    default: Any
 
-# TODO: replace with dataclass once py3.7 is out
-ColumnDetails = namedtuple('ColumnDetails', ['name', 'primarykey', 'type', 'nullable',
-                                             'collection', 'options', 'required', 'related_columns',
-                                             'default'])
-
-TableDetails = namedtuple('TableDetails', ['name', 'compoundkey', 'columns'])
+@dataclass
+class TableDetails:
+    name: str
+    compoundkey: bool
+    columns: ColumnDetails
 
 def getHmiDetails(table) -> TableDetails:
     colum_names = [a.name for a in table._attrs_ if not a.is_collection]

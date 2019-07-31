@@ -1,25 +1,54 @@
 PROJECT ADMINGEN TODO
 
-INTERESTING:
+# INTERESTING:
 
-Try to use WebDAV to map internal programming resources to the file system (by mounting dav.fs). Thus we can try to experiment with some of the Plan 9 ideas... Problem is that WebDAV is oriented to files, not so much streams... No real-time support? 
+* Try to use WebDAV to map internal programming resources to the file system (by mounting dav.fs). Thus we can try to experiment with some of the Plan 9 ideas... Problem is that WebDAV is oriented to files, not so much streams... No real-time support?
+* Using unshare to have the worker processes (and children) run with private namespace that unencrypts relevant files.
+  I could make a little tool that waits for a password on a UNIX pipe before unlocking an FS and starting the worker subprocesses
 
-BUGS:
+
+# BUGS:
 De template engine van het mailtje struikelt over het percentage teken. Gebruik iets dat robuster is!
 
+
+# TODO:
 Framework:
 * Automatische validatie van de velden
 * Vanuit een relatie doorklikken naar hetgeen aan gerelateerd wordt, om er 1 aan te maken.
 
 
-Calendar integration:
-* Implement CalDAV plugin
-
-
 PayPal:
+* Checkout the Paypal Sync API. This might be a way forward.
+  If this is not possible, just work by letting the user upload transactions.
+* Split into subprocesses:
+  - One to download transactions from a certain data
+  - One to filter-out new transactions
+  - One to generate Exact transactions
+  - One to upload Exact transactions
+  - File-based worker queues to exchange data between them.
 * Implement maintenance & operations GUI
 * Deploy to server
 * Implement automatic testing
+* Use new PP feature to download edited data range.
+* Better handle cases where PP does not immediatly convert foreign currency transactions.
+
+
+New Gertjan tool: CSV - MT940 converter:
+* Beslissen of we hier tijd in gaan stoppen!
+* Write tool that converts CSV transactions (which format?) into MT940.
+* Write a simple website where people can login, submit CSV and retrieve MT940.
+
+
+Workflow tool:
+* Choose technologies for creating documents.
+    - Markdown-extensions for editing forms.
+    - pandoc for reading Word files and converting them to MD.
+* Finalise DSL, detailing the workflow.
+* Finalise server that reads a stream to do database actions on documents, and
+  evaluates the FSM defined in the DSL.
+  It keeps all data in-memory, makes life a lot easier.
+* Let server persist data to file / database. NOT a NoSQL db, we will need relational
+  features.
 
 
 Server:
@@ -29,9 +58,12 @@ Server:
 * Handle CAMT.053 bank statements
 
 
-
 Report Generator
 * Decide on technology
+    - Autodoc or Markdown
+    - Jinja2 templating
+    - Frontend to create templates (layout)
+    - Use pandoc for converting Word etc. to markdown / autodoc files.
 * Implement frontend
 
 
@@ -39,8 +71,23 @@ Website:
 * Create customer website
 
 
-Done:
+# Done:
+
+Paypal converter:
 * finish scraper for PayPal overview
 * Implement rules for converting PayPal transactions into Exact transactions
 * Upload Exact transactions to Exact
 * Get certificate on server
+* Deleted the client for accessing Paypal directly. Paypal has made this impossible by
+  implementing captcha checks.
+
+Calendar integration:
+* Implement support for ical calendar files.
+* ~~Implement CalDAV plugin~~
+
+Framework:
+* Website-generation from an XML DSL file, based on XML templating. Very nice!
+  Combines both the frontend and backend specification.
+* A simple tool that generates static HTML pages from the XML template.
+  These static files do CRUD database interaction using JQuery.
+* A simple file-based http CRUD engine that eats the XML template.
