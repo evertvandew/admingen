@@ -282,7 +282,7 @@ def run(configpath, basedir, taskid, ofname, ifname):
 
 
     # Save the transactions for testing & comparison
-    CsvWriter(open(home+'/test2.csv', 'w'), {'Transactions': transactions})
+    # CsvWriter(open(home+'/test2.csv', 'w'), {'Transactions': transactions})
 
     ###############################################################################
     # Create the output file.

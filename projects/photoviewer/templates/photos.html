@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+        <title>Admingen</title>
+    <link rel="stylesheet" type="text/css" href="/batic/css/bootstrap.min.css" />
+    <link rel="stylesheet" type="text/css" href="/batic/css/font-awesome.min.css" />
+    <link rel="stylesheet" type="text/css" href="/batic/css/custom-theme/jquery-ui-1.10.0.custom.css" />
+    <link rel="stylesheet" type="text/css" href="/batic/css/style.css" />
+    <script src="/batic/js/jquery/jquery-1.11.2.min.js"></script>
+    <script src="/batic/js/bootstrap/bootstrap.js"></script>
+
+</head>
+<body>
+
+
+{% for pic in pics %}
+<A href="{{prefix}}/photos/{{pic}}"> <img src="{{prefix}}/thumbs/{{pic}}" /> </A>
+{% endfor %}
+
+
+<form action="{{ prefix }}/upload" enctype="multipart/form-data" method="POST">
+  Upload: <input type="file" name="imgs" multiple >
+  <input type="submit">
+</form>
+
+
+</body>
+</html>
