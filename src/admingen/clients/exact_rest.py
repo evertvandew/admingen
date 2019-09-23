@@ -57,10 +57,10 @@ def request(url, token=None, method='GET', params={}, query={}, handle=None):
     status = -1
     reason = ''
     while True:
-        logging.debug('Sending request %s, %s, %s', url, method, data)
+        logging.error('Sending request %s, %s, %s', url, method, data)
         r = urllib.request.Request(url=url, method=method, data=data, headers=headers)
         try:
-            response = urllib.request.urlopen(r)
+            response = urllib.request.urlopen(r, capath='/etc/ssl/certs')
         except urllib.error.HTTPError as e:
             with e as f:
                 d = f.read()
