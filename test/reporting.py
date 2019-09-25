@@ -5,7 +5,7 @@ from unittest import TestCase
 import os, os.path
 from pony import orm
 from jinja2 import FileSystemLoader, Environment, Template
-import google_calendar
+import calendar
 from decimal import Decimal, ROUND_HALF_UP
 from babel.numbers import format_currency
 
@@ -87,7 +87,7 @@ class TestReporting(TestCase):
         # Perform the queries to get the data for the template.
         month = 10
         year = 2017
-        nr_days = google_calendar.monthrange(year, month)[1]
+        nr_days = calendar.monthrange(year, month)[1]
         start = datetime.strptime('01-%s-%s'%(month, year), '%d-%m-%Y')
         end = start + timedelta(nr_days, 0)
 

@@ -1,7 +1,7 @@
 
 import datetime
 from unittest import TestCase
-import google_calendar
+import calendar
 import os, os.path
 from decimal import Decimal
 
@@ -165,7 +165,7 @@ class Test(TestCase):
                 if factuur.periode.month != 4:
                     continue
                 # Process the urenstaten to calculate the facturen
-                nr_days = google_calendar.monthrange(factuur.periode.year, factuur.periode.month)[1]
+                nr_days = calendar.monthrange(factuur.periode.year, factuur.periode.month)[1]
                 start = factuur.periode
                 end = start + datetime.timedelta(nr_days, 0)
                 _weeks = orm.select(w for w in Weekstaat if (w.start + datetime.timedelta(4)) >= start and w.start < end).order_by(Weekstaat.weeknr)[:]

@@ -17,7 +17,7 @@ from email.utils import formatdate
 from pony import orm
 import cherrypy
 from cherrypy.lib.static import serve_file
-import google_calendar
+import calendar
 
 from admingen.clients.exact_rest import (authenticateExact, getUsers, getTransactions,
                                          checkAuthorization, getAccounts)
@@ -541,7 +541,7 @@ class Overzichten:
             raise cherrypy.HTTPError(400, 'Invalid Request')
         year, first, last = [results[k] for k in ['year', 'from', 'until']]
         start = datetime.datetime(year, first, 1)
-        end = datetime.datetime(year, last, google_calendar.monthrange(2016, last)[1], 23, 59, 59)
+        end = datetime.datetime(year, last, calendar.monthrange(2016, last)[1], 23, 59, 59)
         token = kwargs['token']
         # Start a thread to load the actual data from exact
         with model.sessionScope():
