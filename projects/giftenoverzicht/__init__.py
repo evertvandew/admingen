@@ -605,7 +605,7 @@ class Overzichten:
 
     @cherrypy.expose
     @check_token
-    def restart(self, state):
+    def restart(self, state=SystemStates.Start.value):
         self.setState(state)
         self.check_worker(state)
         raise cherrypy.HTTPRedirect('/process')
