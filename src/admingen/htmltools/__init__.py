@@ -243,11 +243,13 @@ def Collapsibles(bodies, headers=None):
 
 
 def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
-               submit='Opslaan', enctype="multipart/form-data", readonly=False, cancel=None,
-               method='post'):
+               submit='Opslaan', enctype="multipart/form-data", readonly=False, cancel=None):
     # Handle the POST
     errors = {}
-    if cherrypy.request.method in ['POST', 'PUT']:
+    values = cherrypy.request.params.copy()
+    
+    # If we are expecting input, validate it.
+    if cherrypy.request.method in ['POST', 'PUT'] and action.upper() != 'DELETE':
         # Check the suplied parameters for validity.
 
         # First call the validators linked to the individual inputs
@@ -268,16 +270,18 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
 
         errors.update(errors2)
 
-    if method.lower()==cherrypy.request.method.lower():
         # Handle the action connected to the 'submit' phase of the form
         if not errors:
             # Call the success handler for each element
             for a in args:
                 if hasattr(a, 'success'):
                     a.success(values)
-            result = success(**values)
-            if result:
-                return result
+
+    # In all cases where the form is submitted, perform the 'success' action.
+    if cherrypy.request.method.upper() != 'GET' and not errors:
+        result = success(**values)
+        if result:
+            return result
         defaults.update(values)
 
     path = cherrypy.request.path_info
@@ -297,7 +301,7 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
       <div class="container">
         <div class="row">
           <div class="col col-md-12">
-            <form action="{action}" method="{method}" enctype="{enctype}" class="form-horizontal">
+            <form action="{action}" method="post" enctype="{enctype}" class="form-horizontal">
                 {rows}
                 <div class="col col-md-9 col-md-offset-3">
                     {btn}
@@ -330,7 +334,7 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
         row = row.format(**input)
         rows.append(row)
     return base.format(rows='\n'.join(rows), action=path,
-                       enctype=enctype, btn=btn, method=method)
+                       enctype=enctype, btn=btn)
 
 
 def Hidden(name):
@@ -864,18 +868,19 @@ def generateCrudCls(interface: DataInterface, Page=Page, hidden=None, acm=dummya
         @cherrypy.expose
         @acm
         def delete(self, **kwargs):
-            print('Entering DELETE', kwargs)
+            print('Entering DELETE', cherrypy.request.method)
             rid = kwargs.get('id', None)
             if rid is None:
                 raise cherrypy.HTTPError(400, 'Missing argument "id"')
             with sessionScope:
                 def do_delete(**_):
+                    print("Doing the delete")
                     interface.delete(rid)
                     raise cherrypy.HTTPRedirect('index')
 
                 return Page(Title('Weet u zeker dat u {} wilt verwijderen?'.format(interface.name)),
                             SimpleForm(*columns,
-                                       method='delete',
+                                       action='DELETE',
                                        defaults={k: getattr(interface.query(rid), k) for k in column_names},
                                        readonly=True,
                                        submit='Verwijderen <i class="fa fa-times"></i>',
