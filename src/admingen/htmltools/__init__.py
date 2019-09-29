@@ -863,7 +863,7 @@ def generateCrudCls(interface: DataInterface, Page=Page, hidden=None, acm=dummya
             if rid is None:
                 raise cherrypy.HTTPError(400, 'Missing argument "id"')
             with sessionScope:
-                def delete(**_):
+                def do_delete(**_):
                     interface.delete(rid)
                     raise cherrypy.HTTPRedirect('index')
 
@@ -872,7 +872,7 @@ def generateCrudCls(interface: DataInterface, Page=Page, hidden=None, acm=dummya
                                        defaults={k: getattr(interface.query(rid), k) for k in column_names},
                                        readonly=True,
                                        submit='Verwijderen <i class="fa fa-times"></i>',
-                                       success=delete,
+                                       success=do_delete,
                                        cancel='view?id={}'.format(rid)))
 
     return Crud
