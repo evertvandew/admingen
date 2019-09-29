@@ -616,7 +616,7 @@ class Overzichten:
         with model.sessionScope():
             sid = cherrypy.session['org_id']
             org = model.Organisation[sid]
-            params = keychain[smtp_key % sid]
+            params = self.keychain[smtp_key % sid]
             params['period_start'] = org.period_start
             params['period_end'] = org.period_end
             params['mailfrom'] = org.mailfrom
