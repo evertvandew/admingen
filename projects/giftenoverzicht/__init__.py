@@ -26,7 +26,7 @@ from admingen import config
 from admingen.clients import smtp
 from admingen.keyring import KeyRing
 from .giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
-                    odataDate2Datetime, generate_pdfs, pdfName, PDF_DIR)
+                    odataDate2Datetime, generate_pdfs, pdfName, pdfUrl2Name, PDF_DIR)
 from . import model
 from .model import SystemStates
 
@@ -572,7 +572,7 @@ class Overzichten:
                 totaal = amount2Str(totaal)
                 email = email if email else '-'
                 pdf = pdfUrl(naam, rid)[1:]  # Remove the prefix '.'
-                pdf_internal = pdfName(org_id, naam, rid)
+                pdf_internal = pdfName('', naam, rid)
                 yield rid, naam, email, totaal, pdf, pdf_internal
 
         t = json.loads(open(TRANSACTIONS_FILE.format(config.opsdir, org_id)).read(), parse_float=Decimal)
@@ -584,11 +584,9 @@ class Overzichten:
     @cherrypy.expose
     @check_token
     def all(self, fname):
-        name, code = re.match('.?*_([0-9]*)[.]pdf')
         org_id = cherrypy.session['org_id']
-        pdfName(org_id, name, code)
-        p = os.path.join(PDF_DIR.format(config.opsdir, cherrypy.session['org_id']), fname)
-        print('REQUESTED', fname, os.path.exists(p))
+        p = pdfUrl2Name(org_id, fname)
+        print('REQUESTED', fname, p, os.path.exists(p))
         # Always add a delay to hinder brute-force attacks.
         # It is useless to only add it when an error occurred, then they just wait 0.1 second
         # and interpret lack of response as failure.

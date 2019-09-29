@@ -194,11 +194,21 @@ def pdfName(org_id, user_name, user_code):
     m = hashlib.sha1()
     m.update(salt)
     m.update(upart)
-    return os.path.join(PDF_DIR.format(vardir, org_id),
-                        m.hexdigest() + '.pdf')
+    if org_id:
+        return os.path.join(PDF_DIR.format(vardir, org_id),
+                            m.hexdigest() + '.pdf')
+    else:
+        return m.hexdigest() + '.pdf'
 
 def pdfUrl(user_name, user_code):
-    return os.path.join('/all/' + user_name.translate(REMOVE_PUNC) + '_%s' % user_code.strip('_ ') + '.pdf')
+    path = pdfName(None, user_name, user_code)
+    return os.path.join('/all/' + path)
+
+def pdfUrl2Name(org_id, pdfurl):
+    # If we have a full path, we only need the final part.
+    if '/' in pdfurl:
+        pdfurl = '/'.split(pdfurl)[-1]
+    return os.path.join(PDF_DIR.format(vardir, org_id), pdfurl)
 
 def generate_pdfs(org, users, transactions):
     temp_file = '%i.temp.rst' % org['id']
