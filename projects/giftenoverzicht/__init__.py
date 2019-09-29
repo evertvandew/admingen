@@ -584,6 +584,9 @@ class Overzichten:
     @cherrypy.expose
     @check_token
     def all(self, fname):
+        name, code = re.match('.?*_([0-9]*)[.]pdf')
+        org_id = cherrypy.session['org_id']
+        pdfName(org_id, name, code)
         p = os.path.join(PDF_DIR.format(config.opsdir, cherrypy.session['org_id']), fname)
         print('REQUESTED', fname, os.path.exists(p))
         # Always add a delay to hinder brute-force attacks.
