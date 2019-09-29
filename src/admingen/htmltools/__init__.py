@@ -268,7 +268,7 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
 
         errors.update(errors2)
 
-    if method==cherrypy.request.method:
+    if method.lower()==cherrypy.request.method.lower():
         # Handle the action connected to the 'submit' phase of the form
         if not errors:
             # Call the success handler for each element
