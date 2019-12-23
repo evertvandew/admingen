@@ -17,7 +17,20 @@ Framework:
 * Vanuit een relatie doorklikken naar hetgeen aan gerelateerd wordt, om er 1 aan te maken.
 
 
-PayPal:
+## Giftenoverzicht:
+* Maak een set met automatische tests.
+  * Aanmaken van een gebruiker
+  * Aanmaken van een organisatie
+  * Instellen SMTP server
+  * Ophalen administratie
+  * Genereren testrapport
+  * Versturen 1 mail
+  * Versturen batch mailen
+  * Weer aanpassen van de organisatie & SMTP server details
+  * Genereren & mailen nieuwe overzichten.
+
+
+## PayPal:
 * Checkout the Paypal Sync API. This might be a way forward.
   If this is not possible, just work by letting the user upload transactions.
 * Split into subprocesses:
@@ -33,13 +46,7 @@ PayPal:
 * Better handle cases where PP does not immediatly convert foreign currency transactions.
 
 
-New Gertjan tool: CSV - MT940 converter:
-* Beslissen of we hier tijd in gaan stoppen!
-* Write tool that converts CSV transactions (which format?) into MT940.
-* Write a simple website where people can login, submit CSV and retrieve MT940.
-
-
-Workflow tool:
+## Workflow tool:
 * Choose technologies for creating documents.
     - Markdown-extensions for editing forms.
     - pandoc for reading Word files and converting them to MD.
@@ -51,14 +58,14 @@ Workflow tool:
   features.
 
 
-Server:
+## Server:
 * Implement multi-site frontend
 * Implement DNS on server for multiple sites
 * Implement check_mk
 * Handle CAMT.053 bank statements
 
 
-Report Generator
+## Report Generator
 * Decide on technology
     - Autodoc or Markdown
     - Jinja2 templating
@@ -67,13 +74,13 @@ Report Generator
 * Implement frontend
 
 
-Website:
+## Website:
 * Create customer website
 
 
 # Done:
 
-Paypal converter:
+## Paypal converter:
 * finish scraper for PayPal overview
 * Implement rules for converting PayPal transactions into Exact transactions
 * Upload Exact transactions to Exact
@@ -81,11 +88,11 @@ Paypal converter:
 * Deleted the client for accessing Paypal directly. Paypal has made this impossible by
   implementing captcha checks.
 
-Calendar integration:
+## Calendar integration:
 * Implement support for ical calendar files.
 * ~~Implement CalDAV plugin~~
 
-Framework:
+## Framework:
 * Website-generation from an XML DSL file, based on XML templating. Very nice!
   Combines both the frontend and backend specification.
 * A simple tool that generates static HTML pages from the XML template.

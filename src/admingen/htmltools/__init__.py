@@ -71,7 +71,7 @@ def IsInteger(name, minval=None, maxval=None):
 
 def GreaterEqual(a, b):
     def check(params):
-        if params[a] < params[b]:
+        if float(params[a]) < float(params[b]):
             return '{} must be greator or equal to {}'.format(a, b)
 
     return check

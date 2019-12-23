@@ -164,6 +164,8 @@ def verstuur_overzicht(**extra):
 
     if 'mailto' in extra:
         # Send a single overview to a specific person
+        pdfdir = PDF_DIR.format(config.opsdir, org_id)
+        extra['file'] = pdfdir + '/' + extra['file']
         sendSingleMail(extra['mailto'], extra['name'], extra['file'])
     else:
         users = json.loads(open(usersfname, 'r').read())
@@ -325,7 +327,7 @@ class Worker(threading.Thread):
                         with open(self.tfname) as f:
                             transactions = json.load(f)
                         with open(self.afname) as f:
-                            accounts = json.load()
+                            accounts = json.load(f)
                     else:
                         logging.info('Reading data from exact')
                         users = getUsers(exact_division, self.access_token)
@@ -463,7 +465,10 @@ class Overzichten:
         with model.sessionScope():
             organisations = [o for o in model.Organisation.select()]
             divisions = [o.exact_division for o in organisations]
-            authorized = checkAuthorization(divisions, cherrypy.session['token'])
+            if config.testmode():
+                authorized = divisions
+            else:
+                authorized = checkAuthorization(divisions, cherrypy.session['token'])
             filtered_div = [o for o in organisations if o.exact_division in authorized]
             options = [(o.id, o.name) for o in filtered_div]
             return options
@@ -617,7 +622,9 @@ class Overzichten:
         with model.sessionScope():
             sid = cherrypy.session['org_id']
             org = model.Organisation[sid]
-            params = self.keychain[smtp_key % sid]
+            params = self.keychain[smtp_key % sid].copy()
+            if not params:
+                return "De SMTP details zijn nog niet ingevuld."
             params['period_start'] = org.period_start
             params['period_end'] = org.period_end
             params['mailfrom'] = org.mailfrom

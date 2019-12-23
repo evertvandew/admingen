@@ -4,7 +4,21 @@ from urllib.parse import urlparse
 
 SSL_SMTP_SCHEMES = ['smtps', '+ssl']
 
+testmode = False
+
+
+class DummyClient:
+    msgs = []
+
+    def sendmail(*args):
+        DummyClient.msgs.append(args)
+
+
+
 def mkclient(url, user=None, password=None):
+    if testmode:
+        return DummyClient
+
     if not '/' in url:
         # If there is no slash in the url, assume it is just the hostname
         url = '//' + url

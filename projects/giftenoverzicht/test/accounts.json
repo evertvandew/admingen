@@ -1,0 +1,18 @@
+[
+    {
+        "Code": "8661",
+        "Description": "Puk, P. giften",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.GLAccount",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financial/GLAccounts(guid'31a2f31a-c660-453c-b5c3-28d4a10d8dfa')"
+        }
+    },
+    {
+        "Code": "8670",
+        "Description": "Puk, G. giften",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.GLAccount",
+            "uri": "https://start.exactonline.nl/api/v1/15972/financial/GLAccounts(guid'8ab65be9-0f0e-4615-9798-368127fac6a5')"
+        }
+    }
+]

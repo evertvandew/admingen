@@ -1,0 +1,20 @@
+[
+    {
+        "Code": "              1661",
+        "Email": "pietje.puk@hotmail.com",
+        "Name": "Puk, Pietje",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Account",
+            "uri": "https://start.exactonline.nl/api/v1/15972/crm/Accounts(guid'e97f5895-b151-4160-84fd-027eb4343209')"
+        }
+    },
+    {
+        "Code": "              1553",
+        "Email": "grietje.puk@hotmail.com",
+        "Name": "Puk, Grietje",
+        "__metadata": {
+            "type": "Exact.Web.Api.Models.Account",
+            "uri": "https://start.exactonline.nl/api/v1/15972/crm/Accounts(guid'897c23e2-7ed6-4c82-813b-f29bf1fe451a')"
+        }
+    }
+]

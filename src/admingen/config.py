@@ -116,7 +116,12 @@ def configtype(cls):
             del d[k]
         # Overwrite with the values given by the called
         d.update(kwargs)
+
+        # Filter-out non-variables
+        d = {k: v for k, v in d.items() if not (isinstance(v, property) or isinstance(v, staticmethod))}
         # Substitute values for environment variables
+        # First convert the values of variables to a JSON string,
+        # do the substitution and convert back to the object
         txt = json.dumps(d)
         txt = substituteContext(txt)
         kwargs = json.loads(txt)

@@ -20,15 +20,23 @@ class ExactClientConfig:
     client_id = ''
     redirect_uri = ''
 
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+    @property
+    def auth_url(self): return self.base + '/oauth2/auth'
 
-        self.auth_url = self.base + '/oauth2/auth'
-        self.token_url = self.base + '/oauth2/token'
-        self.transaction_url = self.base + r"/v1/%(division)i/financialtransaction/TransactionLines"
-        self.users_url = self.base + r"/v1/%(division)i/crm/Accounts"
-        self.accounts_url = self.base + r"/v1/%(division)i/financial/GLAccounts"
-        self.btwcodes_url = self.base + r"/v1/%(division)i/financial/VATs"
+    @property
+    def token_url(self): return self.base + '/oauth2/token'
+
+    @property
+    def transaction_url(self): return self.base + r"/v1/%(division)i/financialtransaction/TransactionLines"
+
+    @property
+    def users_url(self): return self.base + r"/v1/%(division)i/crm/Accounts"
+
+    @property
+    def accounts_url(self): return self.base + r"/v1/%(division)i/financial/GLAccounts"
+
+    @property
+    def btwcodes_url(self): return self.base + r"/v1/%(division)i/financial/VATs"
 
 
 eoconfig = ExactClientConfig()
