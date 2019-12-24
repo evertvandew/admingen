@@ -21,6 +21,7 @@ import time
 import shutil
 import subprocess
 from dataclasses import asdict
+import datetime
 from selenium import webdriver
 
 from selenium.webdriver.common.by import By
@@ -28,7 +29,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 
-from giftenoverzicht import run, Overzichten, SmtpDetails
+from giftenoverzicht import run, Overzichten, SmtpDetails, model
 from admingen.clients import smtp
 
 server = None
@@ -279,6 +280,11 @@ class SeleniumSimulatedTests(unittest.TestCase):
             time.sleep(0.1)
             assert time.time() <  start + 10
 
+        # Check that the correct period was set in the database
+        with model.sessionScope():
+            org = model.Organisation[1]
+            self.assertEqual(org.period_start, datetime.datetime(2018, 2, 1, 0, 0, 0))
+            self.assertEqual(org.period_end, datetime.datetime(2018, 11, 30, 23, 59, 59))
 
 
 def nr_files(d):
