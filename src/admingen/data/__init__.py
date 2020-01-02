@@ -6,6 +6,7 @@ from typing import List, Union, Dict, Any
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 import logging
+import re
 from admingen.util import isoweekno2day
 from yaml import load, dump
 from collections.abc import Mapping
@@ -248,7 +249,7 @@ class AnnotatedDict(dict):
 
 
 
-def CsvReader(stream: typing.TextIO, delimiter=';'):
+def CsvReader(stream: typing.TextIO, delimiter=','):
     if isinstance(stream, str):
         stream = open(stream)
     collection = AnnotatedDict()
@@ -260,6 +261,63 @@ def CsvReader(stream: typing.TextIO, delimiter=';'):
         else:
             collection[table] = list(read_lines(stream, names, types, delimiter))
     return collection
+
+
+
+quote_splitter = re.compile(r'("[^"]*")')
+
+
+def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None, header=True):
+    lookup = basic_types.copy()
+    if types:
+        lookup.update(types)
+    if header:
+        names, types = read_header(stream, delimiter)
+    names, types = list(targettype.__annotations__.keys()), list(targettype.__annotations__.values())
+    part_constructors = [(lookup[t] if t in lookup else t) for t in types]
+    for line in stream:
+        line = line.strip()
+        # Ignore comment lines.
+        if line.startswith('#'):
+            continue
+        # If we see an empty line, the table is ended.
+        if not line:
+            return
+        # Take care quoted parts are handled properly.
+        # Split in parts without the quotes
+        quoted_parts = quote_splitter.split(line)
+        for i, p in enumerate(quoted_parts):
+            if p.startswith('"'):
+                quoted_parts[i] = p.replace(delimiter, '\d')[1:-1]
+        line = ''.join(quoted_parts)
+
+        parts = line.split(delimiter)
+        # Un-escape delimiters in strings
+        parts = [p.replace('\d', delimiter) for p in parts]
+        parts = [c(v) for c, v in zip(part_constructors, parts)]
+        yield targettype(*parts)
+
+
+def CsvTableWriter(stream: typing.TextIO, records, delimiter=',', formatters=None):
+    records = list(records)
+    # Write the table header
+    parts = [f'{a[0]}:{a[1].__name__}' for a in records[0].__annotations__.items()]
+    stream.write('%s\n' % delimiter.join(parts))
+    keys = list(records[0].__annotations__.keys())
+
+    # For all dates in the records, ensure the correct format is used.
+    correct_formats = {k:v.fmt for k, v in records[0].__annotations__.items()
+                       if hasattr(v, 'fmt')}
+    for record in records:
+        for k, fmt in correct_formats.items():
+            getattr(record, k).fmt = fmt
+
+    # Write the table data
+    for line in records:
+        parts = [getattr(line, k) for k in keys]
+        # Escape special characters and the delimiter
+        parts = [str(p).replace(delimiter, r'\d') for p in parts]
+        stream.write('%s\n' % delimiter.join(parts))
 
 
 def CsvWriter(stream: typing.TextIO, collection: Dict[str, Union[List[Any], Dict[str, Any]]], delimiter=';'):
