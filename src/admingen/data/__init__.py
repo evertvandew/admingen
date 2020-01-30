@@ -298,19 +298,23 @@ def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None,
         yield targettype(*parts)
 
 
+def getConstructor(annotation):
+    if annotation in [int, str, Decimal, float]:
+        return annotation.__name__
+    return annotation.annotation
+
 def CsvTableWriter(stream: typing.TextIO, records, delimiter=',', formatters=None):
     records = list(records)
     # Write the table header
-    parts = [f'{a[0]}:{a[1].__name__}' for a in records[0].__annotations__.items()]
+    parts = [f'{a[0]}:{getConstructor(a[1])}' for a in records[0].__annotations__.items()]
     stream.write('%s\n' % delimiter.join(parts))
     keys = list(records[0].__annotations__.keys())
 
     # For all dates in the records, ensure the correct format is used.
-    correct_formats = {k:v.fmt for k, v in records[0].__annotations__.items()
-                       if hasattr(v, 'fmt')}
+    constructors = {k:v for k, v in records[0].__annotations__.items()}
     for record in records:
-        for k, fmt in correct_formats.items():
-            getattr(record, k).fmt = fmt
+        for k, constr in constructors.items():
+            setattr(record, k, constr(getattr(record, k)))
 
     # Write the table data
     for line in records:
@@ -356,8 +360,8 @@ def DataReader(url):
 
 
 
-def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defines:dict):
-    data = CsvReader(instream)
+def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defines:dict, delimiter=','):
+    data = CsvReader(instream, delimiter=delimiter)
     data.update(defines)
     result = None
 
