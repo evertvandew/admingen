@@ -4,7 +4,7 @@ Take a XML-server definition, and take out the Page tags, add some HTML overhead
 write them to the file system as static pages.
 """
 
-from admingen.htmltools.xml_template import generators, processor, Tag, Template
+from admingen.xml_template import processor, Tag, Template
 import os, os.path
 
 

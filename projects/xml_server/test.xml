@@ -1,0 +1,6 @@
+<?xml>
+<Template tag="Evert" args="bvnw='lief'">Evert is ${bvnw}${':%s'%lines if lines else '.' } </Template>
+
+<Evert> Wat een held!</Evert>
+
+<Evert bvnw="groot" />
