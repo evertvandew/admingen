@@ -8,6 +8,9 @@
 
     The tool writes the generated XML to stdout, allowing the generated XML to be used by other
     tools for various purposes.
+    
+    We use the Mako templating engine for its powerful inline-Python features. Also its
+    syntax does not bite Angular or other popular Javascript libraries.
 """
 import sys
 import io
@@ -292,14 +295,16 @@ def handle_Template(args, lines):
 generators = {'Datamodel': Tag('Datamodel', handle_Datamodel),
               'Template': template_reader}
 
-update_res(generators)
-
-def processor(generators=generators, istream=sys.stdin, ostream=sys.stdout, preprocess_only=False):
+def processor(ingenerators=generators, istream=sys.stdin, ostream=sys.stdout, preprocess_only=False):
     """ Parses the server definition file.
 
         Scans the file for XML tags that we handle, and
         executes the associated actions.
     """
+    global generators
+    if ingenerators != generators:
+        generators = ingenerators
+    
     istream = open(istream) if isinstance(istream, str) else istream
 
     update_res(generators)

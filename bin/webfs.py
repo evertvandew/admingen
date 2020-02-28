@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # The MIT License (MIT)
 #
@@ -30,7 +30,7 @@ import os
 import sys
 import flask
 import filecache
-import magic
+import admingen.magick as magic
 import re
 import json
 
@@ -39,6 +39,7 @@ root_path = os.getcwd()
 
 def validate_ranges(ranges, content_length):
     return all([int(r[0]) <= int(r[1]) for r in ranges]) and all([int(x) < content_length for subrange in ranges for x in subrange])
+
 
 @app.route('/', defaults={'path': ''}, methods=['GET', 'HEAD'])
 @app.route('/<path:path>', methods=['GET', 'HEAD'])
@@ -52,19 +53,19 @@ def get(path):
     if os.path.isdir(fullpath) and path_components[0] != 'data':
         fullpath += '/index.html'
 
-    mime = None
-    if fullpath.endswith('.css'):
-        mime = 'text/css'
-
-    mime = mime or magic.from_file(fullpath, mime=True)
-
-    if mime is None:
-        mime = 'application/octet-stream'
-    else:
-        mime = mime.replace(' [ [', '')
-
     if os.path.exists(fullpath):
         if (request.args.get('stat') is not None):
+            mime = None
+            if fullpath.endswith('.css'):
+                mime = 'text/css'
+    
+            mime = mime or magic.from_file(fullpath, mime=True)
+    
+            if mime is None:
+                mime = 'application/octet-stream'
+            else:
+                mime = mime.replace(' [ [', '')
+    
             stat = os.stat(fullpath)
             st = {'file' : os.path.basename(fullpath),
                   'path' : '/%s' % path,
@@ -103,6 +104,8 @@ def get(path):
                             yield d
                         else:
                             break
+
+                mime = magic.from_file(fullpath, mime=True)
                 res = Response(stream_with_context(stream_data()), 200, mimetype=mime, direct_passthrough=True)
                 res.headers['Content-Length'] = stat.st_size
             else:
@@ -147,23 +150,17 @@ def put(path):
         return flask.make_response("Path must be absolute.", 400)
 
     fullpath = '%s/%s' % (root_path, path)
-
-    if not path_components[0] == 'data' and os.path.exists(fullpath):
+    
+    # Do not accept writes outside the data area
+    if not path_components[0] == 'data':
         return flask.make_response('/%s: File exists.' % path, 403)
-
-    if path_components[0] == 'data' \
-        and os.path.exists(fullpath) \
-        and (request.values or request.is_json()) \
-        and not path_components[-1].isnumeric():
-        # There is no ID field, create one.
-        ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
-        fullpath = '/'.join([fullpath, str(max(ids) + 1)])
-        print ('Created ID', str(max(ids) + 1))
-
-    if not request.data and not request.values:
-        os.mkdir(fullpath)
-        return flask.make_response('', 201)
-    elif request.data:
+    
+    # Check we have either JSON or form-encoded data
+    if not (request.values or request.is_json()):
+        return flask.make_response('/%s: Inproper request.' % path, 400)
+    
+    # Determine the data
+    if request.data:
         encoding = request.args.get('encoding')
         if encoding == 'base64':
             data = request.data.decode('base64')
@@ -173,8 +170,24 @@ def put(path):
         # The data is encoded as form data. Just save them as JSON
         data = json.dumps(request.values.to_dict())
 
+    # Check if the id number needs to be determined
+    if not path_components[-1].isnumeric():
+        if 'id' in data:
+            my_id = data['id']
+        else:
+            # There is no ID field, create one.
+            ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
+            my_id = max(ids)+1 if ids else 1
+            
+        fullpath = '/'.join([fullpath, str(my_id)])
+        print ('Created ID', str(my_id))
+
+    if not request.data and not request.values:
+        os.mkdir(fullpath)
+        return flask.make_response('', 201)
+
     print ('Saving', fullpath)
-    with open(fullpath, "wb") as dest_file:
+    with open(fullpath, "w") as dest_file:
         dest_file.write(data)
     return flask.make_response('', 201)
 
@@ -191,7 +204,7 @@ def delete(path):
                 os.rmdir(fullpath)
                 return flask.make_response('', 204)
             else:
-                print os.listdir(fullpath)
+                print(os.listdir(fullpath))
                 return flask.make_response('/%s: Directory is not empty.' % path, 403)
         else:
             os.remove(fullpath)

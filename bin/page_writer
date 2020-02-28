@@ -4,8 +4,12 @@ Take a XML-server definition, and take out the Page tags, add some HTML overhead
 write them to the file system as static pages.
 """
 
+
+# TODO: Create directories for the data tables
+
 from admingen.xml_template import processor, Tag, Template
 import os, os.path
+import sys
 
 
 page_template = Template("""<!DOCTYPE html>
@@ -14,7 +18,7 @@ page_template = Template("""<!DOCTYPE html>
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-        <title>Admingen</title>
+        <title>${title}</title>
     ${header}
     <link rel="stylesheet" type="text/css" href="/batic/css/bootstrap.min.css" />
     <link rel="stylesheet" type="text/css" href="/batic/css/font-awesome.min.css" />
@@ -33,7 +37,8 @@ ${lines}
 
 created_pages = []
 
-current_page_context = {}
+current_page_context = dict(header='', title='admingen')
+
 
 def handle_Page(args, lines):
     url = args['url']
@@ -41,8 +46,8 @@ def handle_Page(args, lines):
     if url in created_pages:
         raise RuntimeError('Creating page', url, 'for the second time')
     text = page_template.render(lines=lines, **current_page_context)
-    dirname, fname = os.path.split('html/'+url)
-    print (dirname, fname)
+    dirname, fname = os.path.split('html/'+url.strip('/'))
+    print ('Writing:', dirname, fname)
     if not os.path.exists(dirname):
         os.makedirs(dirname)
     with open(os.path.join(dirname, fname), 'w') as out:
@@ -55,6 +60,12 @@ def handle_PageContextValue(args, lines):
     current_page_context[args['name']] = lines
     return ''
 
-
-processor({'Page': Tag(handle_Page),
-           'PageContextValue': Tag(handle_Page)})
+if False:
+    os.chdir('/home/ehwaal/projects/sab')
+    processor({'Page': Tag('Page', handle_Page),
+               'PageContextValue': Tag('PageContextValue', handle_PageContextValue)},
+              open('page_definitions.xml'))
+else:
+    processor({'Page': Tag('Page', handle_Page),
+               'PageContextValue': Tag('PageContextValue', handle_PageContextValue)},
+              sys.stdin)
