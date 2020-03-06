@@ -15,6 +15,7 @@
 import sys
 import io
 import re
+import enum
 from mako.template import Template
 from mako import exceptions
 
@@ -27,6 +28,37 @@ data_models = {}
 
 def handle_Datamodel(args, lines):
     """ Analyse and store data model definitions """
+    def handle_table(line_it):
+        """ Read the """
+        result = {}
+        # Consume and handle the column definitions
+        l = next(line_it)
+        try:
+            while l[0] in ' \t':
+                name, details = l.split(':')
+                colname = name.strip()
+                details = [d.strip() for d in details.split(',')]
+                result[colname] = details
+                l = next(line_it)
+        except StopIteration:
+            pass    # Use the exception only to break out of the while loop.
+        return l, result
+    
+    def handle_enum(line_it, table_name):
+        """ Currently, al items are numbered from 1 up.
+        """
+        items = []
+        # Every indented line is one item for the enum.
+        l = next(line_it)
+        try:
+            while l and l[0] in ' \t':
+                item = l.strip()
+                items.append(item)
+                l = next(line_it)
+        except StopIteration:
+            pass    # Use the exception only to break out of the while loop
+        return l, enum.Enum(table_name, ' '.join(items))
+        
     name = args['name']
     data_models[name] = {}
     data_model = data_models[name]
@@ -34,24 +66,28 @@ def handle_Datamodel(args, lines):
     l = next(line_it)
     try:
         while True:
-            # Consume lines until we get a table
-            while not l.strip().startswith('table:'):
+            # Consume lines until we get a table or enum
+            while l.split(':')[0] not in ['table', 'enum']:
                 l = next(line_it)
-
-            tablename = l.strip().split(':')[1]
-            tabledef = {}
-            data_model[tablename.strip()] = tabledef
-            # Consume and handle the column definitions
-            l = next(line_it)
-            while l[0] in ' \t':
-                name, details = l.split(':')
-                colname = name.strip()
-                details = [d.strip() for d in details.split(',')]
-                tabledef[colname] = details
-                l = next(line_it)
+            
+            table_type, tablename = l.strip().split(':', maxsplit=1)
+            tablename = tablename.strip()
+            tabledef = None
+            if table_type.strip() == 'table':
+                l, tabledef = handle_table(line_it)
+            elif table_type.strip() == 'enum':
+                l, tabledef = handle_enum(line_it, tablename)
+            data_model[tablename] = tabledef
     except StopIteration:
         pass
     return ''
+
+def isEnum(source, coltype):
+    """ Check if a type refers to an enum in the datamodel
+    """
+    if coltype not in data_models[source]:
+        return False
+    return isinstance(data_models[source][coltype], enum.EnumMeta)
 
 
 argument_re = re.compile(r'\s*(\S*)\s*=\s*"([^"]*)"')
@@ -253,7 +289,6 @@ def update_res(generators):
     # We use the tag name and a lookahead check for a space or tag end character
     wrapped_tags = '|'.join(r'(%s)(?=[ />])' % t for t in tags)
     tag_start = re.compile(r'<(%s)' % wrapped_tags)
-    print ('Searching for tags', wrapped_tags, file=sys.stderr)
 
 
 def handle_Template(args, lines):
@@ -277,7 +312,8 @@ def handle_Template(args, lines):
             arguments['id'] = None
         try:
             expand_self = io.StringIO(
-                template.render(lines=lines, datamodels=data_models, **arguments))
+                template.render(lines=lines, datamodels=data_models,
+                                isEnum=isEnum, **arguments))
         except:
             print(exceptions.text_error_template().render(), file=sys.stderr)
             return '<An error occurred when rendering template for %s'%tag
@@ -309,8 +345,6 @@ def processor(ingenerators=generators, istream=sys.stdin, ostream=sys.stdout, pr
 
     update_res(generators)
 
-    print('Handling tags:', generators.keys(), file=sys.stderr)
-
     ###########################################################################
     ## PRE-PROCESSING
     
@@ -328,12 +362,8 @@ def processor(ingenerators=generators, istream=sys.stdin, ostream=sys.stdout, pr
     return
 
 if __name__ == '__main__':
+    # Normally, this file is executed through a different script in the `bin` directory.
+    # This is only executed when debugging.
     import os
-    if False:
-        os.chdir('/home/ehwaal/projects/sab/admingen/projects/xml_server')
-        result = processor(istream=open('test.xml'))
-    else:
-        os.chdir('/home/ehwaal/projects/sab')
-        result = processor(istream=open('webinterface.xml'))
-    if result:
-        sys.exit(result)
+    os.chdir('/home/ehwaal/projects/sab')
+    result = processor(istream=open('webinterface.xml'))
