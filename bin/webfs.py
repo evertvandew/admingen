@@ -24,7 +24,6 @@
 
 from flask import Flask, request, current_app, stream_with_context, Response
 from argparse import ArgumentParser
-from werkzeug.wsgi import wrap_file
 
 import os
 import sys
@@ -41,6 +40,21 @@ def validate_ranges(ranges, content_length):
     return all([int(r[0]) <= int(r[1]) for r in ranges]) and all([int(x) < content_length for subrange in ranges for x in subrange])
 
 
+def my_get_mime(path):
+    """ Get the mime type of a file. """
+    mime = None
+    if path.endswith('.css'):
+        return 'text/css'
+    
+    mime = magic.from_file(path, mime=True)
+    
+    if mime is None:
+        mime = 'application/octet-stream'
+    else:
+        mime = mime.replace(' [ [', '')
+    return mime
+
+
 @app.route('/', defaults={'path': ''}, methods=['GET', 'HEAD'])
 @app.route('/<path:path>', methods=['GET', 'HEAD'])
 def get(path):
@@ -55,16 +69,7 @@ def get(path):
 
     if os.path.exists(fullpath):
         if (request.args.get('stat') is not None):
-            mime = None
-            if fullpath.endswith('.css'):
-                mime = 'text/css'
-    
-            mime = mime or magic.from_file(fullpath, mime=True)
-    
-            if mime is None:
-                mime = 'application/octet-stream'
-            else:
-                mime = mime.replace(' [ [', '')
+            mime = my_get_mime(fullpath)
     
             stat = os.stat(fullpath)
             st = {'file' : os.path.basename(fullpath),
@@ -105,7 +110,7 @@ def get(path):
                         else:
                             break
 
-                mime = magic.from_file(fullpath, mime=True)
+                mime = my_get_mime(fullpath)
                 res = Response(stream_with_context(stream_data()), 200, mimetype=mime, direct_passthrough=True)
                 res.headers['Content-Length'] = stat.st_size
             else:
