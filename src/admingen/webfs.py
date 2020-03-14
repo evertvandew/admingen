@@ -22,19 +22,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from flask import Flask, request, current_app, stream_with_context, Response
-from argparse import ArgumentParser
+import flask
 
 import os
-import sys
-import flask
 import filecache
 import admingen.magick as magic
 import re
 import json
 
-app = Flask(__name__)
-root_path = os.getcwd()
+root_path = None
+
+def set_root(path):
+    global root_path
+    root_path = path
 
 def validate_ranges(ranges, content_length):
     return all([int(r[0]) <= int(r[1]) for r in ranges]) and all([int(x) < content_length for subrange in ranges for x in subrange])
@@ -54,21 +54,35 @@ def my_get_mime(path):
         mime = mime.replace(' [ [', '')
     return mime
 
+def read_records(fullpath):
+    # We need to make an object of the whole contents of a directory
+    entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
+    data = {int(e): json.load(open(os.path.join(fullpath, str(e)))) for e in entries}
+    return data
 
-@app.route('/', defaults={'path': ''}, methods=['GET', 'HEAD'])
-@app.route('/<path:path>', methods=['GET', 'HEAD'])
+
+def mk_fullpath(path):
+    return '/'.join([root_path, path])
+
+
+def mk_response(reply):
+    response = flask.make_response(flask.jsonify(reply))
+    return response
+
+
 def get(path):
+    """ Flask handler for get requests. """
     path_components = path.split('/')
     if '.' in path_components or '..' in path_components:
         return flask.make_response("Path must be absolute.", 400)
 
-    fullpath = '%s/%s' % (root_path, path)
+    fullpath = mk_fullpath(path)
 
     if os.path.isdir(fullpath) and path_components[0] != 'data':
         fullpath += '/index.html'
 
     if os.path.exists(fullpath):
-        if (request.args.get('stat') is not None):
+        if flask.request.args.get('stat') is not None:
             mime = my_get_mime(fullpath)
     
             stat = os.stat(fullpath)
@@ -86,9 +100,7 @@ def get(path):
 
         if os.path.isdir(fullpath):
             if path_components[0] == 'data':
-                # We need to make an object of the whole contents of a directory
-                entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
-                data = {e: json.load(open(os.path.join(fullpath, str(e)))) for e in entries}
+                data = read_records(fullpath)
                 res = flask.make_response(json.dumps(data))
             else:
                 res = flask.make_response(json.dumps(os.listdir(fullpath)))
@@ -98,7 +110,7 @@ def get(path):
         else:
             stat = os.stat(fullpath)
             f = filecache.open_file(fullpath)
-            r = request.headers.get('Range')
+            r = flask.request.headers.get('Range')
             m = re.match('bytes=((\d+-\d+,)*(\d+-\d*))', r) if r is not None else None
             if r is None or m is None:
                 f.seek(0)
@@ -111,7 +123,7 @@ def get(path):
                             break
 
                 mime = my_get_mime(fullpath)
-                res = Response(stream_with_context(stream_data()), 200, mimetype=mime, direct_passthrough=True)
+                res = flask.Response(flask.stream_with_context(stream_data()), 200, mimetype=mime, direct_passthrough=True)
                 res.headers['Content-Length'] = stat.st_size
             else:
                 ranges = [x.split('-') for x in m.group(1).split(',')]
@@ -137,8 +149,7 @@ def get(path):
                                     d = f.read(s)
                                     yield d
 
-
-                    res = Response(stream_with_context(stream_data()), 206, mimetype=mime, direct_passthrough=True)
+                    res = flask.Response(flask.stream_with_context(flask.stream_data()), 206, mimetype=flask.mime, direct_passthrough=True)
                     res.headers['Content-Length'] = content_length
                     res.headers['Content-Range'] = 'bytes %s-%s/%d' % (ranges[0][0], ranges[0][1], stat.st_size)
                 else:
@@ -148,8 +159,8 @@ def get(path):
     else:
         return flask.make_response('/%s: No such file or directory.' % path, 404)
 
-@app.route('/<path:path>', methods=['PUT', 'POST'])
 def put(path):
+    """ Flask handler for put requests """
     path_components = path.split('/')
     if '.' in path_components or '..' in path_components:
         return flask.make_response("Path must be absolute.", 400)
@@ -161,19 +172,19 @@ def put(path):
         return flask.make_response('/%s: File exists.' % path, 403)
     
     # Check we have either JSON or form-encoded data
-    if not (request.values or request.is_json()):
+    if not (flask.request.values or flask.request.is_json()):
         return flask.make_response('/%s: Inproper request.' % path, 400)
     
     # Determine the data
-    if request.data:
-        encoding = request.args.get('encoding')
+    if flask.request.data:
+        encoding = flask.request.args.get('encoding')
         if encoding == 'base64':
-            data = request.data.decode('base64')
+            data = flask.request.data.decode('base64')
         else:
-            data = request.data
+            data = flask.request.data
     else:
         # The data is encoded as form data. Just save them as JSON
-        data = json.dumps(request.values.to_dict())
+        data = json.dumps(flask.request.values.to_dict())
 
     # Check if the id number needs to be determined
     if not path_components[-1].isnumeric():
@@ -187,7 +198,7 @@ def put(path):
         fullpath = '/'.join([fullpath, str(my_id)])
         print ('Created ID', str(my_id))
 
-    if not request.data and not request.values:
+    if not flask.request.data and not flask.request.values:
         os.mkdir(fullpath)
         return flask.make_response('', 201)
 
@@ -196,8 +207,9 @@ def put(path):
         dest_file.write(data)
     return flask.make_response('', 201)
 
-@app.route('/<path:path>', methods=['DELETE'])
+
 def delete(path):
+    """ Flask handler for delete requests. """
     path_components = path.split('/')
     if '.' in path_components or '..' in path_components:
         return flask.make_response("Path must be absolute.", 400)
@@ -216,19 +228,9 @@ def delete(path):
             return flask.make_response('', 204)
     else:
         return flask.make_response('/%s: No such file or directory.' % path, 404)
-    
 
-if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument('--root-path', dest='root_path', action='store', help='Path to serve.')
-    parser.add_argument('-d', '--debug', dest='debug', action='store_true', help='Run in debug mode.')
-    parser.add_argument('host', action='store', nargs='?', help='Host to bind to.')
-    parser.add_argument('port', action='store', type=int, nargs='?', help='Port to listen on.')
-
-    args = parser.parse_args()
-
-    if args.root_path is not None:
-        root_path = args.root_path
-
-    app.run(threaded=True, host=args.host, port=args.port, debug=args.debug)
-
+def add_handlers(app):
+    getter = app.route('/<path:path>', methods=['GET', 'HEAD'])(get)
+    app.route('/', defaults={'path': ''}, methods=['GET', 'HEAD'])(getter)
+    app.route('/<path:path>', methods=['PUT', 'POST'])(put)
+    app.route('/<path:path>', methods=['DELETE'])(delete)

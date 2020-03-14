@@ -328,8 +328,10 @@ def handle_Template(args, lines):
 # End of handle_template
 
 
-generators = {'Datamodel': Tag('Datamodel', handle_Datamodel),
+default_generators = {'Datamodel': Tag('Datamodel', handle_Datamodel),
               'Template': template_reader}
+
+generators = default_generators.copy()
 
 def processor(ingenerators=generators, istream=sys.stdin, ostream=sys.stdout, preprocess_only=False):
     """ Parses the server definition file.
