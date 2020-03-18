@@ -29,12 +29,13 @@ import filecache
 import admingen.magick as magic
 import re
 import json
+import operator
 
 root_path = None
 
 def set_root(path):
     global root_path
-    root_path = path
+    root_path = os.path.abspath(path)
 
 def validate_ranges(ranges, content_length):
     return all([int(r[0]) <= int(r[1]) for r in ranges]) and all([int(x) < content_length for subrange in ranges for x in subrange])
@@ -55,9 +56,13 @@ def my_get_mime(path):
     return mime
 
 def read_records(fullpath):
+    if fullpath[0] != '/':
+        fullpath = os.path.join(root_path, fullpath)
     # We need to make an object of the whole contents of a directory
     entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
     data = {int(e): json.load(open(os.path.join(fullpath, str(e)))) for e in entries}
+    for key, value in data.items():
+        value['id'] = key
     return data
 
 
@@ -70,6 +75,31 @@ def mk_response(reply):
     return response
 
 
+filter_context = {
+    'isin': operator.contains
+}
+
+def get_data(path, fullpath):
+    if os.path.exists(fullpath):
+        if os.path.isdir(fullpath):
+            data = read_records(fullpath)
+            if 'filter' in flask.request.args:
+                def func(item):
+                    return bool(eval(flask.request.args['filter'],
+                                     filter_context, item))
+                data = [item for item in data.values() if func(item)]
+            res = flask.make_response(json.dumps(data))
+            
+            res.headers['Content-Type'] = 'application/json; charset=utf-8'
+            return res
+        
+        res = flask.make_response(open(fullpath).read())
+        res.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return res
+
+    return flask.make_response('/%s: No such file or directory.' % path, 404)
+
+
 def get(path):
     """ Flask handler for get requests. """
     path_components = path.split('/')
@@ -77,34 +107,16 @@ def get(path):
         return flask.make_response("Path must be absolute.", 400)
 
     fullpath = mk_fullpath(path)
+    
+    if path_components[0] == 'data':
+        return get_data(path, fullpath)
 
-    if os.path.isdir(fullpath) and path_components[0] != 'data':
+    if os.path.isdir(fullpath):
         fullpath += '/index.html'
 
     if os.path.exists(fullpath):
-        if flask.request.args.get('stat') is not None:
-            mime = my_get_mime(fullpath)
-    
-            stat = os.stat(fullpath)
-            st = {'file' : os.path.basename(fullpath),
-                  'path' : '/%s' % path,
-                  'access_time' : int(stat.st_atime),
-                  'modification_time' : int(stat.st_mtime),
-                  'change_time' : int(stat.st_ctime),
-                  'mimetype' : mime}
-            if not os.path.isdir(fullpath):
-                st['size'] = int(stat.st_size)
-            res = flask.make_response(json.dumps(st))
-            res.headers['Content-Type'] = 'application/json; charset=utf-8'
-            return res
-
         if os.path.isdir(fullpath):
-            if path_components[0] == 'data':
-                data = read_records(fullpath)
-                res = flask.make_response(json.dumps(data))
-            else:
-                res = flask.make_response(json.dumps(os.listdir(fullpath)))
-
+            res = flask.make_response(json.dumps(os.listdir(fullpath)))
             res.headers['Content-Type'] = 'application/json; charset=utf-8'
             return res
         else:
@@ -156,8 +168,8 @@ def get(path):
                     res = flask.make_response('', 416)
             # res.headers['Accept-Ranges'] = 'bytes'
             return res
-    else:
-        return flask.make_response('/%s: No such file or directory.' % path, 404)
+
+    return flask.make_response('/%s: No such file or directory.' % path, 404)
 
 def put(path):
     """ Flask handler for put requests """
@@ -174,38 +186,43 @@ def put(path):
     # Check we have either JSON or form-encoded data
     if not (flask.request.values or flask.request.is_json()):
         return flask.make_response('/%s: Inproper request.' % path, 400)
+
+    # Make an initial data object for merging old and new data
+    data = {}
     
-    # Determine the data
+    # Check if the id number needs to be determined
+    if not path_components[-1].isnumeric():
+        # There is no ID field, create one.
+        ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
+        my_id = max(ids) + 1 if ids else 1
+        data['id'] = my_id
+        fullpath = '/'.join([fullpath, str(my_id)])
+        print('Created ID', str(my_id))
+    elif flask.request.method == 'POST' and os.path.isfile(fullpath):
+        # If this is a POST request, get any existing data
+        data = json.load(open(fullpath))
+
+    # Update with the new data
     if flask.request.data:
         encoding = flask.request.args.get('encoding')
         if encoding == 'base64':
-            data = flask.request.data.decode('base64')
+            new_data = flask.request.data.decode('base64')
         else:
-            data = flask.request.data
+            new_data = flask.request.data
     else:
         # The data is encoded as form data. Just save them as JSON
-        data = json.dumps(flask.request.values.to_dict())
-
-    # Check if the id number needs to be determined
-    if not path_components[-1].isnumeric():
-        if 'id' in data:
-            my_id = data['id']
-        else:
-            # There is no ID field, create one.
-            ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
-            my_id = max(ids)+1 if ids else 1
-            
-        fullpath = '/'.join([fullpath, str(my_id)])
-        print ('Created ID', str(my_id))
+        new_data = flask.request.values.to_dict()
+    data.update(new_data)
 
     if not flask.request.data and not flask.request.values:
         os.mkdir(fullpath)
         return flask.make_response('', 201)
 
-    print ('Saving', fullpath)
+    print('Saving', fullpath, data)
+    data_str = json.dumps(data)
     with open(fullpath, "w") as dest_file:
-        dest_file.write(data)
-    return flask.make_response('', 201)
+        dest_file.write(data_str)
+    return flask.make_response(data_str, 201)
 
 
 def delete(path):

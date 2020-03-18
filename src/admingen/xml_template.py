@@ -287,7 +287,7 @@ def update_res(generators):
     tags = sorted(generators.keys(), reverse=True)
     # Prepare a RE to find all custom tags
     # We use the tag name and a lookahead check for a space or tag end character
-    wrapped_tags = '|'.join(r'(%s)(?=[ />])' % t for t in tags)
+    wrapped_tags = '|'.join(r'(%s)(?=[\s/>])' % t for t in tags)
     tag_start = re.compile(r'<(%s)' % wrapped_tags)
 
 
