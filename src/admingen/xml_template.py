@@ -16,6 +16,9 @@ import sys
 import io
 import re
 import enum
+from dataclasses import dataclass
+from typing import List, Tuple, Any, Dict
+import urllib.parse
 from mako.template import Template
 from mako import exceptions
 
@@ -24,7 +27,7 @@ TAG_CLOSE_MSG = '__TAG_CLOSE__'
 
 
 data_models = {}
-
+url_prefixes = {}
 
 def handle_Datamodel(args, lines):
     """ Analyse and store data model definitions """
@@ -60,8 +63,10 @@ def handle_Datamodel(args, lines):
         return l, enum.Enum(table_name, ' '.join(items))
         
     name = args['name']
+    url_prefix = args.get('url_prefix', name)
     data_models[name] = {}
     data_model = data_models[name]
+    url_prefixes[url_prefix] = name
     line_it = iter(lines.splitlines())
     l = next(line_it)
     try:
@@ -85,6 +90,8 @@ def handle_Datamodel(args, lines):
 def isEnum(source, coltype):
     """ Check if a type refers to an enum in the datamodel
     """
+    if not coltype:
+        return False
     if coltype not in data_models[source]:
         return False
     return isinstance(data_models[source][coltype], enum.EnumMeta)
@@ -93,6 +100,77 @@ def isEnum(source, coltype):
 argument_re = re.compile(r'\s*(\S*)\s*=\s*"([^"]*)"')
 
 
+@dataclass
+class QueryDetails:
+    url: str
+    source: str=None
+    table: str=None
+    column_names: List[str]=None
+    column_types: List[str]=None
+    join = None
+    join_on: str=None
+    filter: str=None
+    group_by: str=None
+    order_by: str=None
+    parameters: List[str] = None
+    
+
+def GetQueryDetails(query, columns):
+    """ Pre-parse a query string, as used in the template system.
+    The query contains a lot of information that
+    needs to be processed to be able to draw the table.
+    This script will set some variables that can be inserted at the right locations.
+    
+    The query string has the following structure:
+    """
+    if query[0] == '/':
+        # First determine which columns to draw
+        path = urllib.parse.urlparse(query).path
+        table = path.split('/')[-1]
+        if (path[0] or path[1]) in url_prefixes:
+            source = url_prefixes[path[0] or path[1]]
+            specs = data_models[source][table]
+        else:
+            # This is an unknown data source. Only process parameters
+            source = specs = None
+    else:
+        # The source and table are specified directly
+        data_ref, query_part = query.split('?', maxsplit=1)
+        assert data_ref.count('.') == 1
+        source, table = data_ref.split('.')
+        specs = data_models[source][table]
+        query = f'/data/{table}?{query_part}'
+
+    # Determine the context that needs to be obtained in JS
+    # These elements have double brackets in the query string.
+    bit_scanner = re.compile(r'\{\{[^}]*\}\}')
+    context_bits = bit_scanner.findall(query)
+    context_bits = [b.strip('{}') for b in context_bits]
+
+    # Determine the actual query string, in JS
+    parts = bit_scanner.split(query)
+    the_query = ''.join([f'"{a}"+context.{b}+' for a, b in zip(parts, context_bits)]) + '"'+parts[-1]+'"'
+    details = QueryDetails(source=source, table=table, url=the_query, parameters=context_bits)
+    
+    if columns:
+        details.column_names = columns.split('.')
+    elif specs:
+        details.column_names = specs.keys()
+        print('Column names:', details.column_names)
+    return details
+
+
+def GetQueryContextSetter(details):
+    parts = []
+    for bit in details.parameters:
+        parts.append(f"""            {bit}: '"'+$("#{bit}").val()+'"'""")
+    lines = ['var context = {',
+             ',\n'.join(parts),
+            '};']
+    context_setter = '\n'.join(lines)
+    return context_setter
+
+    
 
 def read_argument_lines(line, istream):
     """ Read a stream until all arguments in a Tag are read
@@ -203,7 +281,7 @@ def template_reader(line, istream):
         parts = template_end.split(line)
         if len(parts) > 1:
             lines.append(parts[0])
-            return handle_Template(arguments, '\n'.join(lines)), parts[-1]
+            return handle_Template(arguments, ''.join(lines)), parts[-1]
         lines.append(line)
         line = next(istream)
 
@@ -312,8 +390,12 @@ def handle_Template(args, lines):
             arguments['id'] = None
         try:
             expand_self = io.StringIO(
-                template.render(lines=lines, datamodels=data_models,
-                                isEnum=isEnum, **arguments))
+                template.render(lines=lines,
+                                datamodels=data_models,
+                                isEnum=isEnum,
+                                GetQueryDetails=GetQueryDetails,
+                                GetQueryContextSetter=GetQueryContextSetter,
+                                **arguments))
         except:
             print(exceptions.text_error_template().render(), file=sys.stderr)
             return '<An error occurred when rendering template for %s'%tag

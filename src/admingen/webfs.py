@@ -76,7 +76,16 @@ def mk_response(reply):
 
 
 filter_context = {
-    'isin': operator.contains
+    'isIn': operator.contains,
+    'isTrue': lambda x: x.lower()=='true',
+    'isFalse': lambda x: x.lower()!='true',
+    'l_and': operator.and_,
+    'eq': operator.eq,
+    'neq': operator.ne,
+    'lt': operator.lt,
+    'gt': operator.gt,
+    'le': operator.le,
+    'ge': operator.ge
 }
 
 def get_data(path, fullpath):
