@@ -88,19 +88,30 @@ filter_context = {
     'ge': operator.ge
 }
 
+
+def do_leftjoin(tabl1, tabl2, data1, data2, condition):
+    # Make the association.
+    results = []
+    for d1 in data1.values():
+        def eval_cond(d2):
+            """ Function returns true if d2 is to be joined to d1 """
+            local_context = {tabl1:d1, tabl2:d2}
+            local_context.update(d2)
+            local_context.update(d1)
+            return bool(eval(condition, filter_context, local_context))
+    
+        d2s = list(filter(eval_cond, data2.values()))
+        assert len(d2s) <= 1, "Join condition %s didn't result in a unique match"%condition
+        result = d1.copy()
+        result[tabl1] = d1
+        if d2s:
+            result.update(d2s[0])
+            result[tabl2] = d2s[0]
+        results.append(result)
+    return results
+
 def get_data(path, fullpath):
     if os.path.exists(fullpath):
-        if os.path.isdir(fullpath):
-            data = read_records(fullpath)
-            if 'filter' in flask.request.args:
-                def func(item):
-                    return bool(eval(flask.request.args['filter'],
-                                     filter_context, item))
-                data = [item for item in data.values() if func(item)]
-            res = flask.make_response(json.dumps(data))
-            
-            res.headers['Content-Type'] = 'application/json; charset=utf-8'
-            return res
         
         res = flask.make_response(open(fullpath).read())
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
@@ -260,3 +271,16 @@ def add_handlers(app):
     app.route('/', defaults={'path': ''}, methods=['GET', 'HEAD'])(getter)
     app.route('/<path:path>', methods=['PUT', 'POST'])(put)
     app.route('/<path:path>', methods=['DELETE'])(delete)
+
+
+def testjoin():
+    # Try the following join:
+    # sab_planning.WerknemerTeam?filter=l_and(eq(ploegleider,{{ploegleider}}),eq(start,{{start}}))&join=sab_planning.Werknemer,eq(werknemer,Werknemer['id'])
+    data1 = read_records('WerknemerTeam')
+    data2 = read_records('Werknemer')
+    j = do_leftjoin('WerknemerTeam', 'Werknemer', data1, data2, condition='eq(int(werknemer),Werknemer["id"])')
+    print(j)
+
+if __name__ == '__main__':
+    set_root('/home/ehwaal/projects/sab/html/data')
+    testjoin()
