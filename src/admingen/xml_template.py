@@ -163,7 +163,7 @@ def GetQueryDetails(query, columns):
 def GetQueryContextSetter(details):
     parts = []
     for bit in details.parameters:
-        parts.append(f"""            {bit}: '"'+$("#{bit}").val()+'"'""")
+        parts.append(f"""            {bit}: $("#{bit}").val()""")
     lines = ['var context = {',
              ',\n'.join(parts),
             '};']
