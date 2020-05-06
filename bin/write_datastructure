@@ -79,6 +79,9 @@ class phone(str): pass
 
 # The actual data model.
 {model_lines}
+
+# Create a list with all data tables defined here.
+all_tables = [{the_tables}]
 '''
 
 class_template = '''@dataclass
@@ -98,7 +101,9 @@ for database, tables in data_models.items():
         l = enum_template.format(name=k, options=' '.join(t.name for t in enum_def))
         lines.append(l)
     
+    the_tables = []
     for k, cls_def in class_defs.items():
+        the_tables.append(k)
         cls = []
         for name, details in cls_def.items():
             cld = ', '.join(details)
@@ -110,4 +115,5 @@ for database, tables in data_models.items():
 
 model_lines = '\n'.join(lines)
 args.output.write(file_template.format(model_lines=model_lines,
-                                       date=time.ctime()))
+                                       date=time.ctime(),
+                                       the_tables=', '.join(the_tables)))

@@ -10,7 +10,7 @@ from admingen.util import isoweekno2day
 from yaml import load, dump
 from collections.abc import Mapping
 from typing import Dict
-from dataclasses import is_dataclass
+from dataclasses import is_dataclass, asdict
 
 import json
 try:
@@ -219,6 +219,15 @@ class dataline(Mapping):
         return str(self.__dict__)
 
 
+def serialiseDataclass(data):
+    """ Convert a dataclass to a JSON string """
+    return json.dumps(asdict(data))
+
+def deserialiseDataclass(cls, s):
+    """ Read the dataclass from a JSON string """
+    return cls(json.loads(s))
+    
+    
 
 def read_lines(stream, headers, types, delimiter):
     constructor = dataline.getConstructor(headers, types)

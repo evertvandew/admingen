@@ -10,6 +10,7 @@ import operator
 import functools
 from urllib.parse import unquote
 from werkzeug.exceptions import BadRequest, NotFound
+from admingen.data.file_db import FileDatabase
 
 # Define the key for the data element that is added to indicate limited queries have reached the end
 IS_FINAL_KEY = '__is_last_record'
@@ -79,6 +80,8 @@ def multi_sort(descriptor, data):
 def add_handlers(app):
     """ This function creates and installs a number of flask handlers. """
     offset = os.getcwd() + '/data'
+    
+    db = FileDatabase(offset)
 
     # First define some helper functions.
     def mk_fullpath(path):
