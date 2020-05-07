@@ -16,7 +16,7 @@ week = (2018, 51)
 
 # Determine details of the current tasks
 taskconfig = '/home/ehwaal/Documents/uurstaten/urendata.csv'
-tasks = CsvReader(taskconfig)
+tasks = CsvReader(taskconfig, delimiter=';')
 
 
 # If modifying these scopes, delete the file token.json.

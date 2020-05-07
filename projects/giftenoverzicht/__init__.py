@@ -400,6 +400,7 @@ class SmtpDetailsData:
     def query(self, rid=None):
         if rid:
             details = self.keychain.get(smtp_key % rid, None)
+            details = {k: v for k, v in details.items() if k in SmtpDetails.__annotations__}
             if details:
                 return SmtpDetails(**details)
             return None

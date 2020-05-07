@@ -6,6 +6,7 @@ from typing import List, Union, Dict, Any
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 import logging
+import re
 from admingen.util import isoweekno2day
 from yaml import load, dump
 from collections.abc import Mapping
@@ -257,7 +258,7 @@ class AnnotatedDict(dict):
 
 
 
-def CsvReader(stream: typing.TextIO, delimiter=';'):
+def CsvReader(stream: typing.TextIO, delimiter=','):
     if isinstance(stream, str):
         stream = open(stream)
     collection = AnnotatedDict()
@@ -269,6 +270,84 @@ def CsvReader(stream: typing.TextIO, delimiter=';'):
         else:
             collection[table] = list(read_lines(stream, names, types, delimiter))
     return collection
+
+
+
+quote_splitter = re.compile(r'("[^"]*")')
+
+
+
+def mk_object_constructor(cls, types=None):
+    lookup = basic_types.copy()
+    if types:
+        lookup.update(types)
+    names, types = list(cls.__annotations__.keys()), list(cls.__annotations__.values())
+    part_constructors = [(lookup[t] if t in lookup else t) for t in types]
+
+    def constr(*parts):
+        parts = [c(v) for c, v in zip(part_constructors, parts)]
+        result = cls(*parts)
+        return result
+
+    return constr
+
+
+
+def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None, header=True):
+    if header:
+        names, types = read_header(stream, delimiter)
+    constr = mk_object_constructor(targettype)
+    for line in stream:
+        line = line.strip()
+        # Ignore comment lines.
+        if line.startswith('#'):
+            continue
+        # If we see an empty line, the table is ended.
+        if not line:
+            return
+        # Take care quoted parts are handled properly.
+        # Split in parts without the quotes
+        quoted_parts = quote_splitter.split(line)
+        for i, p in enumerate(quoted_parts):
+            if p.startswith('"'):
+                quoted_parts[i] = p.replace(delimiter, '\d')[1:-1]
+        line = ''.join(quoted_parts)
+
+        parts = line.split(delimiter)
+        # Un-escape delimiters in strings
+        parts = [p.replace('\d', delimiter) for p in parts]
+        try:
+            yield constr(*parts)
+        except:
+            logging.exception("Problem converting data from CSV file")
+
+
+def getConstructor(annotation):
+    if annotation in [int, str, Decimal, float]:
+        return annotation.__name__
+    return annotation.annotation
+
+def CsvTableWriter(stream: typing.TextIO, records, delimiter=',', formatters=None):
+    records = list(records)
+    if not records:
+        return
+    # Write the table header
+    parts = [f'{a[0]}:{getConstructor(a[1])}' for a in records[0].__annotations__.items()]
+    stream.write('%s\n' % delimiter.join(parts))
+    keys = list(records[0].__annotations__.keys())
+
+    # For all dates in the records, ensure the correct format is used.
+    constructors = {k:v for k, v in records[0].__annotations__.items()}
+    for record in records:
+        for k, constr in constructors.items():
+            setattr(record, k, constr(getattr(record, k)))
+
+    # Write the table data
+    for line in records:
+        parts = [getattr(line, k) for k in keys]
+        # Escape special characters and the delimiter
+        parts = [str(p).replace(delimiter, r'\d') for p in parts]
+        stream.write('%s\n' % delimiter.join(parts))
 
 
 def CsvWriter(stream: typing.TextIO, collection: Dict[str, Union[List[Any], Dict[str, Any]]], delimiter=';'):
@@ -307,8 +386,8 @@ def DataReader(url):
 
 
 
-def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defines:dict):
-    data = CsvReader(instream)
+def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defines:dict, delimiter=','):
+    data = CsvReader(instream, delimiter=delimiter)
     data.update(defines)
     result = None
 

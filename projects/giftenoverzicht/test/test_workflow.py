@@ -21,6 +21,7 @@ import time
 import shutil
 import subprocess
 from dataclasses import asdict
+import datetime
 from selenium import webdriver
 
 from selenium.webdriver.common.by import By
@@ -28,7 +29,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 
-from giftenoverzicht import run, Overzichten, SmtpDetails
+from giftenoverzicht import run, Overzichten, SmtpDetails, model
 from admingen.clients import smtp
 
 server = None
@@ -58,6 +59,9 @@ elif True:
     def start_server():
         global server
         global exact_process, smtp_process
+
+        # Delete the test database
+        os.remove('overzichtgen.db')
 
         # Start the Exact simulator
         exact_process = subprocess.Popen('exact_sim.py', shell=True)
@@ -133,9 +137,9 @@ class SeleniumSimulatedTests(unittest.TestCase):
         # Wait for the Add User button
         add_b = browser.find_element_by_class_name('btn-primary')
         # Check there is an additional user
-        self.assertEqual(len(browser.find_elements_by_tag_name('tr')), 1)
+        self.assertEqual(len(browser.find_elements_by_tag_name('tr')), 2)
 
-    def testCreateOrginisation(self):
+    def test1CreateOrginisation(self):
         browser = self.browser
         browser.get('http://localhost:8080/organisaties')
         add_b = browser.find_element_by_class_name('btn-primary')
@@ -184,6 +188,9 @@ class SeleniumSimulatedTests(unittest.TestCase):
         SeleniumSimulatedTests.org_defined = True
 
     def testWorkflow(self):
+        if not self.org_defined:
+            self.test1CreateOrginisation()
+
         smtp.testmode = True
 
         shutil.copyfile('users.json', '1.users.json')
@@ -229,7 +236,7 @@ class SeleniumSimulatedTests(unittest.TestCase):
         lines = list(browser.find_elements_by_xpath('//tbody/tr'))
         self.assertEqual(len(lines), 2)
 
-        # Try to download send an email
+        # Try to send an email
         el = browser.find_element_by_xpath("//a[contains(@href,'/versturen?file')]")
         el.click()
 
@@ -259,6 +266,10 @@ class SeleniumSimulatedTests(unittest.TestCase):
                 self.assertEqual(c, v)
 
         # Now try to download two reports
+        for f in [name for name in os.listdir('downloads') \
+                  if os.path.isfile(os.path.join('downloads', name))]:
+            os.remove('downloads/' + f)
+
         links = list(browser.find_elements_by_xpath("//a[contains(text(),'pdf')]"))
         self.assertEqual(len(links), 2)
         for link in links:
@@ -269,6 +280,11 @@ class SeleniumSimulatedTests(unittest.TestCase):
             time.sleep(0.1)
             assert time.time() <  start + 10
 
+        # Check that the correct period was set in the database
+        with model.sessionScope():
+            org = model.Organisation[1]
+            self.assertEqual(org.period_start, datetime.datetime(2018, 2, 1, 0, 0, 0))
+            self.assertEqual(org.period_end, datetime.datetime(2018, 11, 30, 23, 59, 59))
 
 
 def nr_files(d):

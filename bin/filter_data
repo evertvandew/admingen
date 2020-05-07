@@ -23,6 +23,7 @@ if __name__ == '__main__':
     parse.add_argument('script')
     parse.add_argument('-d', dest='defines', action='append', default=[])
     parse.add_argument('-f', '--file', default=sys.stdin)
+    parse.add_argument('-s', '--separator', default=';')
     args = parse.parse_args()
     script = open(args.script).read()
     defines_parts = [d.split('=') for d in args.defines]
@@ -31,7 +32,7 @@ if __name__ == '__main__':
     if isinstance(args.file, str):
         source = open(args.file)
     try:
-        filter(source, script, sys.stdout, defines)
+        filter(source, script, sys.stdout, defines, delimiter=args.separator)
     except AssertionError as e:
         logging.error(e)
         sys.exit(1)
