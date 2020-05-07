@@ -267,14 +267,27 @@ def CsvReader(stream: typing.TextIO, delimiter=','):
 quote_splitter = re.compile(r'("[^"]*")')
 
 
-def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None, header=True):
+
+def mk_object_constructor(cls, types=None):
     lookup = basic_types.copy()
     if types:
         lookup.update(types)
+    names, types = list(cls.__annotations__.keys()), list(cls.__annotations__.values())
+    part_constructors = [(lookup[t] if t in lookup else t) for t in types]
+
+    def constr(*parts):
+        parts = [c(v) for c, v in zip(part_constructors, parts)]
+        result = cls(*parts)
+        return result
+
+    return constr
+
+
+
+def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None, header=True):
     if header:
         names, types = read_header(stream, delimiter)
-    names, types = list(targettype.__annotations__.keys()), list(targettype.__annotations__.values())
-    part_constructors = [(lookup[t] if t in lookup else t) for t in types]
+    constr = mk_object_constructor(targettype)
     for line in stream:
         line = line.strip()
         # Ignore comment lines.
@@ -294,8 +307,10 @@ def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None,
         parts = line.split(delimiter)
         # Un-escape delimiters in strings
         parts = [p.replace('\d', delimiter) for p in parts]
-        parts = [c(v) for c, v in zip(part_constructors, parts)]
-        yield targettype(*parts)
+        try:
+            yield constr(*parts)
+        except:
+            logging.exception("Problem converting data from CSV file")
 
 
 def getConstructor(annotation):
@@ -305,6 +320,8 @@ def getConstructor(annotation):
 
 def CsvTableWriter(stream: typing.TextIO, records, delimiter=',', formatters=None):
     records = list(records)
+    if not records:
+        return
     # Write the table header
     parts = [f'{a[0]}:{getConstructor(a[1])}' for a in records[0].__annotations__.items()]
     stream.write('%s\n' % delimiter.join(parts))
