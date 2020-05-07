@@ -27,6 +27,11 @@ class ColumnDetails:
     related_columns: Any
     default: Any
 
+def mkColumnDetails(definition: str):
+    # FIXME: I need implementing!
+    return None
+
+
 @dataclass
 class TableDetails:
     name: str
