@@ -70,6 +70,14 @@ def date_or_dash(fmt):
     return MyDate
 
 
+def mydataclass(cls):
+    # All tables must have a primary key field.
+    cls.__annotations__['id'] = int
+    cls.id = None
+    wrapped = dataclass(cls)
+    return wrapped
+
+
 # Define some standard column types
 class email(str): pass
 class longstr(str): pass
@@ -84,7 +92,7 @@ class phone(str): pass
 all_tables = [{the_tables}]
 '''
 
-class_template = '''@dataclass
+class_template = '''@mydataclass
 class {name}:
     {class_lines}
 '''

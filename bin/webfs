@@ -11,6 +11,7 @@ import importlib.util
 from argparse import ArgumentParser
 
 from admingen.webfs import add_handlers, set_root
+from admingen.data import file_db
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -21,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument('port', action='store', type=int, nargs='?', help='Port to listen on.')
     parser.add_argument('--filename', '-f', nargs='*', default=[],
                         help='One or more modules that are loaded as part of the web application')
+    parser.add_argument('--datamodel', default=None)
     
     args = parser.parse_args()
     
@@ -35,6 +37,13 @@ if __name__ == "__main__":
     app = flask.Flask(__name__)
     
     add_handlers(app)
+
+    if args.datamodel:
+        mod_name = os.path.basename(args.datamodel).split('.')[0]
+        spec = importlib.util.spec_from_file_location(mod_name, args.datamodel)
+        new_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(new_mod)
+        file_db.the_db = file_db.FileDatabase('data', new_mod.all_tables)
 
     for m in args.filename:
         mod_name = os.path.basename(m).split('.')[0]

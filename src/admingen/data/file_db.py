@@ -19,6 +19,9 @@ from admingen.data import serialiseDataclass, deserialiseDataclass
 class UnknownRecord(RuntimeError): pass
 
 
+the_db = None
+
+
 class FileDatabase:
     def __init__(self, path, tables):
         self.path = path
@@ -55,6 +58,13 @@ class FileDatabase:
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
     
+    def set(self, record):
+        fullpath = f"{self.path}/{type(record).__name__}/{record.id}"
+        data_str = serialiseDataclass(record)
+        with open(fullpath, "w") as dest_file:
+            dest_file.write(data_str)
+        return record
+
     def update(self, record):
         """ Update the values in an existing record.
             The record is identified by id, which can not be changed.
@@ -74,6 +84,7 @@ class FileDatabase:
         data_str = json.dumps(data)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
+        return data
             
     def delete(self, record):
         """ Delete an existing record. """

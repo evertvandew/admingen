@@ -7,6 +7,7 @@ from decimal import Decimal
 from datetime import date, datetime, timedelta
 import logging
 import re
+import codecs
 from admingen.util import isoweekno2day
 from yaml import load, dump
 from collections.abc import Mapping
@@ -292,6 +293,31 @@ def mk_object_constructor(cls, types=None):
     return constr
 
 
+####################################################################################################
+## CSV character encoding scheme.
+#  We use the regular encoding scheme used for C, with one additional escape sequence:
+#  the delimiter is replaced with the \d escape sequence.
+
+ESCAPE_SEQUENCE_RE = re.compile(r'''
+    ( \\U........       # 8-digit hex escapes
+    | \\u....           # 4-digit hex escapes
+    | \\x..             # 2-digit hex escapes
+    | \\[0-7]{1,3}      # Octal escapes
+    | \\N\{[^}]+\}      # Unicode characters by name
+    | \\[\\'"abfnrtvd]  # Single-character escapes
+    )''', re.UNICODE | re.VERBOSE)
+
+def decode_escapes(s, delimiter):
+    """ Decode an encoded string """
+    def decode_match(match):
+        if match.group(0) == r'\d':
+            return delimiter
+        return codecs.decode(match.group(0), 'unicode-escape')
+
+    return ESCAPE_SEQUENCE_RE.sub(decode_match, s)
+
+def encode_escapes(s, delimiter):
+    return codecs.encode(s, 'unicode-escape').decode('utf-8').replace(delimiter, r'\d')
 
 def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None, header=True):
     if header:
@@ -315,7 +341,7 @@ def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None,
 
         parts = line.split(delimiter)
         # Un-escape delimiters in strings
-        parts = [p.replace('\d', delimiter) for p in parts]
+        parts = [decode_escapes(p, delimiter) for p in parts]
         try:
             yield constr(*parts)
         except:
@@ -346,7 +372,7 @@ def CsvTableWriter(stream: typing.TextIO, records, delimiter=',', formatters=Non
     for line in records:
         parts = [getattr(line, k) for k in keys]
         # Escape special characters and the delimiter
-        parts = [str(p).replace(delimiter, r'\d') for p in parts]
+        parts = [encode_escapes(str(p), delimiter) for p in parts]
         stream.write('%s\n' % delimiter.join(parts))
 
 

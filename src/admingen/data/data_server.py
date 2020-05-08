@@ -10,7 +10,7 @@ import operator
 import functools
 from urllib.parse import unquote
 from werkzeug.exceptions import BadRequest, NotFound
-from admingen.data.file_db import FileDatabase
+from admingen.data.file_db import FileDatabase, serialiseDataclass, deserialiseDataclass, the_db
 
 # Define the key for the data element that is added to indicate limited queries have reached the end
 IS_FINAL_KEY = '__is_last_record'
@@ -81,7 +81,8 @@ def add_handlers(app):
     """ This function creates and installs a number of flask handlers. """
     offset = os.getcwd() + '/data'
     
-    db = FileDatabase(offset)
+    db = the_db
+    table_classes = {t.__name__: t for t in tables}
 
     # First define some helper functions.
     def mk_fullpath(path):
@@ -129,9 +130,9 @@ def add_handlers(app):
         
 
     @app.route('/data/<path:tabel>', methods=['GET'])
-    def get_table(tabel):
-        fullpath = mk_fullpath(tabel)
-        data = read_records(fullpath)
+    def get_table(table):
+        tablecls = table_classes[table]
+        data = db.query(tablecls)
         # Check if the foreignkeys need to be resolved
         if 'resolve_fk' in flask.request.args:
             # TODO: Look for all foreign keys in the dataset, and fill in the data like a join
@@ -170,42 +171,36 @@ def add_handlers(app):
         return res
 
     @app.route('/data/<path:tabel>/<int:index>', methods=['GET'])
-    def get_item(tabel, index):
-        fullpath = mk_fullpath(os.path.join(tabel, str(index)))
-        res = flask.make_response(open(fullpath).read())
+    def get_item(table, index):
+        res = flask.make_response(asdict(db.get(table_classes[table], index)))
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
         return res
 
     @app.route('/data/<path:tabel>/<int:index>', methods=['POST', 'PUT'])
-    def put_item(tabel, index):
+    def put_item(table, index):
         """ Flask handler for put requests """
-        fullpath = mk_fullpath(os.path.join(tabel, str(index)))
-    
+        tablecls = table_classes[table]
         # Check we have either JSON or form-encoded data
         if not (flask.request.values or flask.request.is_json()):
             raise BadRequest('Inproper request')
     
-        # Make an initial data object for merging old and new data
-        data = {}
-
-        # If this is a POST request, get any existing data
-        if flask.request.method == 'POST':
-            data = json.load(open(fullpath))
-    
         # Update with the new data
-        data.update(get_request_data())
-    
-        print('Saving', fullpath, data)
-        data_str = json.dumps(data)
-        with open(fullpath, "w") as dest_file:
-            dest_file.write(data_str)
-        return flask.make_response(data_str, 201)
+        data = get_request_data()
+        if flask.request.method == 'POST':
+            # re-use the existing data
+            record = db.update(data)
+        else:
+            # Overwrite existing data
+            record = tablecls(**data)
+            db.set(record)
+
+        return flask.make_response(serialiseDataclass(record), 201)
 
 
     @app.route('/data/<path:tabel>/<int:index>', methods=['DELETE'])
     def delete_item(tabel, index):
-        fullpath = mk_fullpath(os.path.join(tabel, str(index)))
-        os.remove(fullpath)
+        # Construct a dummy object
+        db.delete()
         return flask.make_response('', 204)
 
     @app.route('/data/<path:tabel>', methods=['POST', 'PUT'])
