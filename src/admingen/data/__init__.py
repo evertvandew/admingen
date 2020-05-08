@@ -5,6 +5,7 @@ import typing
 from typing import List, Union, Dict, Any
 from decimal import Decimal
 from datetime import date, datetime, timedelta
+from enum import Enum
 import logging
 import re
 import codecs
@@ -318,6 +319,58 @@ def decode_escapes(s, delimiter):
 
 def encode_escapes(s, delimiter):
     return codecs.encode(s, 'unicode-escape').decode('utf-8').replace(delimiter, r'\d')
+
+
+###############################################################################
+## Some useful types for use in CSV files.
+
+class enum_type:
+    def __init__(self, name, options):
+        self.annotation = name
+        self.my_enum = Enum(name, options)
+        self.my_enum.__str__ = lambda self: self.name
+    def __call__(self, x):
+        if type(x) == self.my_enum:
+            return x
+        return self.my_enum[x]
+    def __getattr__(self, key):
+        return self.my_enum[key]
+
+
+def formatted_date(fmt):
+    """ Custom converter class for dates."""
+    class MyDate:
+        annotation = f'formatted_date("{fmt}")'
+        def __init__(self, x):
+            if type(x).__name__ == 'MyDate':
+                self.dt = x.dt
+            else:
+                self.dt = datetime.strptime(x, fmt)
+            self.fmt = fmt
+        def __str__(self):
+            return self.dt.strftime(self.fmt)
+    return MyDate
+
+
+DASH = '-'
+
+def date_or_dash(fmt):
+    """ Custom converter for either a dash ('-') or a formatted date. """
+    class MyDate(formatted_date(fmt)):
+        annotation = f'date_or_dash("{fmt}")'
+        def __init__(self, x):
+            if isinstance(x, str) and x == '-':
+                self.dt = DASH
+            else:
+                super().__init__(x)
+        def __str__(self):
+            if self.dt == DASH:
+                return self.dt
+            return self.dt.strftime(self.fmt)
+    return MyDate
+
+###############################################################################
+## CSV table reader and writer.
 
 def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None, header=True):
     if header:

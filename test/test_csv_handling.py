@@ -1,11 +1,9 @@
 """ Test the extended CSV handling """
 
 from dataclasses import dataclass
-from enum import Enum
-from datetime import datetime, date
 from decimal import Decimal
 import io
-from admingen.data import CsvTableReader, CsvTableWriter
+from admingen.data import CsvTableReader, CsvTableWriter, enum_type, formatted_date
 import unittest
 
 example_csv_1 = r'''nummer:int,beschrijving:str,type_cd:CreditDebit,type_balans:BalansWinstVerlies
@@ -30,59 +28,8 @@ example_csv_2 = r'''timestamp:formatted_date("%d%m%Y"),bedrag:Decimal,grootboek:
 05022018,1120,8001,Factuur 2018001011\d 05022018,2018001011
 '''
 
-class enum_type:
-    def __init__(self, name, options):
-        self.annotation = name
-        self.my_enum = Enum(name, options)
-        self.my_enum.__str__ = lambda self: self.name
-    def __call__(self, x):
-        if type(x) == self.my_enum:
-            return x
-        return self.my_enum[x]
-    def __getattr__(self, key):
-        return self.my_enum[key]
-
-
 CreditDebit = enum_type('CreditDebit', 'credit debit')
 BalansWinstVerlies = enum_type('BalansWinstVerlies', 'balans winstverlies')
-
-if False:
-    if isinstance(args[0], str):
-        dt = datetime.strptime(x, fmt)
-    datettime.__init__(dt)
-
-
-def formatted_date(fmt):
-    """ Custom converter class for dates."""
-    class MyDate:
-        annotation = f'formatted_date("{fmt}")'
-        def __init__(self, x):
-            if type(x).__name__ == 'MyDate':
-                self.dt = x.dt
-            else:
-                self.dt = datetime.strptime(x, fmt)
-            self.fmt = fmt
-        def __str__(self):
-            return self.dt.strftime(self.fmt)
-    return MyDate
-
-
-DASH = '-'
-
-def date_or_dash(fmt):
-    """ Custom converter for either a dash ('-') or a formatted date. """
-    class MyDate(formatted_date(fmt)):
-        annotation = f'date_or_dash("{fmt}")'
-        def __init__(self, x):
-            if isinstance(x, str) and x == '-':
-                self.dt = DASH
-            else:
-                super().__init__(x)
-        def __str__(self):
-            if self.dt == DASH:
-                return self.dt
-            return self.dt.strftime(self.fmt)
-    return MyDate
 
 
 def grootboek_key(key):
