@@ -31,6 +31,7 @@ class enum_type:
     def __init__(self, name, options):
         self._name = name
         self._my_enum = Enum(name, options)
+        self._my_enum.__str__ = lambda self: str(self.value)
     def __call__(self, x):
         if '.' in x:
             x = x.split('.')[-1]
