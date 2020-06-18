@@ -29,17 +29,20 @@ from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
 
 class enum_type:
     def __init__(self, name, options):
-        self.my_enum = Enum(name, options)
+        self._name = name
+        self._my_enum = Enum(name, options)
     def __call__(self, x):
         if '.' in x:
             x = x.split('.')[-1]
-        return self.my_enum[x]
+        elif (isinstance(x, str) and x.isnumeric()) or isinstance(x, int):
+            return self._my_enum(int(x))
+        return self._my_enum[x]
     def __getattr__(self, key):
         if not key.startswith('_'):
             return self.my_enum[key]
         return object.__getattr(self, key)
     def __str__(self):
-        return 'hi'
+        return self._name
 
 def formatted_date(fmt):
     """ Custom converter class for dates."""
