@@ -38,13 +38,17 @@ def mk_response(reply):
     return response
 
 
-def read_records(fullpath):
+def read_records(fullpath, as_dict=False):
+    """ Reads all records in a table and returns them as dictionaries. """
+    # TODO: Make me return record objects instead of dictionaries.
     if fullpath[0] != '/':
         fullpath = os.path.join(root_path, fullpath)
 
     # We need to make an object of the whole contents of a directory
     entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
     data = [json.load(open(os.path.join(fullpath, str(e)))) for e in entries]
+    if as_dict:
+        data = {d['id']: d for d in data}
     return data
 
 
@@ -149,7 +153,7 @@ def add_handlers(app, context):
         # Apply the filter
         if 'filter' in flask.request.args:
             def func(item, condition):
-                return bool(eval(condition, filter_context, item))
+                return bool(eval(condition, filter_context, item.__dict__))
         
             condition = flask.request.args['filter']
             data = [item for item in data if func(item, condition)]
@@ -173,13 +177,13 @@ def add_handlers(app, context):
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
         return res
 
-    @app.route('/data/<path:tabel>/<int:index>', methods=['GET'])
+    @app.route('/data/<path:table>/<int:index>', methods=['GET'])
     def get_item(table, index):
-        res = flask.make_response(asdict(db.get(table_classes[table], index)))
+        res = flask.make_response(serialiseDataclass(db.get(table_classes[table], index)))
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
         return res
 
-    @app.route('/data/<path:tabel>/<int:index>', methods=['POST', 'PUT'])
+    @app.route('/data/<path:table>/<int:index>', methods=['POST', 'PUT'])
     def put_item(table, index):
         """ Flask handler for put requests """
         tablecls = table_classes[table]
@@ -189,9 +193,11 @@ def add_handlers(app, context):
     
         # Update with the new data
         data = get_request_data()
+        if 'id' not in data:
+            data['id'] = index
         if flask.request.method == 'POST':
             # re-use the existing data
-            record = db.update(data)
+            record = db.update(tablecls, data)
         else:
             # Overwrite existing data
             record = tablecls(**data)
@@ -200,15 +206,15 @@ def add_handlers(app, context):
         return flask.make_response(serialiseDataclass(record), 201)
 
 
-    @app.route('/data/<path:tabel>/<int:index>', methods=['DELETE'])
-    def delete_item(tabel, index):
-        # Construct a dummy object
-        db.delete()
+    @app.route('/data/<path:table>/<int:index>', methods=['DELETE'])
+    def delete_item(table, index):
+        tablecls = table_classes[table]
+        db.delete(tablecls, index)
         return flask.make_response('', 204)
 
-    @app.route('/data/<path:tabel>', methods=['POST', 'PUT'])
-    def add(tabel):
-        fullpath = mk_fullpath(tabel)
+    @app.route('/data/<path:table>', methods=['POST', 'PUT'])
+    def add(table):
+        fullpath = mk_fullpath(table)
 
         data = get_request_data()
 

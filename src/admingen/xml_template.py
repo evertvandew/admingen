@@ -38,7 +38,7 @@ def handle_Datamodel(args, lines):
         l = next(line_it)
         try:
             while l[0] in ' \t':
-                name, details = l.split(':')
+                name, details = l.split(':', maxsplit=1)
                 colname = name.strip()
                 details = [d.strip() for d in details.split(',')]
                 result[colname] = details

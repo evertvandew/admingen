@@ -153,6 +153,10 @@ for database, tables in data_models.items():
             cld = ', '.join(details)
             if len(details) > 1:
                 cld = f'mkColumnDetails("{cld}")'
+            elif cld == 'datetime':
+                cld = "formatted_date('%Y-%m-%d %H:%M')"
+            elif cld == 'date':
+                cld = "formatted_date('%Y-%m-%d')"
             cls.append(f'{name}: {cld}')
         c = class_template.format(name=k, class_lines='\n    '.join(cls))
         lines.append(c)

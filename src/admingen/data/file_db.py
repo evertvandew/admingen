@@ -65,7 +65,7 @@ class FileDatabase:
             dest_file.write(data_str)
         return record
 
-    def update(self, record):
+    def update(self, table, record):
         """ Update the values in an existing record.
             The record is identified by id, which can not be changed.
             Only the values in the record are updated (apart from id).
@@ -73,25 +73,33 @@ class FileDatabase:
             'record' must be a dictionary. When storing a dataclass object,
             just use the set function.
         """
-        fullpath = f"{self.path}/{type(record).__name__}/{record['id']}"
+        fullpath = f"{self.path}/{table.__name__}/{record['id']}"
         if not os.path.exists(fullpath):
             raise(UnknownRecord())
 
         # Make an initial data object for merging old and new data
-        data = json.load(open(fullpath))
+        data = deserialiseDataclass(table, open(fullpath).read())
 
         # Update with the new data
-        data.update(record)
+        for k, v in record.items():
+            if k == 'id':
+                # The ID attribute can not be changed.
+                continue
+            if v in [None, 'None', 'null', '']:
+                value = None
+            else:
+                value = data.__annotations__[k](v)
+            setattr(data, k, value)
         
         # Now serialize
-        data_str = json.dumps(data)
+        data_str = serialiseDataclass(data)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
         return data
             
-    def delete(self, record):
+    def delete(self, table, index):
         """ Delete an existing record. """
-        fullpath = f"{self.path}/{type(record).__name__}/{record['id']}"
+        fullpath = f"{self.path}/{table.__name__}/{index}"
         if not os.path.exists(fullpath):
             raise(UnknownRecord())
         os.remove(fullpath)
