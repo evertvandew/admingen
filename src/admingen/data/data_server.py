@@ -10,7 +10,8 @@ import operator
 import functools
 from urllib.parse import unquote
 from werkzeug.exceptions import BadRequest, NotFound
-from admingen.data.file_db import FileDatabase, serialiseDataclass, deserialiseDataclass, the_db
+from admingen.data.file_db import (FileDatabase, serialiseDataclass, deserialiseDataclass, the_db,
+                                   serialiseDataclasses)
 
 # Define the key for the data element that is added to indicate limited queries have reached the end
 IS_FINAL_KEY = '__is_last_record'
@@ -77,12 +78,12 @@ def multi_sort(descriptor, data):
     return sorted(data, key=functools.cmp_to_key(sort_predicate))
 
 
-def add_handlers(app):
+def add_handlers(app, context):
     """ This function creates and installs a number of flask handlers. """
     offset = os.getcwd() + '/data'
     
-    db = the_db
-    table_classes = {t.__name__: t for t in tables}
+    db = context['the_db']
+    table_classes = {t.__name__: t for t in context['tables']}
 
     # First define some helper functions.
     def mk_fullpath(path):
@@ -129,8 +130,10 @@ def add_handlers(app):
         return new_data
         
 
-    @app.route('/data/<path:tabel>', methods=['GET'])
+    @app.route('/data/<path:table>', methods=['GET'])
     def get_table(table):
+        if not table:
+            return
         tablecls = table_classes[table]
         data = db.query(tablecls)
         # Check if the foreignkeys need to be resolved
@@ -165,7 +168,7 @@ def add_handlers(app):
                 data[-1][IS_FINAL_KEY] = is_final
 
         # Prepare the response
-        res = flask.make_response(json.dumps(data))
+        res = flask.make_response(serialiseDataclasses(data))
     
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
         return res

@@ -10,6 +10,7 @@ os.environ['PROGRAMNAME'] = 'admingen'
 
 from unittest import TestCase
 
+
 # The logging is configured in the tmp module.
 import admingen.config
 
@@ -22,6 +23,10 @@ class logtests(TestCase):
         for f in files:
             os.remove(f)
     def testit(self):
+        # Check a non-default handler was installed
+        logger = logging.getLogger()
+        self.assertTrue(logger.handlers)
+        self.assertNotEqual(type(logger.handlers[0]), logging.StreamHandler)
         # Generate a log of logging (about 50MB-worth)
         msg = 'testmessage ' * 100  # About 1K per message
         for _ in range(60000):

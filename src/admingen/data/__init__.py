@@ -50,7 +50,6 @@ def json_loads(s):
     return json.loads(s)
 
 
-
 class dataset:
     def __init__(self, iterator, index=None):
         if index:
@@ -224,12 +223,17 @@ class dataline(Mapping):
 
 def serialiseDataclass(data):
     """ Convert a dataclass to a JSON string """
-    return json.dumps(asdict(data))
+    ddict = {k: str(v) for k, v in asdict(data).items()}
+    return json.dumps(ddict)
 
 def deserialiseDataclass(cls, s):
     """ Read the dataclass from a JSON string """
-    return cls(json.loads(s))
+    ddict = json.loads(s)
+    return cls(**{k: (None if ddict[k] in [None, 'None'] else t(ddict[k])) for k, t in cls.__annotations__.items()})
     
+def serialiseDataclasses(data):
+    result = [{k: str(v) for k, v in asdict(d).items()} for d in data]
+    return json.dumps(result)
     
 
 def read_lines(stream, headers, types, delimiter):

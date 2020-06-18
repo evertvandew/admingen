@@ -21,26 +21,30 @@ file_template = '''""" Generated model file for the project data structures.
 This file was generated on {date}. DO NOT CHANGE!
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass
 from enum import Enum
 from datetime import datetime, date
 from decimal import Decimal
-from admingen.db_api import ColumnDetails, mkColumnDetails
+from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
 
 class enum_type:
     def __init__(self, name, options):
         self.my_enum = Enum(name, options)
     def __call__(self, x):
+        if '.' in x:
+            x = x.split('.')[-1]
         return self.my_enum[x]
     def __getattr__(self, key):
-        return self.my_enum[key]
+        if not key.startswith('_'):
+            return self.my_enum[key]
+        return object.__getattr(self, key)
     def __str__(self):
         return 'hi'
 
 def formatted_date(fmt):
     """ Custom converter class for dates."""
     class MyDate:
-        annotation = f'formatted_date("{{fmt}}")'
+        annotation = 'formatted_date("%s")' % fmt
         def __init__(self, x):
             if type(x).__name__ == 'MyDate':
                 self.dt = x.dt
@@ -57,7 +61,7 @@ DASH = '-'
 def date_or_dash(fmt):
     """ Custom converter for either a dash ('-') or a formatted date. """
     class MyDate(formatted_date(fmt)):
-        annotation = f'date_or_dash("{{fmt}}")'
+        annotation = 'date_or_dash("%s")' % fmt
         def __init__(self, x):
             if isinstance(x, str) and x == '-':
                 self.dt = DASH
@@ -71,10 +75,39 @@ def date_or_dash(fmt):
 
 
 def mydataclass(cls):
+    """ Returns a standard Python dataclass with one additional field: id.
+        The constructor assures that the keys of the object have the correct type.
+    """
     # All tables must have a primary key field.
     cls.__annotations__['id'] = int
     cls.id = None
+
+    def __init__(self, *args, **kwargs):
+        data = dict(zip(cls.__annotations__, args))
+        data.update(kwargs)
+        for k, t in cls.__annotations__.items():
+            if k == 'id' and k not in data:
+                continue
+            v = data[k]
+            if type(v) == t or v is None:
+                pass
+            elif isinstance(v, Enum):
+                pass
+            elif is_dataclass(t):
+                v = int(v)
+            else:
+                v = t(v)
+            setattr(self, k, v)
+
+    cls.__init__ = __init__
+
     wrapped = dataclass(cls)
+    
+    # Replace any references to other data classes with integers
+    references = [k for k, t in cls.__annotations__.items() if is_dataclass(t)]
+    for k in references:
+        wrapped.__annotations__[k] = int
+
     return wrapped
 
 

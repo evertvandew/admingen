@@ -13,7 +13,7 @@ This module defines a simple class that is the API to this database.
 import os, os.path
 import json
 import shutil
-from admingen.data import serialiseDataclass, deserialiseDataclass
+from admingen.data import serialiseDataclass, deserialiseDataclass, serialiseDataclasses
 
 
 class UnknownRecord(RuntimeError): pass
@@ -69,6 +69,9 @@ class FileDatabase:
         """ Update the values in an existing record.
             The record is identified by id, which can not be changed.
             Only the values in the record are updated (apart from id).
+            
+            'record' must be a dictionary. When storing a dataclass object,
+            just use the set function.
         """
         fullpath = f"{self.path}/{type(record).__name__}/{record['id']}"
         if not os.path.exists(fullpath):
@@ -101,15 +104,15 @@ class FileDatabase:
         fullpath = f"{self.path}/{table.__name__}/{index}"
         if not os.path.exists(fullpath):
             raise(UnknownRecord())
-        data = json.load(open(fullpath))
-        return table(**data)
+        data = open(fullpath).read()
+        return deserialiseDataclass(table, data)
     
     def query(self, table, filter=None, sort=None, limit=None):
         """ A simple query function that uses in-memory filtering. """
-        fullpath = f"{self.path}/{type(record).__name__}"
+        fullpath = f"{self.path}/{table.__name__}"
         
         # We need to make an object of the whole contents of a directory
         entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
-        data = [json.load(open(os.path.join(fullpath, str(e)))) for e in entries]
+        data = [open(os.path.join(fullpath, str(e))).read() for e in entries]
         
-        return [table(**d) for d in data]
+        return [deserialiseDataclass(table, s) for s in data]
