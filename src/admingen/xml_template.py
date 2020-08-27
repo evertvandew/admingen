@@ -11,6 +11,20 @@
     
     We use the Mako templating engine for its powerful inline-Python features. Also its
     syntax does not bite Angular or other popular Javascript libraries.
+    
+    Other template processors can add specific handlers for specific tags.
+    For example, say the input document has a text like:
+        <Test a=1 b=2>
+            lines
+        </Test>
+    
+     The code to handle it is as follows:
+        def handle_<tagname>(args, lines):
+            ''' This function should process the lines, using the arguments.
+                Should return a string that is used to replace the tag (and its lines)
+                in the document.
+            '''
+            return ''
 """
 import sys
 import io
@@ -209,7 +223,7 @@ def argument_parser(line, istream):
     return arguments, (ending == '/>'), after
     
 
-def Tag(tag, handler):
+def Tag(tag, handler, expand_tags=True):
     """ Create a function that will read and handle a specific tag, recursively. """
     start_matcher = re.compile(r'<\s*%s(?=[ />])'%tag)
     end_matcher = re.compile(r'</\s*%s\s*>'%tag)
@@ -231,19 +245,21 @@ def Tag(tag, handler):
             # Read the lines within the tag (the body)
             
             # Check for new tags that needs handling
-            while len(parts := tag_start.split(line, maxsplit=1)) > 1:
-                # We found a new tag. Read and handle it.
-                before, tagname, after = parts[0], parts[3] or parts[2] or parts[1], parts[-1]
-                lines.append(before)
-                if tag == 'Template':
-                    output, line = generators[tagname](after, istream, False)
-                else:
-                    output, line = generators[tagname](after, istream)
-                lines.append(output)
+            if expand_tags:
+                while len(parts := tag_start.split(line, maxsplit=1)) > 1:
+                    # We found a new tag. Read and handle it.
+                    before, tagname, after = parts[0], parts[3] or parts[2] or parts[1], parts[-1]
+                    lines.append(before)
+                    if tag == 'Template':
+                        output, line = generators[tagname](after, istream, False)
+                    else:
+                        output, line = generators[tagname](after, istream)
+                    lines.append(output)
             
             # No more new tags on the current line
             # Check if the tag is ended.
             if line and len(parts:=end_matcher.split(line)) > 1:
+                # The tag is completed: evaluate it!
                 before, after = parts
                 lines.append(before)
                 try:
@@ -253,19 +269,22 @@ def Tag(tag, handler):
                           "with arguments", arguments,
                           "\nand lines",lines, file=sys.stderr)
                     raise
-            else:
-                lines.append(line)
-                try:
-                    line = next(istream)
-                except StopIteration:
-                    print('Tag not closed:', tag, file=sys.stderr)
-                    sys.exit(1)
+            lines.append(line)
+            try:
+                line = next(istream)
+            except StopIteration:
+                print('Tag not closed:', tag, file=sys.stderr)
+                sys.exit(1)
     
     return tag_line_reader
 
 def template_reader(line, istream):
     """ Read lines from the stream until the closing mark of the current tag is found.
         Then use the lines read to form a new tag: a template tag.
+        
+        This reader does *not* expand any inner templates. This is done when instantiating
+        the outer template, so that any inner tags can be changed between instances.
+        
     :param line: Remainder of the tag definition after <tagname
     :param istream: stream containing the lines
     :return: The text enveloped in the tag, including start and end. Also the remainder
@@ -273,6 +292,8 @@ def template_reader(line, istream):
     """
     # Re-add the tag start to the line
     arguments, is_closed, line = argument_parser(line, istream)
+    if is_closed:
+        return handle_Template(arguments, ''), line
     assert not is_closed   # It makes no sense to have a self-closed Template...
 
     # Eat all lines until the end *without* entering those tags
@@ -288,6 +309,7 @@ def template_reader(line, istream):
 
 def root_line_reader(istream, ostream):
     """ Simple reader for the outer level of the file (root) """
+    global generators
     for line in istream:
         # If there is a new tag in the line, this split action yields three bits:
         # The bit before the tag, the tag name, and the xxxx
@@ -369,7 +391,8 @@ def update_res(generators):
     tag_start = re.compile(r'<(%s)' % wrapped_tags)
 
 
-def handle_Template(args, lines):
+
+def handle_Template(args, template_lines):
     tag = args['tag']
     kwargsdef = {}
     for adef in args.get('args', '').split(','):
@@ -379,7 +402,7 @@ def handle_Template(args, lines):
         else:
             kwargsdef[parts[0]] = ''
     # template = env.from_string(lines)
-    template = Template(lines)
+    template = Template(template_lines, strict_undefined=True)
 
     def expand_template(args, lines):
         arguments = kwargsdef.copy()
@@ -397,10 +420,14 @@ def handle_Template(args, lines):
                                 GetQueryContextSetter=GetQueryContextSetter,
                                 **arguments))
         except:
-            print(exceptions.text_error_template().render(), file=sys.stderr)
-            return '<An error occurred when rendering template for %s'%tag
+            msg = '<An error occurred when rendering template for %s>\n'%tag
+            msg += exceptions.text_error_template().render()
+            print(msg, file=sys.stderr)
+            return msg
+        # Process the resulting text, so as to expand any inner templates.
         expand_others = io.StringIO()
-        processor(istream=expand_self, ostream=expand_others)
+        # Use the standard line_reader because it expands templates.
+        root_line_reader(istream=expand_self, ostream=expand_others)
         return expand_others.getvalue()
     # End of expand_template
 
@@ -410,8 +437,25 @@ def handle_Template(args, lines):
 # End of handle_template
 
 
+def handle_Context(args, lines):
+    """ Handle the Context tag. A context allows custom Templates that do not interfere
+        with templates used elsewhere.
+    """
+    global generators
+    # Make a copy of the current generators and replace the generators list with it.
+    new_context = generators.copy()
+    old_context, generators = generators, new_context
+    # Process the text inside the context.
+    expand_others = io.StringIO()
+    root_line_reader(istream=io.StringIO(lines), ostream=expand_others)
+    # Restore the old collection of generators
+    generators = old_context
+    # Return the expanded text for insertion in the document.
+    return expand_others.getvalue()
+
 default_generators = {'Datamodel': Tag('Datamodel', handle_Datamodel),
-              'Template': template_reader}
+                      'Template': Tag('Template', handle_Template, expand_tags=False),
+                      'Context': Tag('Context', handle_Context, expand_tags=False)}
 
 generators = default_generators.copy()
 
@@ -449,5 +493,5 @@ if __name__ == '__main__':
     # Normally, this file is executed through a different script in the `bin` directory.
     # This is only executed when debugging.
     import os
-    os.chdir('/home/ehwaal/projects/sab')
+    os.chdir('/home/ehwaal/projects/inplanner')
     result = processor(istream=open('webinterface.xml'))
