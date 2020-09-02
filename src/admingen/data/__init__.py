@@ -232,7 +232,7 @@ def deserialiseDataclass(cls, s):
     return cls(**{k: (None if ddict[k] in [None, 'None', ''] else t(ddict[k])) for k, t in cls.__annotations__.items()})
     
 def serialiseDataclasses(data):
-    result = [{k: str(v) for k, v in asdict(d).items()} for d in data]
+    result = [{k: str(v) for k, v in (asdict(d) if is_dataclass(d) else d).items()} for d in data]
     return json.dumps(result)
     
 

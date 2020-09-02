@@ -30,6 +30,7 @@ import sys
 import io
 import re
 import enum
+import pdb
 from dataclasses import dataclass
 from typing import List, Tuple, Any, Dict
 import urllib.parse
@@ -163,7 +164,7 @@ def GetQueryDetails(query, columns):
 
     # Determine the actual query string, in JS
     parts = bit_scanner.split(query)
-    the_query = ''.join([f'"{a}"+context.{b}+' for a, b in zip(parts, context_bits)]) + '"'+parts[-1]+'"'
+    the_query = ''.join([f'"{a}"+context.{b.replace(".", "_")}+' for a, b in zip(parts, context_bits)]) + '"'+parts[-1]+'"'
     details = QueryDetails(source=source, table=table, url=the_query, parameters=context_bits)
     
     if columns:
@@ -177,7 +178,8 @@ def GetQueryDetails(query, columns):
 def GetQueryContextSetter(details):
     parts = []
     for bit in details.parameters:
-        parts.append(f"""            {bit}: $("#{bit}").val()""")
+        bit_escaped = bit.replace('.', '_')
+        parts.append(f"""            {bit_escaped}: $("#{bit_escaped}").val()""")
     lines = ['var context = {',
              ',\n'.join(parts),
             '};']
@@ -278,34 +280,6 @@ def Tag(tag, handler, expand_tags=True):
     
     return tag_line_reader
 
-def template_reader(line, istream):
-    """ Read lines from the stream until the closing mark of the current tag is found.
-        Then use the lines read to form a new tag: a template tag.
-        
-        This reader does *not* expand any inner templates. This is done when instantiating
-        the outer template, so that any inner tags can be changed between instances.
-        
-    :param line: Remainder of the tag definition after <tagname
-    :param istream: stream containing the lines
-    :return: The text enveloped in the tag, including start and end. Also the remainder
-             of the line where the tag was closed.
-    """
-    # Re-add the tag start to the line
-    arguments, is_closed, line = argument_parser(line, istream)
-    if is_closed:
-        return handle_Template(arguments, ''), line
-    assert not is_closed   # It makes no sense to have a self-closed Template...
-
-    # Eat all lines until the end *without* entering those tags
-    lines = []
-    while True:
-        parts = template_end.split(line)
-        if len(parts) > 1:
-            lines.append(parts[0])
-            return handle_Template(arguments, ''.join(lines)), parts[-1]
-        lines.append(line)
-        line = next(istream)
-
 
 def root_line_reader(istream, ostream):
     """ Simple reader for the outer level of the file (root) """
@@ -402,7 +376,8 @@ def handle_Template(args, template_lines):
         else:
             kwargsdef[parts[0]] = ''
     # template = env.from_string(lines)
-    template = Template(template_lines, strict_undefined=True)
+    #template = Template(template_lines, strict_undefined=True)
+    template = Template(template_lines)
 
     def expand_template(args, lines):
         arguments = kwargsdef.copy()

@@ -8,6 +8,7 @@ import json
 import flask
 import operator
 import functools
+from dataclasses import is_dataclass, asdict
 from urllib.parse import unquote
 from werkzeug.exceptions import BadRequest, NotFound
 from admingen.data.file_db import (FileDatabase, serialiseDataclass, deserialiseDataclass, the_db,
@@ -103,6 +104,9 @@ def add_handlers(app, context):
         # Make the association.
         results = []
         for d1 in data1:
+            if is_dataclass(d1):
+                d1 = asdict(d1)
+    
             def eval_cond(d2):
                 """ Function returns true if d2 is to be joined to d1 """
                 local_context = {tabl1: d1, tabl2: d2}
@@ -148,12 +152,13 @@ def add_handlers(app, context):
         if 'join' in flask.request.args:
             other_table, condition = flask.request.args['join'].split(',', maxsplit=1)
             data_other = read_records(mk_fullpath(other_table))
-            data = do_leftjoin(tabel, other_table, data, data_other, condition)
+            data = do_leftjoin(table, other_table, data, data_other, condition)
     
         # Apply the filter
         if 'filter' in flask.request.args:
             def func(item, condition):
-                return bool(eval(condition, filter_context, item.__dict__))
+                d = asdict(item) if is_dataclass(item) else item
+                return bool(eval(condition, filter_context, d))
         
             condition = flask.request.args['filter']
             data = [item for item in data if func(item, condition)]
