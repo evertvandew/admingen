@@ -49,6 +49,7 @@ class FileDatabase:
             the table. The record is assumed to have the dictionary interface.
         """
         fullpath = os.path.join(self.path, type(record).__name__)
+        print('FULLPATH:', fullpath)
         if not getattr(record, 'id', None):
             # We need to know the highest current ID in the database
             ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]

@@ -220,6 +220,7 @@ def add_handlers(app, context):
     @app.route('/data/<path:table>', methods=['POST', 'PUT'])
     def add(table):
         fullpath = mk_fullpath(table)
+        tablecls = table_classes[table]
 
         data = get_request_data()
 
@@ -230,7 +231,8 @@ def add_handlers(app, context):
         fullpath = f'{fullpath}/{my_id}'
         print('Created ID', str(my_id))
 
-        data_str = json.dumps(data)
+        data_obj = tablecls(**data)
+        data_str = serialiseDataclass(data_obj)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
         return flask.make_response(data_str, 201)

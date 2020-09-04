@@ -137,6 +137,18 @@ def GetQueryDetails(query, columns):
     This script will set some variables that can be inserted at the right locations.
     
     The query string has the following structure:
+    
+    
+    The query string can contain references to dynamic elements:
+    * {{@element}} refers to the current value of a DOM element identified by name.
+    * {{#element}} refers to the current value of a DOM element identified by id.
+    * {{variable}} refers to the current value of a local javascript object.
+    * Python variables in the current loop are referred to by just using the name in things
+      that are evaluated in a python context, like filter and join conditions.
+    
+    The references to DOM elements are through a Javascript 'Context' variable that is loaded
+    with the latest values using JQuery. -- Well, not in this code. This code just converts
+    the references to strings that are then interpreted by the client's browser.
     """
     if query[0] == '/':
         # First determine which columns to draw
@@ -150,7 +162,10 @@ def GetQueryDetails(query, columns):
             source = specs = None
     else:
         # The source and table are specified directly
-        data_ref, query_part = query.split('?', maxsplit=1)
+        if '?' in query:
+            data_ref, query_part = query.split('?', maxsplit=1)
+        else:
+            data_ref, query_part = query, ''
         assert data_ref.count('.') == 1
         source, table = data_ref.split('.')
         specs = data_models[source][table]
@@ -159,19 +174,28 @@ def GetQueryDetails(query, columns):
     # Determine the context that needs to be obtained in JS
     # These elements have double brackets in the query string.
     bit_scanner = re.compile(r'\{\{[^}]*\}\}')
-    context_bits = bit_scanner.findall(query)
-    context_bits = [b.strip('{}') for b in context_bits]
+    parameter_bits = bit_scanner.findall(query)
+    parameter_bits = [b.strip('{}') for b in parameter_bits]
 
     # Determine the actual query string, in JS
     parts = bit_scanner.split(query)
-    the_query = ''.join([f'"{a}"+context.{b.replace(".", "_")}+' for a, b in zip(parts, context_bits)]) + '"'+parts[-1]+'"'
+    escaped_parts = []
+    for a, b in zip(parts, parameter_bits):
+        if b[0] in '#@':
+            b = b[1:]
+        b.replace(".", "_")
+        escaped_parts.append(f'"{a}"+context.{b}+')
+    the_query = ''.join(escaped_parts) + '"'+parts[-1]+'"'
+    
+    # Find the parameters that need to be obtained from the context
+    context_bits = [b for b in parameter_bits if b[0] in '#@']
+    # Store the relevant parts in a data structure that can be used later.
     details = QueryDetails(source=source, table=table, url=the_query, parameters=context_bits)
     
     if columns:
         details.column_names = columns.split('.')
     elif specs:
         details.column_names = specs.keys()
-        print('Column names:', details.column_names)
     return details
 
 
@@ -179,14 +203,37 @@ def GetQueryContextSetter(details):
     parts = []
     for bit in details.parameters:
         bit_escaped = bit.replace('.', '_')
-        parts.append(f"""            {bit_escaped}: $("#{bit_escaped}").val()""")
+        parameter = bit_escaped[1:]
+        if bit_escaped[0] == '#':
+            parts.append(f"""                {parameter}: $("#{parameter}").val()""")
+        else:
+            parts.append(f"""                {parameter}: $("[name='{parameter}']").val()""")
     lines = ['var context = {',
              ',\n'.join(parts),
-            '};']
+            '            };']
     context_setter = '\n'.join(lines)
     return context_setter
 
+def GetRefUrl(url):
+    """ Process an URL. This has a LOT of overlap with the query URL... """
+    # Currently, only replace {{ with '+ and }} with +'
+    return url.replace('{{', "'+").replace('}}', "+'")
     
+def makeUrl(reference):
+    """ Create an URL from a reference. This reference can be either an URL, or a
+        reference to a database table.
+    """
+    db_parts = reference.split('.')
+    if len(db_parts) >= 2 and db_parts[0] in data_models and db_parts[1] in data_models[db_parts[0]]:
+        # We have a reference into the data model.
+        for u, db in url_prefixes.items():
+            if db_parts[0] == db:
+                return '/' + '/'.join([u, db_parts[1]])
+        raise RuntimeError('Did not find the url base for database %s'%db_parts)
+    
+    # The reference is supposed to be a regular url.
+    return reference
+
 
 def read_argument_lines(line, istream):
     """ Read a stream until all arguments in a Tag are read
@@ -270,7 +317,7 @@ def Tag(tag, handler, expand_tags=True):
                     print("An error occured when handling tag in", handler.__name__,
                           "with arguments", arguments,
                           "\nand lines",lines, file=sys.stderr)
-                    raise
+                    sys.exit(1)
             lines.append(line)
             try:
                 line = next(istream)
@@ -393,12 +440,14 @@ def handle_Template(args, template_lines):
                                 isEnum=isEnum,
                                 GetQueryDetails=GetQueryDetails,
                                 GetQueryContextSetter=GetQueryContextSetter,
+                                GetRefUrl=GetRefUrl,
+                                MakeUrl=makeUrl,
                                 **arguments))
         except:
             msg = '<An error occurred when rendering template for %s>\n'%tag
             msg += exceptions.text_error_template().render()
             print(msg, file=sys.stderr)
-            return msg
+            raise
         # Process the resulting text, so as to expand any inner templates.
         expand_others = io.StringIO()
         # Use the standard line_reader because it expands templates.
