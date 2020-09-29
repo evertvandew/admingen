@@ -20,11 +20,13 @@ IS_FINAL_KEY = '__is_last_record'
 
 root_path = os.getcwd()
 
+
+# Define the operators that can be used in filter and join conditions
 filter_context = {
     'isIn': operator.contains,
     'isTrue': lambda x: x.lower()=='true',
     'isFalse': lambda x: x.lower()!='true',
-    'l_and': operator.and_,
+    'and_': operator.and_,
     'eq': operator.eq,
     'neq': operator.ne,
     'lt': operator.lt,

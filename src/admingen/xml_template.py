@@ -30,12 +30,14 @@ import sys
 import io
 import re
 import enum
-import pdb
+import tempfile
+import shutil
 from dataclasses import dataclass
 from typing import List, Tuple, Any, Dict
 import urllib.parse
-from mako.template import Template
+from mako.template import Template, DefTemplate
 from mako import exceptions
+from mako.runtime import _render
 
 
 TAG_CLOSE_MSG = '__TAG_CLOSE__'
@@ -107,12 +109,35 @@ def isEnum(source, coltype):
     """
     if not coltype:
         return False
-    if coltype not in data_models[source]:
+    if coltype[0] not in data_models[source]:
         return False
-    return isinstance(data_models[source][coltype], enum.EnumMeta)
+    return isinstance(data_models[source][coltype[0]], enum.EnumMeta)
 
 
 argument_re = re.compile(r'\s*(\S*)\s*=\s*"([^"]*)"')
+
+
+def GetRefUrl(url):
+    """ Process an URL. This has a LOT of overlap with the query URL... """
+    # Currently, only replace {{ with '+ and }} with +'
+    return url.replace('{{', "'+").replace('}}', "+'")
+
+
+def makeUrl(reference):
+    """ Create an URL from a reference. This reference can be either an URL, or a
+        reference to a database table.
+    """
+    db_parts = reference.split('.')
+    if len(db_parts) >= 2 and db_parts[0] in data_models and db_parts[1] in data_models[
+        db_parts[0]]:
+        # We have a reference into the data model.
+        for u, db in url_prefixes.items():
+            if db_parts[0] == db:
+                return '/' + '/'.join([u, db_parts[1]])
+        raise RuntimeError('Did not find the url base for database %s' % db_parts)
+    
+    # The reference is supposed to be a regular url.
+    return GetRefUrl(reference)
 
 
 @dataclass
@@ -127,8 +152,27 @@ class QueryDetails:
     filter: str=None
     group_by: str=None
     order_by: str=None
-    parameters: List[str] = None
+    context_setter: str = None
     
+
+
+
+def context_reference(x):
+    return f'context.{x[1:].replace(".", "_")}'
+
+
+# Collect functions that convert each {{?parameter}} to a reference in the context, and a context setter line
+handle_dom_name =  (context_reference, lambda x: f"""{x[1:]}: $("[name='{x[1:]}']").val()""")
+handle_dom_id =    (context_reference, lambda x: f"""{x[1:]}: $("#{x[1:]}").val()""")
+handle_url_param = (context_reference, lambda x: f"""{x[1:]}: new URLSearchParams(window.location.search).get('{x[1:]}')""")
+handle_default_parameter = (lambda x: x, lambda x: '')
+
+double_brace_specials = {'@': handle_dom_name,  # Refers to DOM element by name
+                         '#': handle_dom_id,    # Refers to DOM element by ID
+                         '!': handle_url_param  # Refers to URL parameter
+                        }
+
+
 
 def GetQueryDetails(query, columns):
     """ Pre-parse a query string, as used in the template system.
@@ -142,6 +186,7 @@ def GetQueryDetails(query, columns):
     The query string can contain references to dynamic elements:
     * {{@element}} refers to the current value of a DOM element identified by name.
     * {{#element}} refers to the current value of a DOM element identified by id.
+    * {{!element}} refers to a parameter submitted to the API function.
     * {{variable}} refers to the current value of a local javascript object.
     * Python variables in the current loop are referred to by just using the name in things
       that are evaluated in a python context, like filter and join conditions.
@@ -176,63 +221,33 @@ def GetQueryDetails(query, columns):
     bit_scanner = re.compile(r'\{\{[^}]*\}\}')
     parameter_bits = bit_scanner.findall(query)
     parameter_bits = [b.strip('{}') for b in parameter_bits]
-
-    # Determine the actual query string, in JS
-    parts = bit_scanner.split(query)
-    escaped_parts = []
-    for a, b in zip(parts, parameter_bits):
-        if b[0] in '#@':
-            b = b[1:]
-        b.replace(".", "_")
-        escaped_parts.append(f'"{a}"+context.{b}+')
-    the_query = ''.join(escaped_parts) + '"'+parts[-1]+'"'
     
-    # Find the parameters that need to be obtained from the context
-    context_bits = [b for b in parameter_bits if b[0] in '#@']
+    parameters_details = [double_brace_specials.get(pb[0], handle_default_parameter) for pb in parameter_bits]
+    parameter_urls = [pd[0](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+    
+    parts = bit_scanner.split(query)
+    the_query = ''.join(f'"{a}"+{b}+' for a, b in zip(parts, parameter_urls)) + '"'+parts[-1]+'"'
+
+    
+    
+    parameter_context_setters = [pd[1](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+    parameter_context_setters = [pcs for pcs in parameter_context_setters if pcs]
+    context_setter_lines = ',\n                '.join(parameter_context_setters)
+    context_setter = '''
+        var context = {
+            %s
+        };'''%context_setter_lines
+    if not parameter_context_setters:
+        context_setter = ''
+    
     # Store the relevant parts in a data structure that can be used later.
-    details = QueryDetails(source=source, table=table, url=the_query, parameters=context_bits)
+    details = QueryDetails(source=source, table=table, url=the_query, context_setter=context_setter)
     
     if columns:
-        details.column_names = columns.split('.')
+        details.column_names = columns.split(',')
     elif specs:
         details.column_names = specs.keys()
     return details
-
-
-def GetQueryContextSetter(details):
-    parts = []
-    for bit in details.parameters:
-        bit_escaped = bit.replace('.', '_')
-        parameter = bit_escaped[1:]
-        if bit_escaped[0] == '#':
-            parts.append(f"""                {parameter}: $("#{parameter}").val()""")
-        else:
-            parts.append(f"""                {parameter}: $("[name='{parameter}']").val()""")
-    lines = ['var context = {',
-             ',\n'.join(parts),
-            '            };']
-    context_setter = '\n'.join(lines)
-    return context_setter
-
-def GetRefUrl(url):
-    """ Process an URL. This has a LOT of overlap with the query URL... """
-    # Currently, only replace {{ with '+ and }} with +'
-    return url.replace('{{', "'+").replace('}}', "+'")
-    
-def makeUrl(reference):
-    """ Create an URL from a reference. This reference can be either an URL, or a
-        reference to a database table.
-    """
-    db_parts = reference.split('.')
-    if len(db_parts) >= 2 and db_parts[0] in data_models and db_parts[1] in data_models[db_parts[0]]:
-        # We have a reference into the data model.
-        for u, db in url_prefixes.items():
-            if db_parts[0] == db:
-                return '/' + '/'.join([u, db_parts[1]])
-        raise RuntimeError('Did not find the url base for database %s'%db_parts)
-    
-    # The reference is supposed to be a regular url.
-    return reference
 
 
 def read_argument_lines(line, istream):
@@ -411,7 +426,14 @@ def update_res(generators):
     wrapped_tags = '|'.join(r'(%s)(?=[\s/>])' % t for t in tags)
     tag_start = re.compile(r'<(%s)' % wrapped_tags)
 
-
+def template_module_writer(source, outputpath):
+    (dest, name) = tempfile.mkstemp(
+                dir=os.path.dirname(outputpath)
+            )
+    
+    os.write(dest, source)
+    os.close(dest)
+    shutil.move(name, outputpath)
 
 def handle_Template(args, template_lines):
     tag = args['tag']
@@ -423,8 +445,8 @@ def handle_Template(args, template_lines):
         else:
             kwargsdef[parts[0]] = ''
     # template = env.from_string(lines)
-    #template = Template(template_lines, strict_undefined=True)
     template = Template(template_lines)
+    #template = Template(template_lines, strict_undefined=True)
 
     def expand_template(args, lines):
         arguments = kwargsdef.copy()
@@ -439,15 +461,32 @@ def handle_Template(args, template_lines):
                                 datamodels=data_models,
                                 isEnum=isEnum,
                                 GetQueryDetails=GetQueryDetails,
-                                GetQueryContextSetter=GetQueryContextSetter,
-                                GetRefUrl=GetRefUrl,
                                 MakeUrl=makeUrl,
                                 **arguments))
         except:
-            msg = '<An error occurred when rendering template for %s>\n'%tag
-            msg += exceptions.text_error_template().render()
-            print(msg, file=sys.stderr)
-            raise
+            # Try to re-create the error using a proper file template
+            # This will give a clearer error message.
+            with open('failed_template.py', 'w') as out:
+                out.write(template._code)
+            import failed_template
+            data = dict(callable=failed_template.render_body,
+                        lines=lines,
+                        datamodels=data_models,
+                        isEnum=isEnum,
+                        GetQueryDetails=GetQueryDetails,
+                        MakeUrl=makeUrl,
+                        **arguments)
+            try:
+                _render(DefTemplate(template, failed_template.render_body),
+                        failed_template.render_body,
+                        [],
+                        data)
+            except:
+                msg = '<An error occurred when rendering template for %s>\n'%tag
+                msg += exceptions.text_error_template().render()
+                print(msg, file=sys.stderr)
+                raise
+
         # Process the resulting text, so as to expand any inner templates.
         expand_others = io.StringIO()
         # Use the standard line_reader because it expands templates.

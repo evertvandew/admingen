@@ -155,7 +155,7 @@ for database, tables in data_models.items():
             if len(details) > 1:
                 cld = f'mkColumnDetails("{cld}")'
             elif cld == 'datetime':
-                cld = "formatted_date('%Y-%m-%d %H:%M')"
+                cld = "formatted_date('%d-%m-%Y %H:%M')"
             elif cld == 'date':
                 cld = "formatted_date('%Y-%m-%d')"
             cls.append(f'{name}: {cld}')
