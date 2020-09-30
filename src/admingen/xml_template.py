@@ -32,6 +32,7 @@ import re
 import enum
 import tempfile
 import shutil
+import traceback
 from dataclasses import dataclass
 from typing import List, Tuple, Any, Dict
 import urllib.parse
@@ -104,151 +105,195 @@ def handle_Datamodel(args, lines):
         pass
     return ''
 
-def isEnum(source, coltype):
-    """ Check if a type refers to an enum in the datamodel
-    """
-    if not coltype:
-        return False
-    if coltype[0] not in data_models[source]:
-        return False
-    return isinstance(data_models[source][coltype[0]], enum.EnumMeta)
 
+class DataContext:
+    """ This class is basically a namespace for defining functions that are passed to the templates"""
+    @property
+    def datamodels(self):
+        global data_models
+        return data_models
 
-argument_re = re.compile(r'\s*(\S*)\s*=\s*"([^"]*)"')
-
-
-def GetRefUrl(url):
-    """ Process an URL. This has a LOT of overlap with the query URL... """
-    # Currently, only replace {{ with '+ and }} with +'
-    return url.replace('{{', "'+").replace('}}', "+'")
-
-
-def makeUrl(reference):
-    """ Create an URL from a reference. This reference can be either an URL, or a
-        reference to a database table.
-    """
-    db_parts = reference.split('.')
-    if len(db_parts) >= 2 and db_parts[0] in data_models and db_parts[1] in data_models[
-        db_parts[0]]:
-        # We have a reference into the data model.
-        for u, db in url_prefixes.items():
-            if db_parts[0] == db:
-                return '/' + '/'.join([u, db_parts[1]])
-        raise RuntimeError('Did not find the url base for database %s' % db_parts)
+    @staticmethod
+    def isEnum(source, coltype):
+        """ Check if a type refers to an enum in the datamodel
+        """
+        if not coltype:
+            return False
+        if coltype[0] not in data_models[source]:
+            return False
+        return isinstance(data_models[source][coltype[0]], enum.EnumMeta)
     
-    # The reference is supposed to be a regular url.
-    return GetRefUrl(reference)
-
-
-@dataclass
-class QueryDetails:
-    url: str
-    source: str=None
-    table: str=None
-    column_names: List[str]=None
-    column_types: List[str]=None
-    join = None
-    join_on: str=None
-    filter: str=None
-    group_by: str=None
-    order_by: str=None
-    context_setter: str = None
+    @staticmethod
+    def isForeignKey(source, coltype):
+        if not coltype:
+            return False
+        if coltype[0] not in data_models[source]:
+            return False
+        return not isinstance(data_models[source][coltype[0]], enum.EnumMeta)
     
-
-
-
-def context_reference(x):
-    return f'context.{x[1:].replace(".", "_")}'
-
-
-# Collect functions that convert each {{?parameter}} to a reference in the context, and a context setter line
-handle_dom_name =  (context_reference, lambda x: f"""{x[1:]}: $("[name='{x[1:]}']").val()""")
-handle_dom_id =    (context_reference, lambda x: f"""{x[1:]}: $("#{x[1:]}").val()""")
-handle_url_param = (context_reference, lambda x: f"""{x[1:]}: new URLSearchParams(window.location.search).get('{x[1:]}')""")
-handle_default_parameter = (lambda x: x, lambda x: '')
-
-double_brace_specials = {'@': handle_dom_name,  # Refers to DOM element by name
-                         '#': handle_dom_id,    # Refers to DOM element by ID
-                         '!': handle_url_param  # Refers to URL parameter
-                        }
-
-
-
-def GetQueryDetails(query, columns):
-    """ Pre-parse a query string, as used in the template system.
-    The query contains a lot of information that
-    needs to be processed to be able to draw the table.
-    This script will set some variables that can be inserted at the right locations.
-    
-    The query string has the following structure:
+    @staticmethod
+    def GetRefUrl(url):
+        """ Process an URL. This has a LOT of overlap with the query URL... """
+        # Currently, only replace {{ with '+ and }} with +'
+        return url.replace('{{', "'+").replace('}}', "+'")
     
     
-    The query string can contain references to dynamic elements:
-    * {{@element}} refers to the current value of a DOM element identified by name.
-    * {{#element}} refers to the current value of a DOM element identified by id.
-    * {{!element}} refers to a parameter submitted to the API function.
-    * {{variable}} refers to the current value of a local javascript object.
-    * Python variables in the current loop are referred to by just using the name in things
-      that are evaluated in a python context, like filter and join conditions.
+    @staticmethod
+    def makeUrl(reference):
+        """ Create an URL from a reference. This reference can be either an URL, or a
+            reference to a database table.
+        """
+        db_parts = reference.split('.')
+        if len(db_parts) >= 2 and db_parts[0] in data_models and db_parts[1] in data_models[
+            db_parts[0]]:
+            # We have a reference into the data model.
+            for u, db in url_prefixes.items():
+                if db_parts[0] == db:
+                    return '/' + '/'.join([u, db_parts[1]])
+            raise RuntimeError('Did not find the url base for database %s' % db_parts)
+        
+        # The reference is supposed to be a regular url.
+        return DataContext.GetRefUrl(reference)
     
-    The references to DOM elements are through a Javascript 'Context' variable that is loaded
-    with the latest values using JQuery. -- Well, not in this code. This code just converts
-    the references to strings that are then interpreted by the client's browser.
-    """
-    if query[0] == '/':
-        # First determine which columns to draw
-        path = urllib.parse.urlparse(query).path
-        table = path.split('/')[-1]
-        if (path[0] or path[1]) in url_prefixes:
-            source = url_prefixes[path[0] or path[1]]
+    
+    @dataclass
+    class QueryDetails:
+        url: str
+        source: str=None
+        table: str=None
+        column_names: List[str]=None
+        column_types: List[str]=None
+        columns: Dict[str, str]=None
+        join = None
+        join_on: str=None
+        join_tables: List[str] = None
+        filter: str=None
+        group_by: str=None
+        order_by: str=None
+        context_setter: str = None
+        
+    
+    
+    
+    @staticmethod
+    def context_reference(x):
+        return f'context.{x[1:].replace(".", "_")}'
+    
+    
+    # Collect functions that convert each {{?parameter}} to a reference in the context, and a context setter line
+    handle_dom_name =  (context_reference, lambda x: f"""{x[1:]}: $("[name='{x[1:]}']").val()""")
+    handle_dom_id =    (context_reference, lambda x: f"""{x[1:]}: $("#{x[1:]}").val()""")
+    handle_url_param = (context_reference, lambda x: f"""{x[1:]}: new URLSearchParams(window.location.search).get('{x[1:]}')""")
+    handle_default_parameter = (lambda x: x, lambda x: '')
+    
+    double_brace_specials = {'@': handle_dom_name,  # Refers to DOM element by name
+                             '#': handle_dom_id,    # Refers to DOM element by ID
+                             '!': handle_url_param  # Refers to URL parameter
+                            }
+    
+    
+    @staticmethod
+    def GetQueryDetails(query, columns):
+        """ Pre-parse a query string, as used in the template system.
+        The query contains a lot of information that
+        needs to be processed to be able to draw the table.
+        This script will set some variables that can be inserted at the right locations.
+        
+        The query string has the following structure:
+        
+        
+        The query string can contain references to dynamic elements:
+        * {{@element}} refers to the current value of a DOM element identified by name.
+        * {{#element}} refers to the current value of a DOM element identified by id.
+        * {{!element}} refers to a parameter submitted to the API function.
+        * {{variable}} refers to the current value of a local javascript object.
+        * Python variables in the current loop are referred to by just using the name in things
+          that are evaluated in a python context, like filter and join conditions.
+        
+        The references to DOM elements are through a Javascript 'Context' variable that is loaded
+        with the latest values using JQuery. -- Well, not in this code. This code just converts
+        the references to strings that are then interpreted by the client's browser.
+        """
+        query_part = ''
+        if query[0] == '/':
+            # First determine which columns to draw
+            path = urllib.parse.urlparse(query).path
+            table = path.split('/')[-1]
+            if (path[0] or path[1]) in url_prefixes:
+                source = url_prefixes[path[0] or path[1]]
+                specs = data_models[source][table]
+            else:
+                # This is an unknown data source. Only process parameters
+                source = specs = None
+        else:
+            # The source and table are specified directly
+            if '?' in query:
+                data_ref, query_part = query.split('?', maxsplit=1)
+            else:
+                data_ref, query_part = query, ''
+            assert data_ref.count('.') == 1
+            source, table = data_ref.split('.')
             specs = data_models[source][table]
-        else:
-            # This is an unknown data source. Only process parameters
-            source = specs = None
-    else:
-        # The source and table are specified directly
-        if '?' in query:
-            data_ref, query_part = query.split('?', maxsplit=1)
-        else:
-            data_ref, query_part = query, ''
-        assert data_ref.count('.') == 1
-        source, table = data_ref.split('.')
-        specs = data_models[source][table]
-        query = f'/data/{table}?{query_part}'
-
-    # Determine the context that needs to be obtained in JS
-    # These elements have double brackets in the query string.
-    bit_scanner = re.compile(r'\{\{[^}]*\}\}')
-    parameter_bits = bit_scanner.findall(query)
-    parameter_bits = [b.strip('{}') for b in parameter_bits]
+            query = f'/data/{table}?{query_part}'
+        
+        # Determine the context that needs to be obtained in JS
+        # These elements have double brackets in the query string.
+        bit_scanner = re.compile(r'\{\{[^}]*\}\}')
+        parameter_bits = bit_scanner.findall(query)
+        parameter_bits = [b.strip('{}') for b in parameter_bits]
+        
+        parameters_details = [DataContext.double_brace_specials.get(pb[0], DataContext.handle_default_parameter) for pb in parameter_bits]
+        parameter_urls = [pd[0](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+        
+        parts = bit_scanner.split(query)
+        the_query = ''.join(f'"{a}"+{b}+' for a, b in zip(parts, parameter_urls)) + '"'+parts[-1]+'"'
     
-    parameters_details = [double_brace_specials.get(pb[0], handle_default_parameter) for pb in parameter_bits]
-    parameter_urls = [pd[0](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+        
+        
+        parameter_context_setters = [pd[1](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+        parameter_context_setters = [pcs for pcs in parameter_context_setters if pcs]
+        context_setter_lines = ',\n                '.join(parameter_context_setters)
+        context_setter = '''
+            var context = {
+                %s
+            };'''%context_setter_lines
+        if not parameter_context_setters:
+            context_setter = ''
+        
+        # Store the relevant parts in a data structure that can be used later.
+        details = DataContext.QueryDetails(source=source,
+                               table=table,
+                               url=the_query,
+                               context_setter=context_setter)
     
-    parts = bit_scanner.split(query)
-    the_query = ''.join(f'"{a}"+{b}+' for a, b in zip(parts, parameter_urls)) + '"'+parts[-1]+'"'
-
+        join_tables = []
+        if query_part:
+            arguments = query_part.split('&')
+            for a in arguments:
+                if a.startswith('join='):
+                    table2 = a[5:].split(',', maxsplit=1)[0]
+                    join_tables.append(table2)
+        details.join_tables = join_tables
     
+        if source:
+            if columns:
+                details.column_names = columns.split(',')
+            elif specs:
+                details.column_names = specs.keys()
+            else:
+                details.column_names = list(data_models[source][table].keys())
+            
+            def get_col_type(col):
+                for t in [details.table, *details.join_tables]:
+                    if col in data_models[source][t]:
+                        return data_models[source][t][col]
+                raise RuntimeError(f"Column {col} not found in tables {details.table} and {details.join_tables}")
+        
+            details.column_types = [get_col_type(c) for c in details.column_names]
+            
+            details.columns = zip(details.column_names, details.column_types)
+        return details
     
-    parameter_context_setters = [pd[1](pb) for pd, pb in zip(parameters_details, parameter_bits)]
-    parameter_context_setters = [pcs for pcs in parameter_context_setters if pcs]
-    context_setter_lines = ',\n                '.join(parameter_context_setters)
-    context_setter = '''
-        var context = {
-            %s
-        };'''%context_setter_lines
-    if not parameter_context_setters:
-        context_setter = ''
-    
-    # Store the relevant parts in a data structure that can be used later.
-    details = QueryDetails(source=source, table=table, url=the_query, context_setter=context_setter)
-    
-    if columns:
-        details.column_names = columns.split(',')
-    elif specs:
-        details.column_names = specs.keys()
-    return details
-
 
 def read_argument_lines(line, istream):
     """ Read a stream until all arguments in a Tag are read
@@ -270,7 +315,8 @@ def read_argument_lines(line, istream):
         lines.append(line)
         line = next(istream)
 
-    
+
+argument_re = re.compile(r'\s*(\S*)\s*=\s*"([^"]*)"')
 
 def argument_parser(line, istream):
     """ Read a stream until all arguments in a TAG are read
@@ -332,6 +378,7 @@ def Tag(tag, handler, expand_tags=True):
                     print("An error occured when handling tag in", handler.__name__,
                           "with arguments", arguments,
                           "\nand lines",lines, file=sys.stderr)
+                    traceback.print_exc()
                     sys.exit(1)
             lines.append(line)
             try:
@@ -449,6 +496,7 @@ def handle_Template(args, template_lines):
     #template = Template(template_lines, strict_undefined=True)
 
     def expand_template(args, lines):
+        expand_self = None
         arguments = kwargsdef.copy()
         for k, v in args.items():
             arguments[k] = v
@@ -458,10 +506,7 @@ def handle_Template(args, template_lines):
         try:
             expand_self = io.StringIO(
                 template.render(lines=lines,
-                                datamodels=data_models,
-                                isEnum=isEnum,
-                                GetQueryDetails=GetQueryDetails,
-                                MakeUrl=makeUrl,
+                                nspace=DataContext(),
                                 **arguments))
         except:
             # Try to re-create the error using a proper file template
@@ -471,10 +516,7 @@ def handle_Template(args, template_lines):
             import failed_template
             data = dict(callable=failed_template.render_body,
                         lines=lines,
-                        datamodels=data_models,
-                        isEnum=isEnum,
-                        GetQueryDetails=GetQueryDetails,
-                        MakeUrl=makeUrl,
+                        nspace=DataContext(),
                         **arguments)
             try:
                 _render(DefTemplate(template, failed_template.render_body),
