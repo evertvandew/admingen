@@ -105,6 +105,37 @@ def handle_Datamodel(args, lines):
         pass
     return ''
 
+@dataclass
+class QueryDetails:
+    url: str
+    source: str = None
+    table: str = None
+    column_names: List[str] = None
+    column_types: List[str] = None
+    columns: Dict[str, str] = None
+    join = None
+    join_on: str = None
+    join_tables: List[str] = None
+    filter: str = None
+    group_by: str = None
+    order_by: str = None
+    context_setter: str = None
+
+def context_reference(x):
+    return f'context.{x[1:].replace(".", "_")}'
+
+# Collect functions that convert each {{?parameter}} to a reference in the context, and a context setter line
+handle_dom_name = (context_reference, lambda x: f"""{x[1:]}: $("[name='{x[1:]}']").val()""")
+handle_dom_id = (context_reference, lambda x: f"""{x[1:]}: $("#{x[1:]}").val()""")
+handle_url_param = (context_reference, lambda
+    x: f"""{x[1:]}: new URLSearchParams(window.location.search).get('{x[1:]}')""")
+handle_default_parameter = (lambda x: x, lambda x: '')
+
+double_brace_specials = {'@': handle_dom_name,  # Refers to DOM element by name
+                         '#': handle_dom_id,  # Refers to DOM element by ID
+                         '!': handle_url_param  # Refers to URL parameter
+                         }
+
 
 class DataContext:
     """ This class is basically a namespace for defining functions that are passed to the templates"""
@@ -119,17 +150,30 @@ class DataContext:
         """
         if not coltype:
             return False
-        if coltype[0] not in data_models[source]:
+        if isinstance(coltype, list):
+            coltype = coltype[0]
+        if coltype not in data_models[source]:
             return False
-        return isinstance(data_models[source][coltype[0]], enum.EnumMeta)
+        return isinstance(data_models[source][coltype], enum.EnumMeta)
     
     @staticmethod
     def isForeignKey(source, coltype):
         if not coltype:
             return False
-        if coltype[0] not in data_models[source]:
+        if isinstance(coltype, list):
+            coltype = coltype[0]
+        if coltype not in data_models[source]:
             return False
-        return not isinstance(data_models[source][coltype[0]], enum.EnumMeta)
+        return not isinstance(data_models[source][coltype], enum.EnumMeta)
+    
+    @staticmethod
+    def GetEnumOptions(source, coltype):
+        if not coltype:
+            return []
+        if isinstance(coltype, list):
+            coltype = coltype[0]
+        assert DataContext.isEnum(source, coltype)
+        return data_models[source][coltype].__members__.items()
     
     @staticmethod
     def GetRefUrl(url):
@@ -154,42 +198,6 @@ class DataContext:
         
         # The reference is supposed to be a regular url.
         return DataContext.GetRefUrl(reference)
-    
-    
-    @dataclass
-    class QueryDetails:
-        url: str
-        source: str=None
-        table: str=None
-        column_names: List[str]=None
-        column_types: List[str]=None
-        columns: Dict[str, str]=None
-        join = None
-        join_on: str=None
-        join_tables: List[str] = None
-        filter: str=None
-        group_by: str=None
-        order_by: str=None
-        context_setter: str = None
-        
-    
-    
-    
-    @staticmethod
-    def context_reference(x):
-        return f'context.{x[1:].replace(".", "_")}'
-    
-    
-    # Collect functions that convert each {{?parameter}} to a reference in the context, and a context setter line
-    handle_dom_name =  (context_reference, lambda x: f"""{x[1:]}: $("[name='{x[1:]}']").val()""")
-    handle_dom_id =    (context_reference, lambda x: f"""{x[1:]}: $("#{x[1:]}").val()""")
-    handle_url_param = (context_reference, lambda x: f"""{x[1:]}: new URLSearchParams(window.location.search).get('{x[1:]}')""")
-    handle_default_parameter = (lambda x: x, lambda x: '')
-    
-    double_brace_specials = {'@': handle_dom_name,  # Refers to DOM element by name
-                             '#': handle_dom_id,    # Refers to DOM element by ID
-                             '!': handle_url_param  # Refers to URL parameter
-                            }
     
     
     @staticmethod
@@ -242,7 +250,7 @@ class DataContext:
         parameter_bits = bit_scanner.findall(query)
         parameter_bits = [b.strip('{}') for b in parameter_bits]
         
-        parameters_details = [DataContext.double_brace_specials.get(pb[0], DataContext.handle_default_parameter) for pb in parameter_bits]
+        parameters_details = [double_brace_specials.get(pb[0], handle_default_parameter) for pb in parameter_bits]
         parameter_urls = [pd[0](pb) for pd, pb in zip(parameters_details, parameter_bits)]
         
         parts = bit_scanner.split(query)
@@ -261,7 +269,7 @@ class DataContext:
             context_setter = ''
         
         # Store the relevant parts in a data structure that can be used later.
-        details = DataContext.QueryDetails(source=source,
+        details = QueryDetails(source=source,
                                table=table,
                                url=the_query,
                                context_setter=context_setter)

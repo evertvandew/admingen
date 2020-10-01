@@ -2,6 +2,7 @@
 
 import sys
 import time
+import datetime
 from admingen.xml_template import processor, data_models
 import enum
 
@@ -23,7 +24,7 @@ This file was generated on {date}. DO NOT CHANGE!
 
 from dataclasses import dataclass, is_dataclass
 from enum import Enum
-from datetime import datetime, date
+from datetime import datetime, date, time
 from decimal import Decimal
 from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
 
@@ -95,6 +96,9 @@ def mydataclass(cls):
             v = data[k]
             if type(v) == t or v is None:
                 pass
+            elif t == time.fromisoformat and type(v) == time:
+                # Don't convert time fields that are already in the correct type.
+                pass
             elif isinstance(v, Enum):
                 pass
             elif is_dataclass(t):
@@ -158,6 +162,8 @@ for database, tables in data_models.items():
                 cld = "formatted_date('%d-%m-%Y %H:%M')"
             elif cld == 'date':
                 cld = "formatted_date('%Y-%m-%d')"
+            elif cld == 'time':
+                cld = 'time.fromisoformat'
             cls.append(f'{name}: {cld}')
         c = class_template.format(name=k, class_lines='\n    '.join(cls))
         lines.append(c)
