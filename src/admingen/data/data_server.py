@@ -8,6 +8,7 @@ import json
 import flask
 import operator
 import functools
+import logging
 from dataclasses import is_dataclass, asdict
 from urllib.parse import unquote
 from werkzeug.exceptions import BadRequest, NotFound
@@ -195,7 +196,8 @@ def add_handlers(app, context):
         """ Flask handler for put requests """
         tablecls = table_classes[table]
         # Check we have either JSON or form-encoded data
-        if not (flask.request.values or flask.request.is_json()):
+        if not (flask.request.values or flask.request.is_json):
+            logging.info("Client tried to post without any data")
             raise BadRequest('Inproper request')
     
         # Update with the new data

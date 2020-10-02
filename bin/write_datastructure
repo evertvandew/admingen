@@ -93,7 +93,7 @@ def mydataclass(cls):
         for k, t in cls.__annotations__.items():
             if k == 'id' and k not in data:
                 continue
-            v = data[k]
+            v = data.get(k, None)
             if type(v) == t or v is None:
                 pass
             elif t == time.fromisoformat and type(v) == time:
