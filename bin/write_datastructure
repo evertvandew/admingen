@@ -22,10 +22,11 @@ file_template = '''""" Generated model file for the project data structures.
 This file was generated on {date}. DO NOT CHANGE!
 """
 
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass, is_dataclass, asdict
 from enum import Enum
 from datetime import datetime, date, time
 from decimal import Decimal
+import copy
 from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
 
 class enum_type:
@@ -41,7 +42,7 @@ class enum_type:
         return self._my_enum[x]
     def __getattr__(self, key):
         if not key.startswith('_'):
-            return self.my_enum[key]
+            return self._my_enum[key]
         return object.__getattr(self, key)
     def __str__(self):
         return self._name
@@ -50,14 +51,27 @@ def formatted_date(fmt):
     """ Custom converter class for dates."""
     class MyDate:
         annotation = 'formatted_date("%s")' % fmt
+        forward_funcs = ['__lt__', '__gt__', '__le__', '__ge__', '__eq__', '__ne__', '__add__']
         def __init__(self, x):
             if type(x).__name__ == 'MyDate':
                 self.dt = x.dt
             else:
-                self.dt = datetime.strptime(x, fmt)
+                if x:
+                    self.dt = datetime.strptime(x, fmt)
+                else:
+                    self.dt = None
             self.fmt = fmt
         def __str__(self):
+            if not self.dt:
+                return 'None'
             return self.dt.strftime(self.fmt)
+        @classmethod
+        def forward_func(cls, f):
+            dt_func = getattr(datetime, f)
+            setattr(cls, f, lambda self, *args: dt_func(self.dt, *args))
+            
+    for f in MyDate.forward_funcs:
+        MyDate.forward_func(f)
     return MyDate
 
 
@@ -104,10 +118,17 @@ def mydataclass(cls):
             elif is_dataclass(t):
                 v = int(v)
             else:
-                v = t(v)
+                print('Converting:', k, v, cls)
+                if v == 'None':
+                    v = None
+                else:
+                    v = t(v)
             setattr(self, k, v)
+    def __json__(self):
+        return asdict(self)
 
     cls.__init__ = __init__
+    cls.__json__ = __json__
 
     wrapped = dataclass(cls)
     

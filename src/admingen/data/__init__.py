@@ -221,7 +221,17 @@ class dataline(Mapping):
         return str(self.__dict__)
 
 
+class ExtendibleJsonEncoder(json.JSONEncoder):
+    def default(self, o):
+        if hasattr(o, '__json__'):
+            return o.__json__()
+        return str(o)
+
 def serialiseDataclass(data):
+    """ Convert a dataclass to a JSON string """
+    return json.dumps(data, cls=ExtendibleJsonEncoder)
+
+def serialiseDataclass_old(data):
     """ Convert a dataclass to a JSON string """
     ddict = {k: str(v) for k, v in asdict(data).items()}
     return json.dumps(ddict)

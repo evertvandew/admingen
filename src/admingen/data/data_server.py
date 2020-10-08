@@ -42,7 +42,7 @@ def mk_response(reply):
     return response
 
 
-def read_records(fullpath, as_dict=False):
+def read_records(fullpath, as_dict=False, cls=None):
     """ Reads all records in a table and returns them as dictionaries. """
     # TODO: Make me return record objects instead of dictionaries.
     if fullpath[0] != '/':
@@ -50,7 +50,10 @@ def read_records(fullpath, as_dict=False):
 
     # We need to make an object of the whole contents of a directory
     entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
-    data = [json.load(open(os.path.join(fullpath, str(e)))) for e in entries]
+    if cls:
+        data = [deserialiseDataclass(cls, open(os.path.join(fullpath, str(e))).read()) for e in entries]
+    else:
+        data = [json.load(open(os.path.join(fullpath, str(e)))) for e in entries]
     if as_dict:
         data = {d['id']: d for d in data}
     return data

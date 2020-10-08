@@ -56,6 +56,12 @@ def isoweekno2day(year:int, week:int, dow:int=0):
     err = week - details[1]
     return d + datetime.timedelta(7*err, 0)
 
+def day_range(first, last, interval=datetime.timedelta(1,0)):
+    """ Generator that returns all days in between first and last """
+    day = first
+    while day <= last:
+        yield day
+        day = day + interval
 
 
 class DataJsonEncoder(json.JSONEncoder):

@@ -27,7 +27,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     print('cwd:', os.getcwd())
-    
+    print('pythonpath:', os.environ.get('PYTHONPATH', ''))
+
     if args.root_path is not None:
         root_path = args.root_path
     else:
