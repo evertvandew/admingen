@@ -52,9 +52,15 @@ def isoweekno2day(year:int, week:int, dow:int=0):
     # Use the (non-iso) strptime, then correct for the right week.
     # The strptime week starts at sunday, ISO's at monday.
     d = datetime.datetime.strptime('%i%i%i'%(year, week, (dow+1)%7), '%Y%W%w')
-    details = d.isocalendar()
-    err = week - details[1]
-    return d + datetime.timedelta(7*err, 0)
+    while (details := d.isocalendar())[1] != week and details[0] != year:
+        if details[0] > year:
+            err = -1
+        elif details[0] < year:
+            err = 1
+        else:
+            err = week - details[1]
+        d += datetime.timedelta(7*err, 0)
+    return d
 
 def day_range(first, last, interval=datetime.timedelta(1,0)):
     """ Generator that returns all days in between first and last """
