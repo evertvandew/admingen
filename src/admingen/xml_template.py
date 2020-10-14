@@ -406,7 +406,7 @@ def root_line_reader(istream, ostream):
         # The bit before the tag, the tag name, and the xxxx
         while len(parts := tag_start.split(line, maxsplit=1)) > 1:
             # We found a new tag. Read and handle it.
-            before, tagname, after = parts[0], parts[3] or parts[2] or parts[1], parts[-1]
+            before, tagname, after = parts[0], parts[1], parts[-1]
             ostream.write(before)
             tagname = tagname.strip()
             output, line = generators[tagname](after, istream)
