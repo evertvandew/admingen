@@ -11,16 +11,34 @@
     
     We use the Mako templating engine for its powerful inline-Python features. Also its
     syntax does not bite Angular or other popular Javascript libraries.
+    
+    Other template processors can add specific handlers for specific tags.
+    For example, say the input document has a text like:
+        <Test a=1 b=2>
+            lines
+        </Test>
+    
+     The code to handle it is as follows:
+        def handle_<tagname>(args, lines):
+            ''' This function should process the lines, using the arguments.
+                Should return a string that is used to replace the tag (and its lines)
+                in the document.
+            '''
+            return ''
 """
 import sys
 import io
 import re
 import enum
+import tempfile
+import shutil
+import traceback
 from dataclasses import dataclass
 from typing import List, Tuple, Any, Dict
 import urllib.parse
-from mako.template import Template
+from mako.template import Template, DefTemplate
 from mako import exceptions
+from mako.runtime import _render
 
 
 TAG_CLOSE_MSG = '__TAG_CLOSE__'
@@ -38,7 +56,7 @@ def handle_Datamodel(args, lines):
         l = next(line_it)
         try:
             while l[0] in ' \t':
-                name, details = l.split(':')
+                name, details = l.split(':', maxsplit=1)
                 colname = name.strip()
                 details = [d.strip() for d in details.split(',')]
                 result[colname] = details
@@ -87,89 +105,202 @@ def handle_Datamodel(args, lines):
         pass
     return ''
 
-def isEnum(source, coltype):
-    """ Check if a type refers to an enum in the datamodel
-    """
-    if not coltype:
-        return False
-    if coltype not in data_models[source]:
-        return False
-    return isinstance(data_models[source][coltype], enum.EnumMeta)
-
-
-argument_re = re.compile(r'\s*(\S*)\s*=\s*"([^"]*)"')
-
-
 @dataclass
 class QueryDetails:
     url: str
-    source: str=None
-    table: str=None
-    column_names: List[str]=None
-    column_types: List[str]=None
+    source: str = None
+    table: str = None
+    column_names: List[str] = None
+    column_types: List[str] = None
+    columns: Dict[str, str] = None
     join = None
-    join_on: str=None
-    filter: str=None
-    group_by: str=None
-    order_by: str=None
-    parameters: List[str] = None
-    
+    join_on: str = None
+    join_tables: List[str] = None
+    filter: str = None
+    group_by: str = None
+    order_by: str = None
+    context_setter: str = None
 
-def GetQueryDetails(query, columns):
-    """ Pre-parse a query string, as used in the template system.
-    The query contains a lot of information that
-    needs to be processed to be able to draw the table.
-    This script will set some variables that can be inserted at the right locations.
+def context_reference(x):
+    return f'context.{x[1:].replace(".", "_")}'
+
+# Collect functions that convert each {{?parameter}} to a reference in the context, and a context setter line
+handle_dom_name = (context_reference, lambda x: f"""{x[1:]}: $("[name='{x[1:]}']").val()""")
+handle_dom_id = (context_reference, lambda x: f"""{x[1:]}: $("#{x[1:]}").val()""")
+handle_url_param = (context_reference, lambda
+    x: f"""{x[1:]}: new URLSearchParams(window.location.search).get('{x[1:]}')""")
+handle_default_parameter = (lambda x: x, lambda x: '')
+
+double_brace_specials = {'@': handle_dom_name,  # Refers to DOM element by name
+                         '#': handle_dom_id,  # Refers to DOM element by ID
+                         '!': handle_url_param  # Refers to URL parameter
+                         }
+
+
+class DataContext:
+    """ This class is basically a namespace for defining functions that are passed to the templates"""
+    @property
+    def datamodels(self):
+        global data_models
+        return data_models
+
+    @staticmethod
+    def isEnum(source, coltype):
+        """ Check if a type refers to an enum in the datamodel
+        """
+        if not coltype:
+            return False
+        if isinstance(coltype, list):
+            coltype = coltype[0]
+        if coltype not in data_models[source]:
+            return False
+        return isinstance(data_models[source][coltype], enum.EnumMeta)
     
-    The query string has the following structure:
-    """
-    if query[0] == '/':
-        # First determine which columns to draw
-        path = urllib.parse.urlparse(query).path
-        table = path.split('/')[-1]
-        if (path[0] or path[1]) in url_prefixes:
-            source = url_prefixes[path[0] or path[1]]
-            specs = data_models[source][table]
+    @staticmethod
+    def isForeignKey(source, coltype):
+        if not coltype:
+            return False
+        if isinstance(coltype, list):
+            coltype = coltype[0]
+        if coltype not in data_models[source]:
+            return False
+        return not isinstance(data_models[source][coltype], enum.EnumMeta)
+    
+    @staticmethod
+    def GetEnumOptions(source, coltype):
+        if not coltype:
+            return []
+        if isinstance(coltype, list):
+            coltype = coltype[0]
+        assert DataContext.isEnum(source, coltype)
+        return data_models[source][coltype].__members__.items()
+    
+    @staticmethod
+    def GetRefUrl(url):
+        """ Process an URL. This has a LOT of overlap with the query URL... """
+        # Currently, only replace {{ with '+ and }} with +'
+        return url.replace('{{', "'+").replace('}}', "+'")
+    
+    
+    @staticmethod
+    def makeUrl(reference):
+        """ Create an URL from a reference. This reference can be either an URL, or a
+            reference to a database table.
+        """
+        db_parts = reference.split('.')
+        if len(db_parts) >= 2 and db_parts[0] in data_models and db_parts[1] in data_models[
+            db_parts[0]]:
+            # We have a reference into the data model.
+            for u, db in url_prefixes.items():
+                if db_parts[0] == db:
+                    return '/' + '/'.join([u, db_parts[1]])
+            raise RuntimeError('Did not find the url base for database %s' % db_parts)
+        
+        # The reference is supposed to be a regular url.
+        return DataContext.GetRefUrl(reference)
+    
+    
+    @staticmethod
+    def GetQueryDetails(query, columns):
+        """ Pre-parse a query string, as used in the template system.
+        The query contains a lot of information that
+        needs to be processed to be able to draw the table.
+        This script will set some variables that can be inserted at the right locations.
+        
+        The query string has the following structure:
+        
+        
+        The query string can contain references to dynamic elements:
+        * {{@element}} refers to the current value of a DOM element identified by name.
+        * {{#element}} refers to the current value of a DOM element identified by id.
+        * {{!element}} refers to a parameter submitted to the API function.
+        * {{variable}} refers to the current value of a local javascript object.
+        * Python variables in the current loop are referred to by just using the name in things
+          that are evaluated in a python context, like filter and join conditions.
+        
+        The references to DOM elements are through a Javascript 'Context' variable that is loaded
+        with the latest values using JQuery. -- Well, not in this code. This code just converts
+        the references to strings that are then interpreted by the client's browser.
+        """
+        query_part = ''
+        if query[0] == '/':
+            # First determine which columns to draw
+            path = urllib.parse.urlparse(query).path
+            table = path.split('/')[-1]
+            if (path[0] or path[1]) in url_prefixes:
+                source = url_prefixes[path[0] or path[1]]
+                specs = data_models[source][table]
+            else:
+                # This is an unknown data source. Only process parameters
+                source = specs = None
         else:
-            # This is an unknown data source. Only process parameters
-            source = specs = None
-    else:
-        # The source and table are specified directly
-        data_ref, query_part = query.split('?', maxsplit=1)
-        assert data_ref.count('.') == 1
-        source, table = data_ref.split('.')
-        specs = data_models[source][table]
-        query = f'/data/{table}?{query_part}'
-
-    # Determine the context that needs to be obtained in JS
-    # These elements have double brackets in the query string.
-    bit_scanner = re.compile(r'\{\{[^}]*\}\}')
-    context_bits = bit_scanner.findall(query)
-    context_bits = [b.strip('{}') for b in context_bits]
-
-    # Determine the actual query string, in JS
-    parts = bit_scanner.split(query)
-    the_query = ''.join([f'"{a}"+context.{b}+' for a, b in zip(parts, context_bits)]) + '"'+parts[-1]+'"'
-    details = QueryDetails(source=source, table=table, url=the_query, parameters=context_bits)
+            # The source and table are specified directly
+            if '?' in query:
+                data_ref, query_part = query.split('?', maxsplit=1)
+            else:
+                data_ref, query_part = query, ''
+            assert data_ref.count('.') == 1
+            source, table = data_ref.split('.')
+            specs = data_models[source][table]
+            query = f'/data/{table}?{query_part}'
+        
+        # Determine the context that needs to be obtained in JS
+        # These elements have double brackets in the query string.
+        bit_scanner = re.compile(r'\{\{[^}]*\}\}')
+        parameter_bits = bit_scanner.findall(query)
+        parameter_bits = [b.strip('{}') for b in parameter_bits]
+        
+        parameters_details = [double_brace_specials.get(pb[0], handle_default_parameter) for pb in parameter_bits]
+        parameter_urls = [pd[0](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+        
+        parts = bit_scanner.split(query)
+        the_query = ''.join(f'"{a}"+{b}+' for a, b in zip(parts, parameter_urls)) + '"'+parts[-1]+'"'
     
-    if columns:
-        details.column_names = columns.split('.')
-    elif specs:
-        details.column_names = specs.keys()
-        print('Column names:', details.column_names)
-    return details
-
-
-def GetQueryContextSetter(details):
-    parts = []
-    for bit in details.parameters:
-        parts.append(f"""            {bit}: $("#{bit}").val()""")
-    lines = ['var context = {',
-             ',\n'.join(parts),
-            '};']
-    context_setter = '\n'.join(lines)
-    return context_setter
-
+        
+        
+        parameter_context_setters = [pd[1](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+        parameter_context_setters = [pcs for pcs in parameter_context_setters if pcs]
+        context_setter_lines = ',\n                '.join(parameter_context_setters)
+        context_setter = '''
+            var context = {
+                %s
+            };'''%context_setter_lines
+        if not parameter_context_setters:
+            context_setter = ''
+        
+        # Store the relevant parts in a data structure that can be used later.
+        details = QueryDetails(source=source,
+                               table=table,
+                               url=the_query,
+                               context_setter=context_setter)
+    
+        join_tables = []
+        if query_part:
+            arguments = query_part.split('&')
+            for a in arguments:
+                if a.startswith('join='):
+                    table2 = a[5:].split(',', maxsplit=1)[0]
+                    join_tables.append(table2)
+        details.join_tables = join_tables
+    
+        if source:
+            if columns:
+                details.column_names = columns.split(',')
+            elif specs:
+                details.column_names = specs.keys()
+            else:
+                details.column_names = list(data_models[source][table].keys())
+            
+            def get_col_type(col):
+                for t in [details.table, *details.join_tables]:
+                    if col in data_models[source][t]:
+                        return data_models[source][t][col]
+                raise RuntimeError(f"Column {col} not found in tables {details.table} and {details.join_tables}")
+        
+            details.column_types = [get_col_type(c) for c in details.column_names]
+            
+            details.columns = zip(details.column_names, details.column_types)
+        return details
     
 
 def read_argument_lines(line, istream):
@@ -192,7 +323,8 @@ def read_argument_lines(line, istream):
         lines.append(line)
         line = next(istream)
 
-    
+
+argument_re = re.compile(r'\s*(\S*)\s*=\s*"([^"]*)"')
 
 def argument_parser(line, istream):
     """ Read a stream until all arguments in a TAG are read
@@ -209,7 +341,7 @@ def argument_parser(line, istream):
     return arguments, (ending == '/>'), after
     
 
-def Tag(tag, handler):
+def Tag(tag, handler, expand_tags=True):
     """ Create a function that will read and handle a specific tag, recursively. """
     start_matcher = re.compile(r'<\s*%s(?=[ />])'%tag)
     end_matcher = re.compile(r'</\s*%s\s*>'%tag)
@@ -231,19 +363,21 @@ def Tag(tag, handler):
             # Read the lines within the tag (the body)
             
             # Check for new tags that needs handling
-            while len(parts := tag_start.split(line, maxsplit=1)) > 1:
-                # We found a new tag. Read and handle it.
-                before, tagname, after = parts[0], parts[3] or parts[2] or parts[1], parts[-1]
-                lines.append(before)
-                if tag == 'Template':
-                    output, line = generators[tagname](after, istream, False)
-                else:
-                    output, line = generators[tagname](after, istream)
-                lines.append(output)
+            if expand_tags:
+                while len(parts := tag_start.split(line, maxsplit=1)) > 1:
+                    # We found a new tag. Read and handle it.
+                    before, tagname, after = parts[0], parts[3] or parts[2] or parts[1], parts[-1]
+                    lines.append(before)
+                    if tag == 'Template':
+                        output, line = generators[tagname](after, istream, False)
+                    else:
+                        output, line = generators[tagname](after, istream)
+                    lines.append(output)
             
             # No more new tags on the current line
             # Check if the tag is ended.
             if line and len(parts:=end_matcher.split(line)) > 1:
+                # The tag is completed: evaluate it!
                 before, after = parts
                 lines.append(before)
                 try:
@@ -252,48 +386,27 @@ def Tag(tag, handler):
                     print("An error occured when handling tag in", handler.__name__,
                           "with arguments", arguments,
                           "\nand lines",lines, file=sys.stderr)
-                    raise
-            else:
-                lines.append(line)
-                try:
-                    line = next(istream)
-                except StopIteration:
-                    print('Tag not closed:', tag, file=sys.stderr)
+                    traceback.print_exc()
                     sys.exit(1)
+            lines.append(line)
+            try:
+                line = next(istream)
+            except StopIteration:
+                print('Tag not closed:', tag, file=sys.stderr)
+                sys.exit(1)
     
     return tag_line_reader
-
-def template_reader(line, istream):
-    """ Read lines from the stream until the closing mark of the current tag is found.
-        Then use the lines read to form a new tag: a template tag.
-    :param line: Remainder of the tag definition after <tagname
-    :param istream: stream containing the lines
-    :return: The text enveloped in the tag, including start and end. Also the remainder
-             of the line where the tag was closed.
-    """
-    # Re-add the tag start to the line
-    arguments, is_closed, line = argument_parser(line, istream)
-    assert not is_closed   # It makes no sense to have a self-closed Template...
-
-    # Eat all lines until the end *without* entering those tags
-    lines = []
-    while True:
-        parts = template_end.split(line)
-        if len(parts) > 1:
-            lines.append(parts[0])
-            return handle_Template(arguments, ''.join(lines)), parts[-1]
-        lines.append(line)
-        line = next(istream)
 
 
 def root_line_reader(istream, ostream):
     """ Simple reader for the outer level of the file (root) """
+    global generators
     for line in istream:
         # If there is a new tag in the line, this split action yields three bits:
         # The bit before the tag, the tag name, and the xxxx
         while len(parts := tag_start.split(line, maxsplit=1)) > 1:
             # We found a new tag. Read and handle it.
-            before, tagname, after = parts[0], parts[3] or parts[2] or parts[1], parts[-1]
+            before, tagname, after = parts[0], parts[1], parts[-1]
             ostream.write(before)
             tagname = tagname.strip()
             output, line = generators[tagname](after, istream)
@@ -368,8 +481,16 @@ def update_res(generators):
     wrapped_tags = '|'.join(r'(%s)(?=[\s/>])' % t for t in tags)
     tag_start = re.compile(r'<(%s)' % wrapped_tags)
 
+def template_module_writer(source, outputpath):
+    (dest, name) = tempfile.mkstemp(
+                dir=os.path.dirname(outputpath)
+            )
+    
+    os.write(dest, source)
+    os.close(dest)
+    shutil.move(name, outputpath)
 
-def handle_Template(args, lines):
+def handle_Template(args, template_lines):
     tag = args['tag']
     kwargsdef = {}
     for adef in args.get('args', '').split(','):
@@ -379,9 +500,11 @@ def handle_Template(args, lines):
         else:
             kwargsdef[parts[0]] = ''
     # template = env.from_string(lines)
-    template = Template(lines)
+    template = Template(template_lines)
+    #template = Template(template_lines, strict_undefined=True)
 
     def expand_template(args, lines):
+        expand_self = None
         arguments = kwargsdef.copy()
         for k, v in args.items():
             arguments[k] = v
@@ -391,16 +514,33 @@ def handle_Template(args, lines):
         try:
             expand_self = io.StringIO(
                 template.render(lines=lines,
-                                datamodels=data_models,
-                                isEnum=isEnum,
-                                GetQueryDetails=GetQueryDetails,
-                                GetQueryContextSetter=GetQueryContextSetter,
+                                nspace=DataContext(),
                                 **arguments))
         except:
-            print(exceptions.text_error_template().render(), file=sys.stderr)
-            return '<An error occurred when rendering template for %s'%tag
+            # Try to re-create the error using a proper file template
+            # This will give a clearer error message.
+            with open('failed_template.py', 'w') as out:
+                out.write(template._code)
+            import failed_template
+            data = dict(callable=failed_template.render_body,
+                        lines=lines,
+                        nspace=DataContext(),
+                        **arguments)
+            try:
+                _render(DefTemplate(template, failed_template.render_body),
+                        failed_template.render_body,
+                        [],
+                        data)
+            except:
+                msg = '<An error occurred when rendering template for %s>\n'%tag
+                msg += exceptions.text_error_template().render()
+                print(msg, file=sys.stderr)
+                raise
+
+        # Process the resulting text, so as to expand any inner templates.
         expand_others = io.StringIO()
-        processor(istream=expand_self, ostream=expand_others)
+        # Use the standard line_reader because it expands templates.
+        root_line_reader(istream=expand_self, ostream=expand_others)
         return expand_others.getvalue()
     # End of expand_template
 
@@ -410,8 +550,25 @@ def handle_Template(args, lines):
 # End of handle_template
 
 
+def handle_Context(args, lines):
+    """ Handle the Context tag. A context allows custom Templates that do not interfere
+        with templates used elsewhere.
+    """
+    global generators
+    # Make a copy of the current generators and replace the generators list with it.
+    new_context = generators.copy()
+    old_context, generators = generators, new_context
+    # Process the text inside the context.
+    expand_others = io.StringIO()
+    root_line_reader(istream=io.StringIO(lines), ostream=expand_others)
+    # Restore the old collection of generators
+    generators = old_context
+    # Return the expanded text for insertion in the document.
+    return expand_others.getvalue()
+
 default_generators = {'Datamodel': Tag('Datamodel', handle_Datamodel),
-              'Template': template_reader}
+                      'Template': Tag('Template', handle_Template, expand_tags=False),
+                      'Context': Tag('Context', handle_Context, expand_tags=False)}
 
 generators = default_generators.copy()
 
@@ -449,5 +606,5 @@ if __name__ == '__main__':
     # Normally, this file is executed through a different script in the `bin` directory.
     # This is only executed when debugging.
     import os
-    os.chdir('/home/ehwaal/projects/sab')
+    os.chdir('/home/ehwaal/projects/inplanner')
     result = processor(istream=open('webinterface.xml'))

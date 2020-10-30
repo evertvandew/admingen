@@ -2,6 +2,7 @@
 
 import sys
 import time
+import datetime
 from admingen.xml_template import processor, data_models
 import enum
 
@@ -21,34 +22,56 @@ file_template = '''""" Generated model file for the project data structures.
 This file was generated on {date}. DO NOT CHANGE!
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass, asdict
 from enum import Enum
-from datetime import datetime, date
+from datetime import datetime, date, time
 from decimal import Decimal
-from admingen.db_api import ColumnDetails, mkColumnDetails
+import copy
+from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
 
 class enum_type:
     def __init__(self, name, options):
-        self.my_enum = Enum(name, options)
+        self._name = name
+        self._my_enum = Enum(name, options)
+        self._my_enum.__str__ = lambda self: str(self.value)
     def __call__(self, x):
-        return self.my_enum[x]
+        if '.' in x:
+            x = x.split('.')[-1]
+        elif (isinstance(x, str) and x.isnumeric()) or isinstance(x, int):
+            return self._my_enum(int(x))
+        return self._my_enum[x]
     def __getattr__(self, key):
-        return self.my_enum[key]
+        if not key.startswith('_'):
+            return self._my_enum[key]
+        return object.__getattr(self, key)
     def __str__(self):
-        return 'hi'
+        return self._name
 
 def formatted_date(fmt):
     """ Custom converter class for dates."""
     class MyDate:
-        annotation = f'formatted_date("{{fmt}}")'
+        annotation = 'formatted_date("%s")' % fmt
+        forward_funcs = ['__lt__', '__gt__', '__le__', '__ge__', '__eq__', '__ne__', '__add__']
         def __init__(self, x):
             if type(x).__name__ == 'MyDate':
                 self.dt = x.dt
             else:
-                self.dt = datetime.strptime(x, fmt)
+                if x:
+                    self.dt = datetime.strptime(x, fmt)
+                else:
+                    self.dt = None
             self.fmt = fmt
         def __str__(self):
+            if not self.dt:
+                return 'None'
             return self.dt.strftime(self.fmt)
+        @classmethod
+        def forward_func(cls, f):
+            dt_func = getattr(datetime, f)
+            setattr(cls, f, lambda self, *args: dt_func(self.dt, *args))
+            
+    for f in MyDate.forward_funcs:
+        MyDate.forward_func(f)
     return MyDate
 
 
@@ -57,7 +80,7 @@ DASH = '-'
 def date_or_dash(fmt):
     """ Custom converter for either a dash ('-') or a formatted date. """
     class MyDate(formatted_date(fmt)):
-        annotation = f'date_or_dash("{{fmt}}")'
+        annotation = 'date_or_dash("%s")' % fmt
         def __init__(self, x):
             if isinstance(x, str) and x == '-':
                 self.dt = DASH
@@ -70,6 +93,53 @@ def date_or_dash(fmt):
     return MyDate
 
 
+def mydataclass(cls):
+    """ Returns a standard Python dataclass with one additional field: id.
+        The constructor assures that the keys of the object have the correct type.
+    """
+    # All tables must have a primary key field.
+    cls.__annotations__['id'] = int
+    cls.id = None
+
+    def __init__(self, *args, **kwargs):
+        data = dict(zip(cls.__annotations__, args))
+        data.update(kwargs)
+        for k, t in cls.__annotations__.items():
+            if k == 'id' and k not in data:
+                continue
+            v = data.get(k, None)
+            if type(v) == t or v is None:
+                pass
+            elif t == time.fromisoformat and type(v) == time:
+                # Don't convert time fields that are already in the correct type.
+                pass
+            elif isinstance(v, Enum):
+                pass
+            elif is_dataclass(t):
+                v = int(v)
+            else:
+                print('Converting:', k, v, cls)
+                if v == 'None':
+                    v = None
+                else:
+                    v = t(v)
+            setattr(self, k, v)
+    def __json__(self):
+        return asdict(self)
+
+    cls.__init__ = __init__
+    cls.__json__ = __json__
+
+    wrapped = dataclass(cls)
+    
+    # Replace any references to other data classes with integers
+    references = [k for k, t in cls.__annotations__.items() if is_dataclass(t)]
+    for k in references:
+        wrapped.__annotations__[k] = int
+
+    return wrapped
+
+
 # Define some standard column types
 class email(str): pass
 class longstr(str): pass
@@ -79,9 +149,12 @@ class phone(str): pass
 
 # The actual data model.
 {model_lines}
+
+# Create a list with all data tables defined here.
+all_tables = [{the_tables}]
 '''
 
-class_template = '''@dataclass
+class_template = '''@mydataclass
 class {name}:
     {class_lines}
 '''
@@ -98,16 +171,25 @@ for database, tables in data_models.items():
         l = enum_template.format(name=k, options=' '.join(t.name for t in enum_def))
         lines.append(l)
     
+    the_tables = []
     for k, cls_def in class_defs.items():
+        the_tables.append(k)
         cls = []
         for name, details in cls_def.items():
             cld = ', '.join(details)
             if len(details) > 1:
                 cld = f'mkColumnDetails("{cld}")'
+            elif cld == 'datetime':
+                cld = "formatted_date('%d-%m-%Y %H:%M')"
+            elif cld == 'date':
+                cld = "formatted_date('%Y-%m-%d')"
+            elif cld == 'time':
+                cld = 'time.fromisoformat'
             cls.append(f'{name}: {cld}')
         c = class_template.format(name=k, class_lines='\n    '.join(cls))
         lines.append(c)
 
 model_lines = '\n'.join(lines)
 args.output.write(file_template.format(model_lines=model_lines,
-                                       date=time.ctime()))
+                                       date=time.ctime(),
+                                       the_tables=', '.join(the_tables)))

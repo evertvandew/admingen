@@ -8,8 +8,12 @@ import json
 import flask
 import operator
 import functools
+import logging
+from dataclasses import is_dataclass, asdict
 from urllib.parse import unquote
 from werkzeug.exceptions import BadRequest, NotFound
+from admingen.data.file_db import (FileDatabase, serialiseDataclass, deserialiseDataclass, the_db,
+                                   serialiseDataclasses)
 
 # Define the key for the data element that is added to indicate limited queries have reached the end
 IS_FINAL_KEY = '__is_last_record'
@@ -17,11 +21,13 @@ IS_FINAL_KEY = '__is_last_record'
 
 root_path = os.getcwd()
 
+
+# Define the operators that can be used in filter and join conditions
 filter_context = {
     'isIn': operator.contains,
     'isTrue': lambda x: x.lower()=='true',
     'isFalse': lambda x: x.lower()!='true',
-    'l_and': operator.and_,
+    'and_': operator.and_,
     'eq': operator.eq,
     'neq': operator.ne,
     'lt': operator.lt,
@@ -36,14 +42,23 @@ def mk_response(reply):
     return response
 
 
-def read_records(fullpath):
+def read_records(fullpath, cls=None):
+    """ Reads all records in a table and returns them as dictionaries. """
+    # TODO: Make me return record objects instead of dictionaries.
     if fullpath[0] != '/':
         fullpath = os.path.join(root_path, fullpath)
 
     # We need to make an object of the whole contents of a directory
     entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
-    data = [json.load(open(os.path.join(fullpath, str(e)))) for e in entries]
+    if cls:
+        data = [deserialiseDataclass(cls, open(os.path.join(fullpath, str(e))).read()) for e in entries]
+    else:
+        data = [json.load(open(os.path.join(fullpath, str(e)))) for e in entries]
     return data
+
+def read_records_asdict(fullpath: str, cls=None):
+    data = read_records(fullpath, cls)
+    return {d['id']: d for d in data}
 
 
 def multi_sort(descriptor, data):
@@ -76,9 +91,12 @@ def multi_sort(descriptor, data):
     return sorted(data, key=functools.cmp_to_key(sort_predicate))
 
 
-def add_handlers(app):
+def add_handlers(app, context):
     """ This function creates and installs a number of flask handlers. """
     offset = os.getcwd() + '/data'
+    
+    db = context['the_db']
+    table_classes = {t.__name__: t for t in context['tables']}
 
     # First define some helper functions.
     def mk_fullpath(path):
@@ -94,6 +112,9 @@ def add_handlers(app):
         # Make the association.
         results = []
         for d1 in data1:
+            if is_dataclass(d1):
+                d1 = asdict(d1)
+    
             def eval_cond(d2):
                 """ Function returns true if d2 is to be joined to d1 """
                 local_context = {tabl1: d1, tabl2: d2}
@@ -125,10 +146,12 @@ def add_handlers(app):
         return new_data
         
 
-    @app.route('/data/<path:tabel>', methods=['GET'])
-    def get_table(tabel):
-        fullpath = mk_fullpath(tabel)
-        data = read_records(fullpath)
+    @app.route('/data/<path:table>', methods=['GET'])
+    def get_table(table):
+        if not table:
+            return
+        tablecls = table_classes[table]
+        data = db.query(tablecls)
         # Check if the foreignkeys need to be resolved
         if 'resolve_fk' in flask.request.args:
             # TODO: Look for all foreign keys in the dataset, and fill in the data like a join
@@ -137,12 +160,13 @@ def add_handlers(app):
         if 'join' in flask.request.args:
             other_table, condition = flask.request.args['join'].split(',', maxsplit=1)
             data_other = read_records(mk_fullpath(other_table))
-            data = do_leftjoin(tabel, other_table, data, data_other, condition)
+            data = do_leftjoin(table, other_table, data, data_other, condition)
     
         # Apply the filter
         if 'filter' in flask.request.args:
             def func(item, condition):
-                return bool(eval(condition, filter_context, item))
+                d = asdict(item) if is_dataclass(item) else item
+                return bool(eval(condition, filter_context, d))
         
             condition = flask.request.args['filter']
             data = [item for item in data if func(item, condition)]
@@ -161,53 +185,51 @@ def add_handlers(app):
                 data[-1][IS_FINAL_KEY] = is_final
 
         # Prepare the response
-        res = flask.make_response(json.dumps(data))
+        res = flask.make_response(serialiseDataclasses(data))
     
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
         return res
 
-    @app.route('/data/<path:tabel>/<int:index>', methods=['GET'])
-    def get_item(tabel, index):
-        fullpath = mk_fullpath(os.path.join(tabel, str(index)))
-        res = flask.make_response(open(fullpath).read())
+    @app.route('/data/<path:table>/<int:index>', methods=['GET'])
+    def get_item(table, index):
+        res = flask.make_response(serialiseDataclass(db.get(table_classes[table], index)))
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
         return res
 
-    @app.route('/data/<path:tabel>/<int:index>', methods=['POST', 'PUT'])
-    def put_item(tabel, index):
+    @app.route('/data/<path:table>/<int:index>', methods=['POST', 'PUT'])
+    def put_item(table, index):
         """ Flask handler for put requests """
-        fullpath = mk_fullpath(os.path.join(tabel, str(index)))
-    
+        tablecls = table_classes[table]
         # Check we have either JSON or form-encoded data
-        if not (flask.request.values or flask.request.is_json()):
+        if not (flask.request.values or flask.request.is_json):
+            logging.info("Client tried to post without any data")
             raise BadRequest('Inproper request')
     
-        # Make an initial data object for merging old and new data
-        data = {}
-
-        # If this is a POST request, get any existing data
-        if flask.request.method == 'POST':
-            data = json.load(open(fullpath))
-    
         # Update with the new data
-        data.update(get_request_data())
-    
-        print('Saving', fullpath, data)
-        data_str = json.dumps(data)
-        with open(fullpath, "w") as dest_file:
-            dest_file.write(data_str)
-        return flask.make_response(data_str, 201)
+        data = get_request_data()
+        if 'id' not in data:
+            data['id'] = index
+        if flask.request.method == 'POST':
+            # re-use the existing data
+            record = db.update(tablecls, data)
+        else:
+            # Overwrite existing data
+            record = tablecls(**data)
+            db.set(record)
+
+        return flask.make_response(serialiseDataclass(record), 201)
 
 
-    @app.route('/data/<path:tabel>/<int:index>', methods=['DELETE'])
-    def delete_item(tabel, index):
-        fullpath = mk_fullpath(os.path.join(tabel, str(index)))
-        os.remove(fullpath)
+    @app.route('/data/<path:table>/<int:index>', methods=['DELETE'])
+    def delete_item(table, index):
+        tablecls = table_classes[table]
+        db.delete(tablecls, index)
         return flask.make_response('', 204)
 
-    @app.route('/data/<path:tabel>', methods=['POST', 'PUT'])
-    def add(tabel):
-        fullpath = mk_fullpath(tabel)
+    @app.route('/data/<path:table>', methods=['POST', 'PUT'])
+    def add(table):
+        fullpath = mk_fullpath(table)
+        tablecls = table_classes[table]
 
         data = get_request_data()
 
@@ -218,7 +240,8 @@ def add_handlers(app):
         fullpath = f'{fullpath}/{my_id}'
         print('Created ID', str(my_id))
 
-        data_str = json.dumps(data)
+        data_obj = tablecls(**data)
+        data_str = serialiseDataclass(data_obj)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
         return flask.make_response(data_str, 201)

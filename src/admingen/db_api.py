@@ -14,6 +14,13 @@ from pony.orm import Required, Set, select, Optional, delete, desc, commit
 sessionScope = orm.db_session
 commit = orm.commit
 
+###############################################################################
+## Options for fields in a database
+
+class nullable: pass
+class required: pass
+class unique: pass
+
 
 @dataclass
 class ColumnDetails:
@@ -25,11 +32,14 @@ class ColumnDetails:
     options: Any
     required: bool
     related_columns: Any
+    unique: bool
     default: Any
 
-def mkColumnDetails(definition: str):
+def mkColumnDetails(t: Any, *args):
+    if t == 'self':
+        return int
     # FIXME: I need implementing!
-    return None
+    return str
 
 
 @dataclass

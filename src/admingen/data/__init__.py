@@ -5,13 +5,15 @@ import typing
 from typing import List, Union, Dict, Any
 from decimal import Decimal
 from datetime import date, datetime, timedelta
+from enum import Enum
 import logging
 import re
+import codecs
 from admingen.util import isoweekno2day
 from yaml import load, dump
 from collections.abc import Mapping
 from typing import Dict
-from dataclasses import is_dataclass
+from dataclasses import is_dataclass, asdict
 
 import json
 try:
@@ -46,7 +48,6 @@ def id_type(s):
 
 def json_loads(s):
     return json.loads(s)
-
 
 
 class dataset:
@@ -220,6 +221,30 @@ class dataline(Mapping):
         return str(self.__dict__)
 
 
+class ExtendibleJsonEncoder(json.JSONEncoder):
+    def default(self, o):
+        if hasattr(o, '__json__'):
+            return o.__json__()
+        return str(o)
+
+def serialiseDataclass(data):
+    """ Convert a dataclass to a JSON string """
+    return json.dumps(data, cls=ExtendibleJsonEncoder)
+
+def serialiseDataclass_old(data):
+    """ Convert a dataclass to a JSON string """
+    ddict = {k: str(v) for k, v in asdict(data).items()}
+    return json.dumps(ddict)
+
+def deserialiseDataclass(cls, s):
+    """ Read the dataclass from a JSON string """
+    ddict = json.loads(s)
+    return cls(**{k: (None if ddict[k] in [None, 'None', ''] else t(ddict[k])) for k, t in cls.__annotations__.items()})
+    
+def serialiseDataclasses(data):
+    result = [{k: str(v) for k, v in (asdict(d) if is_dataclass(d) else d).items()} for d in data]
+    return json.dumps(result)
+    
 
 def read_lines(stream, headers, types, delimiter):
     constructor = dataline.getConstructor(headers, types)
@@ -287,6 +312,83 @@ def mk_object_constructor(cls, types=None):
     return constr
 
 
+####################################################################################################
+## CSV character encoding scheme.
+#  We use the regular encoding scheme used for C, with one additional escape sequence:
+#  the delimiter is replaced with the \d escape sequence.
+
+ESCAPE_SEQUENCE_RE = re.compile(r'''
+    ( \\U........       # 8-digit hex escapes
+    | \\u....           # 4-digit hex escapes
+    | \\x..             # 2-digit hex escapes
+    | \\[0-7]{1,3}      # Octal escapes
+    | \\N\{[^}]+\}      # Unicode characters by name
+    | \\[\\'"abfnrtvd]  # Single-character escapes
+    )''', re.UNICODE | re.VERBOSE)
+
+def decode_escapes(s, delimiter):
+    """ Decode an encoded string """
+    def decode_match(match):
+        if match.group(0) == r'\d':
+            return delimiter
+        return codecs.decode(match.group(0), 'unicode-escape')
+
+    return ESCAPE_SEQUENCE_RE.sub(decode_match, s)
+
+def encode_escapes(s, delimiter):
+    return codecs.encode(s, 'unicode-escape').decode('utf-8').replace(delimiter, r'\d')
+
+
+###############################################################################
+## Some useful types for use in CSV files.
+
+class enum_type:
+    def __init__(self, name, options):
+        self.annotation = name
+        self.my_enum = Enum(name, options)
+        self.my_enum.__str__ = lambda self: self.name
+    def __call__(self, x):
+        if type(x) == self.my_enum:
+            return x
+        return self.my_enum[x]
+    def __getattr__(self, key):
+        return self.my_enum[key]
+
+
+def formatted_date(fmt):
+    """ Custom converter class for dates."""
+    class MyDate:
+        annotation = f'formatted_date("{fmt}")'
+        def __init__(self, x):
+            if type(x).__name__ == 'MyDate':
+                self.dt = x.dt
+            else:
+                self.dt = datetime.strptime(x, fmt)
+            self.fmt = fmt
+        def __str__(self):
+            return self.dt.strftime(self.fmt)
+    return MyDate
+
+
+DASH = '-'
+
+def date_or_dash(fmt):
+    """ Custom converter for either a dash ('-') or a formatted date. """
+    class MyDate(formatted_date(fmt)):
+        annotation = f'date_or_dash("{fmt}")'
+        def __init__(self, x):
+            if isinstance(x, str) and x == '-':
+                self.dt = DASH
+            else:
+                super().__init__(x)
+        def __str__(self):
+            if self.dt == DASH:
+                return self.dt
+            return self.dt.strftime(self.fmt)
+    return MyDate
+
+###############################################################################
+## CSV table reader and writer.
 
 def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None, header=True):
     if header:
@@ -310,7 +412,7 @@ def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None,
 
         parts = line.split(delimiter)
         # Un-escape delimiters in strings
-        parts = [p.replace('\d', delimiter) for p in parts]
+        parts = [decode_escapes(p, delimiter) for p in parts]
         try:
             yield constr(*parts)
         except:
@@ -341,7 +443,7 @@ def CsvTableWriter(stream: typing.TextIO, records, delimiter=',', formatters=Non
     for line in records:
         parts = [getattr(line, k) for k in keys]
         # Escape special characters and the delimiter
-        parts = [str(p).replace(delimiter, r'\d') for p in parts]
+        parts = [encode_escapes(str(p), delimiter) for p in parts]
         stream.write('%s\n' % delimiter.join(parts))
 
 
