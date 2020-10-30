@@ -277,7 +277,11 @@ def mk_object_constructor(cls, types=None):
 
     def constr(*parts):
         parts = [c(v) for c, v in zip(part_constructors, parts)]
-        result = cls(*parts)
+        try:
+            result = cls(*parts)
+        except:
+            print(f"Error in creating object of type {cls} with arguments {parts}")
+            raise
         return result
 
     return constr
