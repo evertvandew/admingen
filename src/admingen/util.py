@@ -52,7 +52,7 @@ def isoweekno2day(year:int, week:int, dow:int=0):
     # Use the (non-iso) strptime, then correct for the right week.
     # The strptime week starts at sunday, ISO's at monday.
     d = datetime.datetime.strptime('%i%i%i'%(year, week, (dow+1)%7), '%Y%W%w')
-    while (details := d.isocalendar())[1] != week and details[0] != year:
+    while (details := d.isocalendar())[1] != week or details[0] != year:
         if details[0] > year:
             err = -1
         elif details[0] < year:

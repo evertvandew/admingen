@@ -72,7 +72,8 @@ if args.intermediate:
             out.write(md_text)
 
 # Filter 'body' through pandoc to turn it into latex.
-cmnd = 'pandoc -f gfm -t latex --top-level-division=chapter'
+#cmnd = 'pandoc -f gfm -t latex --top-level-division=chapter'
+cmnd = 'pandoc -f markdown+raw_tex -t latex --top-level-division=chapter'
 p = subprocess.run(cmnd, input=md_text.encode('utf8'), capture_output=True, shell=True)
 #p = subprocess.run(cmnd, input=''.join(body).encode('utf8'), shell=True)
 latex = p.stdout.decode('utf8')

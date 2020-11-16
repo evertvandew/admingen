@@ -19,6 +19,7 @@ while True:
 
 
 if __name__ == '__main__':
+    #print("Arguments:", sys.argv, file=sys.stderr)
     parse = argparse.ArgumentParser()
     parse.add_argument('script')
     parse.add_argument('-d', dest='defines', action='append', default=[])
