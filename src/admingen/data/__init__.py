@@ -302,7 +302,11 @@ def mk_object_constructor(cls, types=None):
 
     def constr(*parts):
         parts = [c(v) for c, v in zip(part_constructors, parts)]
-        result = cls(*parts)
+        try:
+            result = cls(*parts)
+        except:
+            print(f"Error in creating object of type {cls} with arguments {parts}", file=sys.stderr)
+            raise
         return result
 
     return constr
@@ -490,6 +494,7 @@ def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defin
             result = kwargs
         data.update(globals())
         data['produce'] = produce
+        #print("Calling script with settings:", data, file=sys.stderr)
         exec(script, data)
     elif callable(script):
         result = script(**data)

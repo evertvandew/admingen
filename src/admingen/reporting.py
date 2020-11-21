@@ -8,7 +8,7 @@ from jinja2 import Environment
 from babel.numbers import format_currency
 from .parsers import fsm_model
 from .dbengine import createDbModel
-from yaml import load, dump
+import yaml
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
 except ImportError:
@@ -71,7 +71,7 @@ def run(db_url, model_url, query, template_url, output_url):
     # Write to the output
 
 def render_stream(instream: typing.TextIO, tmplstream: typing.TextIO, outstream: typing.TextIO):
-    data = load(instream)
+    data = yaml.load(instream, Loader=yaml.UnsafeLoader)
     assert isinstance(data, dict)
 
     template = tmplstream.read()
