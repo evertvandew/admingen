@@ -139,6 +139,8 @@ double_brace_specials = {'@': handle_dom_name,  # Refers to DOM element by name
 
 class DataContext:
     """ This class is basically a namespace for defining functions that are passed to the templates"""
+    bit_scanner = re.compile(r'\{\{[^}]*\}\}')
+    
     @property
     def datamodels(self):
         global data_models
@@ -246,27 +248,8 @@ class DataContext:
         
         # Determine the context that needs to be obtained in JS
         # These elements have double brackets in the query string.
-        bit_scanner = re.compile(r'\{\{[^}]*\}\}')
-        parameter_bits = bit_scanner.findall(query)
-        parameter_bits = [b.strip('{}') for b in parameter_bits]
-        
-        parameters_details = [double_brace_specials.get(pb[0], handle_default_parameter) for pb in parameter_bits]
-        parameter_urls = [pd[0](pb) for pd, pb in zip(parameters_details, parameter_bits)]
-        
-        parts = bit_scanner.split(query)
-        the_query = ''.join(f'"{a}"+{b}+' for a, b in zip(parts, parameter_urls)) + '"'+parts[-1]+'"'
-    
-        
-        
-        parameter_context_setters = [pd[1](pb) for pd, pb in zip(parameters_details, parameter_bits)]
-        parameter_context_setters = [pcs for pcs in parameter_context_setters if pcs]
-        context_setter_lines = ',\n                '.join(parameter_context_setters)
-        context_setter = '''
-            var context = {
-                %s
-            };'''%context_setter_lines
-        if not parameter_context_setters:
-            context_setter = ''
+        the_query = DataContext.ExpandQuery(query)
+        context_setter = DataContext.QueryContextSetter(query)
         
         # Store the relevant parts in a data structure that can be used later.
         details = QueryDetails(source=source,
@@ -301,6 +284,39 @@ class DataContext:
             
             details.columns = zip(details.column_names, details.column_types)
         return details
+    
+    @staticmethod
+    def GetQueryParameters(query):
+        parameter_bits = DataContext.bit_scanner.findall(query)
+        parameter_bits = [b.strip('{}') for b in parameter_bits]
+    
+        parameters_details = [double_brace_specials.get(pb[0], handle_default_parameter) for pb in
+                              parameter_bits]
+        return parameter_bits, parameters_details
+    
+    @staticmethod
+    def QueryContextSetter(query):
+        parameter_bits, parameters_details = DataContext.GetQueryParameters(query)
+        parameter_context_setters = [pd[1](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+        parameter_context_setters = [pcs for pcs in parameter_context_setters if pcs]
+        context_setter_lines = ',\n                '.join(parameter_context_setters)
+        context_setter = '''
+            var context = {
+                %s
+            };'''%context_setter_lines
+        if not parameter_context_setters:
+            context_setter = ''
+        return context_setter
+    
+    @staticmethod
+    def ExpandQuery(query):
+        parameter_bits, parameters_details = DataContext.GetQueryParameters(query)
+        parameter_urls = [pd[0](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+
+        parts = DataContext.bit_scanner.split(query)
+        the_query = ''.join(f'"{a}"+{b}+' for a, b in zip(parts, parameter_urls)) + '"' + parts[
+            -1] + '"'
+        return the_query
     
 
 def read_argument_lines(line, istream):

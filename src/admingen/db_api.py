@@ -5,14 +5,11 @@ import shutil
 from dataclasses import dataclass
 from typing import Tuple
 from urllib.parse import urlparse
-from pony import orm
 from typing import Any
 from inspect import getmembers, Signature, Parameter
-from pony.orm import Required, Set, select, Optional, delete, desc, commit
 
-
-sessionScope = orm.db_session
-commit = orm.commit
+# This file used to work with pony orm, but this is not maintained well.
+# Also it is quite limited in is possibilities: sqlalchemy is much better.
 
 ###############################################################################
 ## Options for fields in a database
@@ -68,7 +65,6 @@ def getHmiDetails(table) -> TableDetails:
         columndetails[name] = d
     return TableDetails(name=table.__name__, compoundkey=False, columns=columndetails)
 
-the_db = orm.Database()
 
 
 table_cache = {}
@@ -113,10 +109,10 @@ def url2path(url):
         return path
     return None
 
-
-class DbaseVersion(the_db.Entity):  # pylint:disable=W0232
-    ''' Stores the version number of the database. '''
-    version = orm.Required(int)
+if False:
+    class DbaseVersion(the_db.Entity):  # pylint:disable=W0232
+        ''' Stores the version number of the database. '''
+        version = orm.Required(int)
 
 
 def openDb(url, version=1, update=None, create=True):

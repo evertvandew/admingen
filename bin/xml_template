@@ -2,7 +2,7 @@
 
 import sys
 import io
-from admingen.xml_template import processor, data_models, url_prefixes
+from admingen.xml_template import processor
 
 
 from argparse import ArgumentParser
@@ -15,17 +15,6 @@ parser.add_argument('--print_datamodel', action="store_true")
 
 args = parser.parse_args()
 
-if args.print_datamodel:
-    # This is a dry run, to debug the structure of the datamodel.
-    out = io.StringIO()
-    try:
-        processor(istream=args.input, ostream=out, preprocess_only=False)
-    except:
-        pass
-    print('\n', repr(data_models))
-    print('\n', repr(url_prefixes))
-    sys.exit(0)
-    
 result = processor(istream=args.input, ostream=args.output, preprocess_only=args.preprocess)
 if result:
     sys.exit(result)
