@@ -576,6 +576,7 @@ def handle_Template(args, template_lines):
                     slot_lines = []
                     while not slot_close_matcher.search(line):
                         slot_lines.append(line)
+                        line = next(ilines)
                     slots_lines[m.groups()[0]] = '\n'.join(slot_lines)
                 else:
                     default_lines.append(line)
