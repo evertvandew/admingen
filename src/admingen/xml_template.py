@@ -282,6 +282,10 @@ class DataContext:
                 details.column_names = list(data_models[source][table].keys())
             
             def get_col_type(col):
+                # Also get the type of columns from other tables
+                if '.' in col:
+                    t, c = col.split('.')
+                    return data_models[source][t][c]
                 for t in [details.table, *details.join_tables]:
                     if col in data_models[source][t]:
                         return data_models[source][t][col]

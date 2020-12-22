@@ -65,10 +65,26 @@ def formatted_date(fmt):
             if not self.dt:
                 return 'None'
             return self.dt.strftime(self.fmt)
+        
+        def __add__(self, other):
+            # TODO: Add appropriate converters for 'other'
+            return self.dt + other
+
+        @classmethod
+        def cast_argument(cls, other):
+            if isinstance(other, str):
+                other = datetime.strptime(other, fmt)
+            return other
+
         @classmethod
         def forward_func(cls, f):
             dt_func = getattr(datetime, f)
-            setattr(cls, f, lambda self, *args: dt_func(self.dt, *args))
+            setattr(cls, f, lambda self, *args: dt_func(self.dt, *[cls.cast_argument(a) for a in args]))
+            
+        def __cmp__(self, other):
+            if isinstance(other, str):
+                other = datetime.strptime(other, fmt)
+            return self.dt == other
             
     for f in MyDate.forward_funcs:
         MyDate.forward_func(f)
@@ -180,7 +196,7 @@ for database, tables in data_models.items():
             if len(details) > 1:
                 cld = f'mkColumnDetails("{cld}")'
             elif cld == 'datetime':
-                cld = "formatted_date('%d-%m-%Y %H:%M')"
+                cld = "formatted_date('%d-%m-%Y %H:%M:%S')"
             elif cld == 'date':
                 cld = "formatted_date('%Y-%m-%d')"
             elif cld == 'time':
