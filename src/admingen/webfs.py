@@ -35,14 +35,6 @@ root_path = None
 debug_mode = False
 
 
-def dummy_acm(url, action, request):
-    """ Check if a user is authorized to use a function. """
-    return True
-
-
-the_acm = dummy_acm
-
-
 def set_root(path):
     global root_path
     root_path = os.path.abspath(path)
@@ -148,8 +140,6 @@ def get(path):
     if not os.path.exists(fullpath):
         return flask.make_response('/%s: No such file or directory.' % path, 404)
     
-    if not the_acm(path, flask.request.method):
-        return flask.make_response('/%s: Not authorized.' % path, 401)
 
     if os.path.isdir(fullpath):
         res = flask.make_response(json.dumps(os.listdir(fullpath)))
@@ -207,7 +197,6 @@ def get(path):
 
 def put(path):
     """ Flask handler for put requests """
-    the_acm(path, flask.request.method)
     path_components = path.split('/')
     if '.' in path_components or '..' in path_components:
         return flask.make_response("Path must be absolute.", 400)
