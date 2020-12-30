@@ -10,6 +10,7 @@ write them to the file system as static pages.
 from admingen.xml_template import processor, Tag, Template
 import os, os.path
 import sys
+import json
 
 
 page_template = Template("""<!DOCTYPE html>
@@ -48,6 +49,11 @@ page_template = Template("""<!DOCTYPE html>
     </div>
   </div>
 </div>
+<script>
+    function acm_authorized(required) {
+        return true;
+    }
+</script>
 ${heading}
 ${lines}
 ${footer}
@@ -56,11 +62,12 @@ ${footer}
 
 
 created_pages = []
-
-current_page_context = dict(headers='', title='admingen', heading='', footer='')
+acm = {}
+current_page_context = dict(headers='', title='admingen', heading='', footer='', acm='user,editor,administrator')
 
 
 def handle_Page(args, lines):
+    """ Handle a page definition by writing the HTML inside it to file. """
     url = args['url']
     assert ':' not in url
     if url in created_pages:
@@ -72,10 +79,16 @@ def handle_Page(args, lines):
         os.makedirs(dirname)
     with open(os.path.join(dirname, fname), 'w') as out:
         out.write(text)
+    
+    # Also determine the ACM parameters
+    acm[url.strip('/')] = args.get('acm', current_page_context['acm'])
     return ''
 
 
 def handle_PageContextValue(args, lines):
+    """ Let the user modify a value in the page context.
+        This value is used for all subsequent pages.
+    """
     assert 'name' in args
     current_page_context[args['name']] = lines
     return ''
@@ -89,3 +102,6 @@ else:
     processor({'Page': Tag('Page', handle_Page),
                'PageContextValue': Tag('PageContextValue', handle_PageContextValue)},
               sys.stdin)
+    # Also update the ACM table
+    with open('acm_table.json', 'w') as out:
+        json.dump(acm, out)

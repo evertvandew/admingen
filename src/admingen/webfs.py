@@ -32,6 +32,16 @@ import json
 import operator
 
 root_path = None
+debug_mode = False
+
+
+def dummy_acm(url, action, request):
+    """ Check if a user is authorized to use a function. """
+    return True
+
+
+the_acm = dummy_acm
+
 
 def set_root(path):
     global root_path
@@ -132,67 +142,72 @@ def get(path):
         return get_data(path, fullpath)
 
     if os.path.isdir(fullpath):
-        fullpath += '/index.html'
+        path += '/index.html'
+        fullpath = mk_fullpath(path)
+    
+    if not os.path.exists(fullpath):
+        return flask.make_response('/%s: No such file or directory.' % path, 404)
+    
+    if not the_acm(path, flask.request.method):
+        return flask.make_response('/%s: Not authorized.' % path, 401)
 
-    if os.path.exists(fullpath):
-        if os.path.isdir(fullpath):
-            res = flask.make_response(json.dumps(os.listdir(fullpath)))
-            res.headers['Content-Type'] = 'application/json; charset=utf-8'
-            return res
+    if os.path.isdir(fullpath):
+        res = flask.make_response(json.dumps(os.listdir(fullpath)))
+        res.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return res
+    else:
+        stat = os.stat(fullpath)
+        f = filecache.open_file(fullpath)
+        r = flask.request.headers.get('Range')
+        m = re.match('bytes=((\d+-\d+,)*(\d+-\d*))', r) if r is not None else None
+        if r is None or m is None:
+            f.seek(0)
+            def stream_data():
+                while True:
+                    d = f.read(8192)
+                    if len(d) > 0:
+                        yield d
+                    else:
+                        break
+
+            mime = my_get_mime(fullpath)
+            res = flask.Response(flask.stream_with_context(stream_data()), 200, mimetype=mime, direct_passthrough=True)
+            res.headers['Content-Length'] = stat.st_size
         else:
-            stat = os.stat(fullpath)
-            f = filecache.open_file(fullpath)
-            r = flask.request.headers.get('Range')
-            m = re.match('bytes=((\d+-\d+,)*(\d+-\d*))', r) if r is not None else None
-            if r is None or m is None:
-                f.seek(0)
+            ranges = [x.split('-') for x in m.group(1).split(',')]
+            if validate_ranges(ranges, stat.st_size):
+                content_length = 0
+                for rng in ranges:
+                    if rng[1] == '':
+                        content_length = content_length + stat.st_size - int(rng[0]) + 1
+                    else:
+                        content_length = content_length + int(rng[1]) - int(rng[0]) + 1
                 def stream_data():
-                    while True:
-                        d = f.read(8192)
-                        if len(d) > 0:
-                            yield d
-                        else:
-                            break
-
-                mime = my_get_mime(fullpath)
-                res = flask.Response(flask.stream_with_context(stream_data()), 200, mimetype=mime, direct_passthrough=True)
-                res.headers['Content-Length'] = stat.st_size
-            else:
-                ranges = [x.split('-') for x in m.group(1).split(',')]
-                if validate_ranges(ranges, stat.st_size):
-                    content_length = 0
-                    for rng in ranges:
-                        if rng[1] == '':
-                            content_length = content_length + stat.st_size - int(rng[0]) + 1
-                        else:
-                            content_length = content_length + int(rng[1]) - int(rng[0]) + 1
-                    def stream_data():
-                        for r in ranges:
-                            f.seek(int(r[0]))
-                            if r[1] == '':
-                                while True:
-                                    d = f.read(8192)
-                                    if len(d) > 0:
-                                        yield d
-                                    else:
-                                        break
-                            else:
-                                for s in [min(8192, int(r[1]) - i + 1) for i in range(int(r[0]), int(r[1]), 8192)]:
-                                    d = f.read(s)
+                    for r in ranges:
+                        f.seek(int(r[0]))
+                        if r[1] == '':
+                            while True:
+                                d = f.read(8192)
+                                if len(d) > 0:
                                     yield d
+                                else:
+                                    break
+                        else:
+                            for s in [min(8192, int(r[1]) - i + 1) for i in range(int(r[0]), int(r[1]), 8192)]:
+                                d = f.read(s)
+                                yield d
 
-                    res = flask.Response(flask.stream_with_context(flask.stream_data()), 206, mimetype=flask.mime, direct_passthrough=True)
-                    res.headers['Content-Length'] = content_length
-                    res.headers['Content-Range'] = 'bytes %s-%s/%d' % (ranges[0][0], ranges[0][1], stat.st_size)
-                else:
-                    res = flask.make_response('', 416)
-            # res.headers['Accept-Ranges'] = 'bytes'
-            return res
-
-    return flask.make_response('/%s: No such file or directory.' % path, 404)
+                res = flask.Response(flask.stream_with_context(flask.stream_data()), 206, mimetype=flask.mime, direct_passthrough=True)
+                res.headers['Content-Length'] = content_length
+                res.headers['Content-Range'] = 'bytes %s-%s/%d' % (ranges[0][0], ranges[0][1], stat.st_size)
+            else:
+                res = flask.make_response('', 416)
+        # res.headers['Accept-Ranges'] = 'bytes'
+        return res
 
 def put(path):
     """ Flask handler for put requests """
+    the_acm(path, flask.request.method)
     path_components = path.split('/')
     if '.' in path_components or '..' in path_components:
         return flask.make_response("Path must be absolute.", 400)
@@ -252,25 +267,26 @@ def delete(path):
         return flask.make_response("Path must be absolute.", 400)
 
     fullpath = '%s/%s' % (root_path, path)
-    if os.path.exists(fullpath):
-        if os.path.isdir(fullpath):
-            if os.listdir(fullpath) == []:
-                os.rmdir(fullpath)
-                return flask.make_response('', 204)
-            else:
-                print(os.listdir(fullpath))
-                return flask.make_response('/%s: Directory is not empty.' % path, 403)
-        else:
-            os.remove(fullpath)
-            return flask.make_response('', 204)
-    else:
+    if not os.path.exists(fullpath):
         return flask.make_response('/%s: No such file or directory.' % path, 404)
 
+    if os.path.isdir(fullpath):
+        if os.listdir(fullpath) == []:
+            os.rmdir(fullpath)
+            return flask.make_response('', 204)
+        else:
+            print(os.listdir(fullpath))
+            return flask.make_response('/%s: Directory is not empty.' % path, 403)
+    else:
+        os.remove(fullpath)
+        return flask.make_response('', 204)
+    
 def add_handlers(app):
     getter = app.route('/<path:path>', methods=['GET', 'HEAD'])(get)
     app.route('/', defaults={'path': ''}, methods=['GET', 'HEAD'])(getter)
-    app.route('/<path:path>', methods=['PUT', 'POST'])(put)
-    app.route('/<path:path>', methods=['DELETE'])(delete)
+    if debug_mode:
+        app.route('/<path:path>', methods=['PUT', 'POST'])(put)
+        app.route('/<path:path>', methods=['DELETE'])(delete)
 
 
 def testjoin():
