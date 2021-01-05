@@ -174,8 +174,24 @@ def generate_overview(org, rel_nr, user, gifts):
     return filtered, total, rst
 
 
+def parse_accounts(s):
+    """ Parse the gift accounts, including ranges. """
+    # Remove any spaces around dashes.
+    s = s.replace(' -', '-').replace('- ', '-')
+    accounts = [acc.strip() for acc in s.split()]
+    # Generate the actual result, by expanding the ranges.
+    result = []
+    for acc in accounts:
+        if '-' in acc:
+            start, end = [int(a) for a in acc.split('-')]
+            result.extend(str(i) for i in range(start, end+1))
+        else:
+            result.append(acc)
+    return result
+
+
 def generate_overviews(org, users, transactions):
-    gift_accounts = [acc for acc in org['gift_accounts'].split()]
+    gift_accounts = parse_accounts(org['gift_accounts'])
     gifts = [odataDate2Datetime(t) for t in transactions if t['GLAccountCode'] in gift_accounts]
     users_lu = {u['Code']: u for u in users}
     relatienrs = set(g['AccountCode'] for g in gifts if 'AccountCode' in g and g['AccountCode'])
