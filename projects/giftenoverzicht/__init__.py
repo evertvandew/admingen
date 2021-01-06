@@ -29,12 +29,18 @@ from .giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
                     odataDate2Datetime, generate_pdfs, pdfName, pdfUrl2Name, PDF_DIR)
 from . import model
 from .model import SystemStates
+from .commands import USERS_FILE, TRANSACTIONS_FILE, ACCOUNTS_FILE
+
 
 from dataclasses import dataclass, asdict, fields
 
+# FIXME: when generating the pdf's, the application hangs.
+# FIXME: in januari, the default period should be the whole last year.
 # FIXME: make the download files un-guessable (use crypto hash with salt as file name)
 # FIXME: cherrypy toont nog veel debug informatie.
 
+# TODO: make the PDF-generation step triggerable from the terminal
+# TODO:
 # TODO: store financial details in encrypted files.
 # TODO: unlock keychain with in-process password (?)
 # TODO: allow the year to be entered as $jaar oid.
@@ -51,10 +57,6 @@ from dataclasses import dataclass, asdict, fields
 
 
 logging.getLogger().setLevel(logging.DEBUG)
-
-USERS_FILE = '{}/{}.users.json'
-TRANSACTIONS_FILE = '{}/{}.transactions.json'
-ACCOUNTS_FILE = '{}/{}.accounts.json'
 
 
 @dataclass
