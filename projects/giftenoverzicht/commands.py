@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
 import json
+import sys
+import os.path
 from decimal import Decimal
 
 from admingen import config
+sys.path.append(os.path.dirname(__file__))
 
-from .giften import generate_overviews
-from . import model
+from giften import generate_pdfs
+import model
 
 
 USERS_FILE = '{}/{}.users.json'
