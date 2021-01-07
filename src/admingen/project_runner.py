@@ -9,6 +9,69 @@ import importlib
 import logging
 
 
+dir_locations = ['{home}/var/{dir}',
+                 '/var/{dir}/{project}',
+                 '{curdir}/{dir}',
+                 '{curdir}']
+
+
+def find_dir(dirname, project=None, curdir=None, home=None, create_dir=False, locations=None):
+    """ Find a system directory, or optionally create one.
+        Returns the directory found.
+    """
+    # If necessary, find the default values for the environment
+    project = project or os.environ['PROJECTNAME']
+    curdir = curdir or os.getcwd()
+    home = home or os.environ['HOME']
+    locations = locations or dir_locations
+    # Now go through the various acceptable locations for system directories
+    for d_t in locations:
+        d = d_t.format(dir=dirname, curdir=curdir, home=home, project=project)
+        if os.path.exists(d):
+            return d
+        if create_dir:
+            # Try to create the required directories
+            try:
+                # The directories are inaccessible for other users
+                os.mkdir(d, mode=0o700)
+                return d
+            except:
+                print('Could not create directory', d)
+    raise RuntimeError('Could not find a suitable directory')
+
+
+def env_setdefault(envname, default, create_dir, locations=None):
+    """ Check if an environment variable exists. If not, set it with a system
+        directory.
+    """
+    if not envname in os.environ:
+        dirname = find_dir(default, create_dir=create_dir, locations=locations)
+        os.environ[envname] = dirname
+
+
+def set_context(root, project, create_dirs=False):
+    root = os.path.abspath(root)
+    logging.getLogger().setLevel(logging.DEBUG)
+    # Check the project exists
+    proj_dir = os.path.join(root, 'projects', project)
+    assert os.path.exists(proj_dir), 'Project %s does not exist'%project
+
+    os.environ['ROOTDIR'] = os.path.abspath(root)
+    os.environ['PROJDIR'] = os.path.abspath(proj_dir)
+    os.environ['SRCDIR'] = os.path.abspath(root + '/src')
+    os.environ['PROJECTNAME'] = project
+
+    envdirs = []
+    env_setdefault('OPSDIR', 'lib', create_dirs)
+    env_setdefault('LOGDIR', 'log', create_dirs)
+    env_setdefault('RUNDIR', 'lib', create_dirs)
+    config_locations = ['{home}/etc/{project}', '/etc/{project}']
+    env_setdefault('CONFDIR', 'etc', create_dirs, locations=config_locations)
+
+    # Load the configuration
+    from admingen import config
+    config.set_configdir(os.environ['CONFDIR'])
+    
 
 def run_project(root, args = sys.argv[1:]):
     root = os.path.abspath(root)
@@ -22,79 +85,18 @@ def run_project(root, args = sys.argv[1:]):
     args = parser.parse_args(args)
     print (args)
 
-    # Check the project exists
-    proj_dir = os.path.join(root, 'projects', args.project)
-    assert os.path.exists(proj_dir), 'Project %s does not exist'%args.project
-
-    os.environ['ROOTDIR'] = os.path.abspath(root)
-    os.environ['PROJDIR'] = os.path.abspath(proj_dir)
-    os.environ['SRCDIR'] = os.path.abspath(root + '/src')
-    os.environ['PROJECTNAME'] = args.project
-
-
-
-    # Find a working directory for storing logs and operational files
-    # Fallback is the cwd
-    patterns = [os.environ['HOME']+'/var/{type}',
-                '/var/{type}/%s'%args.project,
-                os.getcwd()+'/{type}',
-                os.getcwd()]
-
-
-    envdirs = []
-    if 'OPSDIR' not in os.environ:
-        envdirs.append(('OPSDIR', 'lib'))
-    if 'LOGDIR' not in os.environ:
-        envdirs.append(('LOGDIR', 'log'))
-
-
-    for p in patterns:
-        success = True
-        for e, t in envdirs:
-            path = p.format(type=t)
-
-            if not os.path.exists(path):
-                if args.create_dirs:
-                    # Try to create the required directories
-                    try:
-                        # The directories are inaccessible for other users
-                        os.mkdir(path, mode=0o700)
-                    except:
-                        print ('Could not create directory', path)
-                        success = False
-                        break
-                else:
-                    print ('Directory does not exist:', path)
-                    success = False
-                    break
-            os.environ[e] = path
-        if success:
-            break
+    set_context(root, args.project, args.create_dirs)
 
     print('Using ops and log directories', os.environ['OPSDIR'], os.environ['LOGDIR'])
-    if 'RUNDIR' not in os.environ:
-        os.environ['RUNDIR'] = os.environ['OPSDIR']
-
     # Look for the configuration
-    confdir = os.environ.get('CONFDIR', None)
-    if not confdir:
-        for confdir in [os.environ['HOME']+'/etc/%s'%args.project, '/etc/%s'%args.project, None]:
-            if not confdir:
-                raise RuntimeError( 'Could not find a configuration for project %s'% args.project )
-            logging.debug('Testing confdir %s'%confdir)
-            if os.path.exists(confdir):
-                break
-
-    # Load the configuration
-    from admingen import config
-    config.set_configdir(confdir)
+    confdir = os.environ['CONFDIR']
 
     # Load the project as a library
     mod = importlib.import_module(args.project)
 
     # Make the project directory the current directory
-    print ('Moving to directory', proj_dir)
-    os.chdir(proj_dir)
+    print ('Moving to directory', os.environ['PROJDIR'])
+    os.chdir(os.environ['PROJDIR'])
 
     # Run the project
     print ('Starting project', args.project)
