@@ -223,13 +223,22 @@ class dataline(Mapping):
 
 class ExtendibleJsonEncoder(json.JSONEncoder):
     def default(self, o):
+        """ We have three tricks to jsonify objects that are not normally supported by JSON.
+            * Dataclass instances are serialised as dicts.
+            * For objects that define a __json__ method, that method is called for serialisation.
+            * For other objects, the str() protocol is used, i.e. the __str__ method is called.
+        """
+        if is_dataclass(o):
+            result = asdict(o)
+            return result
         if hasattr(o, '__json__'):
             return o.__json__()
         return str(o)
 
 def serialiseDataclass(data):
     """ Convert a dataclass to a JSON string """
-    return json.dumps(data, cls=ExtendibleJsonEncoder)
+    result = json.dumps(data, cls=ExtendibleJsonEncoder)
+    return result
 
 def serialiseDataclass_old(data):
     """ Convert a dataclass to a JSON string """
@@ -239,11 +248,13 @@ def serialiseDataclass_old(data):
 def deserialiseDataclass(cls, s):
     """ Read the dataclass from a JSON string """
     ddict = json.loads(s)
-    return cls(**{k: (None if ddict[k] in [None, 'None', ''] else t(ddict[k])) for k, t in cls.__annotations__.items()})
-    
+    result = cls(**{k: (None if ddict[k] in [None, 'None', ''] else t(ddict[k])) for k, t in cls.__annotations__.items()})
+    return result
+
 def serialiseDataclasses(data):
-    result = [{k: str(v) for k, v in (asdict(d) if is_dataclass(d) else d).items()} for d in data]
-    return json.dumps(result)
+    # We need to convert all simple types to strings, but not lists or dictionaries.
+    result = json.dumps(data, cls=ExtendibleJsonEncoder)
+    return result
     
 
 def read_lines(stream, headers, types, delimiter):

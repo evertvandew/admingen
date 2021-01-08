@@ -166,7 +166,11 @@ def add_handlers(app, context):
         if 'filter' in flask.request.args:
             def func(item, condition):
                 d = asdict(item) if is_dataclass(item) else item
-                return bool(eval(condition, filter_context, d))
+                try:
+                    return bool(eval(condition, filter_context, d))
+                except:
+                    logging.error(f"Error in evaluating {condition} with variables {d}")
+                    raise
         
             condition = flask.request.args['filter']
             data = [item for item in data if func(item, condition)]
@@ -184,8 +188,15 @@ def add_handlers(app, context):
             if data:
                 data[-1][IS_FINAL_KEY] = is_final
 
-        # Prepare the response
-        res = flask.make_response(serialiseDataclasses(data))
+        # Check for the single argument
+        if flask.request.args.get('single', False):
+            if len(data) != 1:
+                raise BadRequest('Did not found just one single element')
+            data = data[0]
+            res = flask.make_response(serialiseDataclass(data))
+        else:
+            # Prepare the response
+            res = flask.make_response(serialiseDataclasses(data))
     
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
         return res

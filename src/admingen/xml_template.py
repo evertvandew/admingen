@@ -25,6 +25,13 @@
                 in the document.
             '''
             return ''
+    
+    The templates can, apart from the Mako tags, include other XML tags that are itself templates.
+    
+    Also, the template can contain <TemplateSlot_<name> > tags. These tags can be used to define bits
+    of text that are inserted into the template at rendering.
+    If the invocation of a template contains text that is not wrapped in a TemplateSlot tag,
+    it is inserted into the last slot.
 """
 import sys
 import io
@@ -139,6 +146,8 @@ double_brace_specials = {'@': handle_dom_name,  # Refers to DOM element by name
 
 class DataContext:
     """ This class is basically a namespace for defining functions that are passed to the templates"""
+    bit_scanner = re.compile(r'\{\{[^}]*\}\}')
+    
     @property
     def datamodels(self):
         global data_models
@@ -246,27 +255,8 @@ class DataContext:
         
         # Determine the context that needs to be obtained in JS
         # These elements have double brackets in the query string.
-        bit_scanner = re.compile(r'\{\{[^}]*\}\}')
-        parameter_bits = bit_scanner.findall(query)
-        parameter_bits = [b.strip('{}') for b in parameter_bits]
-        
-        parameters_details = [double_brace_specials.get(pb[0], handle_default_parameter) for pb in parameter_bits]
-        parameter_urls = [pd[0](pb) for pd, pb in zip(parameters_details, parameter_bits)]
-        
-        parts = bit_scanner.split(query)
-        the_query = ''.join(f'"{a}"+{b}+' for a, b in zip(parts, parameter_urls)) + '"'+parts[-1]+'"'
-    
-        
-        
-        parameter_context_setters = [pd[1](pb) for pd, pb in zip(parameters_details, parameter_bits)]
-        parameter_context_setters = [pcs for pcs in parameter_context_setters if pcs]
-        context_setter_lines = ',\n                '.join(parameter_context_setters)
-        context_setter = '''
-            var context = {
-                %s
-            };'''%context_setter_lines
-        if not parameter_context_setters:
-            context_setter = ''
+        the_query = DataContext.ExpandQuery(query)
+        context_setter = DataContext.QueryContextSetter(query)
         
         # Store the relevant parts in a data structure that can be used later.
         details = QueryDetails(source=source,
@@ -292,6 +282,10 @@ class DataContext:
                 details.column_names = list(data_models[source][table].keys())
             
             def get_col_type(col):
+                # Also get the type of columns from other tables
+                if '.' in col:
+                    t, c = col.split('.')
+                    return data_models[source][t][c]
                 for t in [details.table, *details.join_tables]:
                     if col in data_models[source][t]:
                         return data_models[source][t][col]
@@ -301,6 +295,39 @@ class DataContext:
             
             details.columns = zip(details.column_names, details.column_types)
         return details
+    
+    @staticmethod
+    def GetQueryParameters(query):
+        parameter_bits = DataContext.bit_scanner.findall(query)
+        parameter_bits = [b.strip('{}') for b in parameter_bits]
+    
+        parameters_details = [double_brace_specials.get(pb[0], handle_default_parameter) for pb in
+                              parameter_bits]
+        return parameter_bits, parameters_details
+    
+    @staticmethod
+    def QueryContextSetter(query):
+        parameter_bits, parameters_details = DataContext.GetQueryParameters(query)
+        parameter_context_setters = [pd[1](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+        parameter_context_setters = [pcs for pcs in parameter_context_setters if pcs]
+        context_setter_lines = ',\n                '.join(parameter_context_setters)
+        context_setter = '''
+            var context = {
+                %s
+            };'''%context_setter_lines
+        if not parameter_context_setters:
+            context_setter = ''
+        return context_setter
+    
+    @staticmethod
+    def ExpandQuery(query):
+        parameter_bits, parameters_details = DataContext.GetQueryParameters(query)
+        parameter_urls = [pd[0](pb) for pd, pb in zip(parameters_details, parameter_bits)]
+
+        parts = DataContext.bit_scanner.split(query)
+        the_query = ''.join(f'"{a}"+{b}+' for a, b in zip(parts, parameter_urls)) + '"' + parts[
+            -1] + '"'
+        return the_query
     
 
 def read_argument_lines(line, istream):
@@ -341,6 +368,9 @@ def argument_parser(line, istream):
     return arguments, (ending == '/>'), after
     
 
+template_slots = {}
+
+
 def Tag(tag, handler, expand_tags=True):
     """ Create a function that will read and handle a specific tag, recursively. """
     start_matcher = re.compile(r'<\s*%s(?=[ />])'%tag)
@@ -361,13 +391,17 @@ def Tag(tag, handler, expand_tags=True):
         lines = []
         while True:
             # Read the lines within the tag (the body)
-            
-            # Check for new tags that needs handling
+
+            # There is a major difference between reading a Template (definition) and
+            # reading regular tags.
+            # When reading a definition, tags inside the template are not expanded.
             if expand_tags:
+                # Check for new tags that needs handling
                 while len(parts := tag_start.split(line, maxsplit=1)) > 1:
                     # We found a new tag. Read and handle it.
                     before, tagname, after = parts[0], parts[3] or parts[2] or parts[1], parts[-1]
                     lines.append(before)
+                    # If the tag defines a new template, it must not be expanded yet.
                     if tag == 'Template':
                         output, line = generators[tagname](after, istream, False)
                     else:
@@ -490,6 +524,9 @@ def template_module_writer(source, outputpath):
     os.close(dest)
     shutil.move(name, outputpath)
 
+
+slot_matcher = re.compile(r'<TemplateSlot\s+name="(\w*)"\s*/?>')
+slot_close_matcher = re.compile(r'</TemplateSlot>')
 def handle_Template(args, template_lines):
     tag = args['tag']
     kwargsdef = {}
@@ -499,8 +536,29 @@ def handle_Template(args, template_lines):
             kwargsdef[parts[0]] = eval(parts[1])
         else:
             kwargsdef[parts[0]] = ''
+    
+    # Find any slots
+    slots = []
+    slot_linenrs = []
+    template_lines_2 = []
+    for line in template_lines.splitlines():
+        if m := slot_matcher.search(line):
+            slots.append(m.groups()[0])
+            before, after = line[:m.span()[0]], line[m.span()[1]:]
+            if before.strip():
+                template_lines_2.append(before)
+            slot_linenrs.append(len(template_lines_2))
+            # Replace the slot tags with Mako template references
+            # This assumes the TemplateSlot tag is on its own line.
+            template_lines_2.append('${%s}'%m.groups()[0])
+            if after.strip():
+                template_lines_2.append(after)
+        else:
+            template_lines_2.append(line)
+    
     # template = env.from_string(lines)
-    template = Template(template_lines)
+    template_lines_2 = '\n'.join(template_lines_2)
+    template = Template(template_lines_2)
     #template = Template(template_lines, strict_undefined=True)
 
     def expand_template(args, lines):
@@ -511,10 +569,31 @@ def handle_Template(args, template_lines):
         if 'id' not in arguments:
             # 'id' is much used in HTML. Ensure it exists.
             arguments['id'] = None
+        # Render the slots in the lines submitted to the template
+        # We assume that the <TemplateSlot> tag starts and ends on an otherwise empty line
+        if slots:
+            default_lines = []
+            slots_lines = {}
+            ilines = iter(lines.splitlines())
+            for line in ilines:
+                if m := slot_matcher.search(line):
+                    slot_lines = []
+                    while not slot_close_matcher.search(line):
+                        slot_lines.append(line)
+                        line = next(ilines)
+                    slots_lines[m.groups()[0]] = '\n'.join(slot_lines)
+                else:
+                    default_lines.append(line)
+            default_lines = '\n'.join(default_lines)
+        
         try:
+            # Render the template, replacing slots with the relevant texts
+            rendered_slots = {name: slots_lines.get(name, '') for name in slots}
+            if slots and not rendered_slots[slots[-1]]:
+                rendered_slots[slots[-1]] = default_lines
             expand_self = io.StringIO(
-                template.render(lines=lines,
-                                nspace=DataContext(),
+                template.render(nspace=DataContext(),
+                                **rendered_slots,
                                 **arguments))
         except:
             # Try to re-create the error using a proper file template
