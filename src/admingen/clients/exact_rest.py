@@ -51,7 +51,7 @@ def binquote(value):
     return urllib.parse.quote(value.encode('utf-8'))
 
 
-def request(url, token=None, method='GET', params={}, query={}, handle=None):
+def request(url, token=None, method='GET', params={}, query={}, handle=None, progress=None):
     headers = {}  # {'Accept': 'application/json'}
     if token:
         headers['Authorization'] = 'Bearer ' + token
@@ -64,8 +64,11 @@ def request(url, token=None, method='GET', params={}, query={}, handle=None):
     result = []
     status = -1
     reason = ''
+    part_count = 0
     while True:
-        logging.error('Sending request %s, %s, %s', url, method, data)
+        part_count += 1
+        progress('part %i' % part_count)
+        logging.info('Sending request %s, %s, %s', url, method, data)
         r = urllib.request.Request(url=url, method=method, data=data, headers=headers)
         try:
             response = urllib.request.urlopen(r, capath='/etc/ssl/certs')
@@ -95,7 +98,7 @@ def request(url, token=None, method='GET', params={}, query={}, handle=None):
     return result
 
 
-def getTransactions(exact_division, token, start: datetime, end: datetime):
+def getTransactions(exact_division, token, start: datetime, end: datetime, progress=None):
     start = start.strftime('%Y-%m-%dT%H:%M:%S')  # '2016-01-01T00:00:00'
     end = end.strftime('%Y-%m-%dT%H:%M:%S')
     # url = transaction_url%{'division': LC_division, 'start':start}
@@ -103,19 +106,19 @@ def getTransactions(exact_division, token, start: datetime, end: datetime):
     options = {'$filter': "Date ge DateTime'%s' and Date le DateTime'%s'" % (start, end),
                '$select': 'AccountCode,AccountName,Date,AmountDC,EntryNumber,GLAccountCode,Description',
                '$inlinecount': 'allpages'}
-    transactions = request(url, token, query=options)
+    transactions = request(url, token, query=options, progress=lambda x: progress('Reading transactions '+x))
     return transactions
 
 
-def getUsers(exact_division, token):
+def getUsers(exact_division, token, progress=None):
     options = {'$select': 'Code,Name,Email'}
-    users = request(eoconfig.users_url % {'division': exact_division}, token, query=options)
+    users = request(eoconfig.users_url % {'division': exact_division}, token, query=options, progress=lambda x: progress('Reading users '+x))
     return users
 
 
-def getAccounts(exact_division, token):
+def getAccounts(exact_division, token, progress=None):
     options = {'$select': 'Code,Description'}
-    users = request(eoconfig.accounts_url % {'division': exact_division}, token, query=options)
+    users = request(eoconfig.accounts_url % {'division': exact_division}, token, query=options, progress=lambda x: progress('Reading accounts '+x))
     return users
 
 

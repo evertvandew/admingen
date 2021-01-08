@@ -226,7 +226,7 @@ def pdfUrl2Name(org_id, pdfurl):
         pdfurl = '/'.split(pdfurl)[-1]
     return os.path.join(PDF_DIR.format(vardir, org_id), pdfurl)
 
-def generate_pdfs(org, users, transactions):
+def generate_pdfs(org, users, transactions, status_update=None):
     temp_file = '%i.temp.rst' % org['id']
     pdfdir = PDF_DIR.format(vardir, org['id'])
     if not os.path.exists(pdfdir):
@@ -236,7 +236,8 @@ def generate_pdfs(org, users, transactions):
             f.write(rst)
         fname = pdfName(org['id'], name, code)
         cmnd = [RST2PDF, temp_file, '-o', fname, '-s', 'stylesheet.txt']
-        print ('Executing:', cmnd)
+        if status_update:
+            status_update(name)
         subprocess.call(cmnd)
 
 

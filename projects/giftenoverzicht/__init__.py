@@ -35,12 +35,9 @@ from .commands import USERS_FILE, TRANSACTIONS_FILE, ACCOUNTS_FILE
 from dataclasses import dataclass, asdict, fields
 
 # FIXME: when generating the pdf's, the application hangs.
-# FIXME: in januari, the default period should be the whole last year.
 # FIXME: make the download files un-guessable (use crypto hash with salt as file name)
 # FIXME: cherrypy toont nog veel debug informatie.
 
-# TODO: make the PDF-generation step triggerable from the terminal
-# TODO:
 # TODO: store financial details in encrypted files.
 # TODO: unlock keychain with in-process password (?)
 # TODO: allow the year to be entered as $jaar oid.
@@ -48,12 +45,14 @@ from dataclasses import dataclass, asdict, fields
 # TODO: Maak loggen configureerbaar via de settings.json
 # TODO: selecteren / deselecteren van mensen om te mailen
 
+# DONE: in januari, the default period should be the whole last year.
 # DONE: exact en SMTP secrets worden opgeslagen in een versleuteld file.
 # DONE: Either allow an Exact or Local login for administration.
 # DONE: check exact user has rights to the current administration
 # DONE: Uploaden van logo's
 # DONE: add a delay to downloading an overview to defeat brute-force attacks
 # DONE: require a login to download overzichten
+# DONE: make the PDF-generation step triggerable from the terminal
 
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -294,15 +293,16 @@ class Worker(threading.Thread):
         self.ufname = USERS_FILE.format(config.opsdir, org_id)
         self.tfname = TRANSACTIONS_FILE.format(config.opsdir, org_id)
         self.afname = ACCOUNTS_FILE.format(config.opsdir, org_id)
+        self.progress_msg = ''
         self.start()
 
     @staticmethod
     def setState(org_id, state):
-        if org_id not in Worker.workers:
-            return
-        Worker.workers[org_id].state = state
         with model.sessionScope():
-            model.Organisation[org_id].status = state
+            org = model.Organisation[org_id]
+            org.status = state
+        if org_id in Worker.workers:
+            Worker.workers[org_id].state = state
 
     @staticmethod
     def getState(org_id):
@@ -310,13 +310,17 @@ class Worker(threading.Thread):
             return Worker.workers[org_id].state
         return 0
 
-    @model.sessionScope
     def run(self):
         ''' Load the transactions and users from Exact, and
             store them in JSON files.
         '''
+        def setProgress(text):
+            self.progress_msg = text
+        logging.info('Starting worker for organisation %i'%self.org_id)
         try:
-            org = model.Organisation[self.org_id]
+            with model.sessionScope():
+                org = model.Organisation[self.org_id]
+                org_dict = org.to_dict(with_lazy=True)
             exact_division = org.exact_division
 
             if self.getState(self.org_id) == SystemStates.LoadingData:
@@ -330,18 +334,22 @@ class Worker(threading.Thread):
                             transactions = json.load(f)
                         with open(self.afname) as f:
                             accounts = json.load(f)
+                        time.sleep(30)
                     else:
                         logging.info('Reading data from exact')
-                        users = getUsers(exact_division, self.access_token)
+                        users = getUsers(exact_division, self.access_token,
+                                         setProgress)
                         with open(self.ufname, 'w') as out:
                             out.write(json.dumps(users))
                         logging.info('Read user data')
                         # Load the transactions
                         transactions = getTransactions(exact_division, self.access_token,
-                                                       self.period_start, self.period_end)
+                                                       self.period_start, self.period_end,
+                                                       setProgress)
                         with open(self.tfname, 'w') as out:
                             out.write(json.dumps(transactions))
-                        accounts = getAccounts(exact_division, self.access_token)
+                        accounts = getAccounts(exact_division, self.access_token,
+                                               setProgress)
                         with open(self.afname, 'w') as out:
                             out.write(json.dumps(accounts))
                         logging.info('Read transaction data for organisation %s' % self.org_id)
@@ -357,18 +365,25 @@ class Worker(threading.Thread):
                 accounts = json.load(open(self.afname))
 
             if self.getState(self.org_id) == SystemStates.GeneratingPDF:
+                start_time = time.time()
                 try:
                     # Now generate the overviews as PDF's.
-                    org_dict = org.to_dict(with_lazy=True)
                     # Add information about the accounts
                     org_dict['account_descriptions'] = {a['Code']: a['Description'] for a in
                                                         accounts}
-                    generate_pdfs(org_dict, users, transactions)
+                    generate_pdfs(org_dict, users, transactions, setProgress)
+
+                    if config.testmode():
+                        remaining = start_time + 30 - time.time()
+                        if remaining > 0:
+                            time.sleep(remaining)
+
                     self.setState(self.org_id, SystemStates.PDFCreated)
                 except:
                     logging.exception('Exception while generating PDFs')
                     return
         finally:
+            logging.info('Done with worker for organisation %i' % self.org_id)
             # Cleanup
             del Worker.workers[self.org_id]
 
@@ -445,8 +460,6 @@ class Overzichten:
         org_id = cherrypy.session.get('org_id', 0)
         if org_id:
             Worker.setState(org_id, state)
-            with model.sessionScope():
-                model.Organisation[org_id].status = state
 
     @cherrypy.expose
     @authenticateExact
@@ -499,15 +512,14 @@ class Overzichten:
                     SystemStates.GeneratingPDF: self.generating,
                     SystemStates.PDFCreated: self.present_overzicht}
         # Use the state suggested by the database
-        state = self.getState() or 1
+        state = org.status or 1
+        logging.debug('Current status: %i'%state)
         # Check if the state of the file system corresponds
         if not os.path.exists(PDF_DIR.format(config.opsdir, org_id)):
             state = min(state, SystemStates.GeneratingPDF)
-        if not os.path.exists(USERS_FILE.format(config.opsdir, org_id)) or not os.path.exists(
-                        TRANSACTIONS_FILE.format(config.opsdir, org_id)):
+        if not os.path.exists(USERS_FILE.format(config.opsdir, org_id)) \
+           or not os.path.exists(TRANSACTIONS_FILE.format(config.opsdir, org_id)):
             state = min(state, SystemStates.LoadingData)
-        if org.period_start is None or org.period_end is None:
-            state = min(state, SystemStates.Start)
         if state != self.getState():
             self.setState(state)
         self.check_worker(state)
@@ -525,10 +537,16 @@ class Overzichten:
 
         # Present a form to generate a new overview
         now = datetime.datetime.now()
-        defaults = {'year': now.year,
-                    'from': 1,
-                    'until': now.month,
-                    'token': cherrypy.session['token']}
+        if now.month == 1:
+            defaults = {'year': now.year-1,
+                        'from': 1,
+                        'until': 12,
+                        'token': cherrypy.session['token']}
+        else:
+            defaults = {'year': now.year,
+                        'from': 1,
+                        'until': now.month,
+                        'token': cherrypy.session['token']}
         form = SimpleForm(Hidden('token'),
                           Integer('year', 'Jaar'),
                           Integer('from', 'Vanaf'),
@@ -560,12 +578,22 @@ class Overzichten:
         _ = Worker(org.id)
 
     def loading(self, **kwargs):
+        org_id = cherrypy.session['org_id']
+        if org_id not in Worker.workers:
+            return "Error: no worker found!"
+        worker = Worker.workers[org_id]
         return Title('Loading data from Exact Online'), Div(
-            'Het systeem is gegevens aan het ophalen uit Exact; even geduld a.u.b.')
+            'Het systeem is gegevens aan het ophalen uit Exact; even geduld a.u.b.'+
+            '<BR>Bezig met %s'%worker.progress_msg)
 
     def generating(self, **kwargs):
+        org_id = cherrypy.session['org_id']
+        if org_id not in Worker.workers:
+            return "Error: no worker found!"
+        worker = Worker.workers[org_id]
         return Title('PDF files genereren'), Div(
-            'Het systeem is PDF files aan het genereren; even geduld a.u.b.')
+            'Het systeem is PDF files aan het genereren; even geduld a.u.b.'+
+            '<BR>Bezig met %s'%worker.progress_msg)
 
     def present_overzicht(self):
         org_id = cherrypy.session['org_id']
@@ -615,6 +643,8 @@ class Overzichten:
     @cherrypy.expose
     @check_token
     def restart(self, state=SystemStates.Start.value):
+        if isinstance(state, str):
+            state = int(state)
         self.setState(state)
         self.check_worker(state)
         raise cherrypy.HTTPRedirect('/process')
