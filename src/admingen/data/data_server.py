@@ -20,6 +20,7 @@ IS_FINAL_KEY = '__is_last_record'
 
 
 root_path = os.getcwd()
+db = None
 
 
 # Define the operators that can be used in filter and join conditions
@@ -50,10 +51,19 @@ def read_records(fullpath, cls=None):
 
     # We need to make an object of the whole contents of a directory
     entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
+    
     if cls:
         data = [deserialiseDataclass(cls, open(os.path.join(fullpath, str(e))).read()) for e in entries]
+        # The User table is treated differently: the password is set to asterixes.
+        if fullpath.endswith('User'):
+            for d in data:
+                d.password = '****'
     else:
         data = [json.load(open(os.path.join(fullpath, str(e)))) for e in entries]
+        # The User table is treated differently: the password is set to asterixes.
+        if fullpath.endswith('User'):
+            for d in data:
+                d['password'] = '****'
     return data
 
 def read_records_asdict(fullpath: str, cls=None):
@@ -91,21 +101,74 @@ def multi_sort(descriptor, data):
     return sorted(data, key=functools.cmp_to_key(sort_predicate))
 
 
+def mk_fullpath(path):
+    offset = os.getcwd() + '/data'
+    if '.' in os.path.basename(path):
+        raise BadRequest("Path must be absolute.")
+    fullpath = os.path.join(offset, path)
+    if not os.path.exists(fullpath):
+        raise NotFound(path)
+    return fullpath
+
+
+def get_request_data():
+    if flask.request.data:
+        encoding = flask.request.args.get('encoding')
+        if encoding == 'base64':
+            new_data = flask.request.data.decode('base64')
+        else:
+            new_data = flask.request.data
+    else:
+        # The data is encoded as form data. Just save them as JSON
+        new_data = flask.request.values.to_dict()
+    return new_data
+
+
+def update_record(tablecls, index, db, data, update=True):
+    """ Flask handler for put requests """
+    # Check we have either JSON or form-encoded data
+    if not (flask.request.values or flask.request.is_json):
+        logging.info("Client tried to post without any data")
+        raise BadRequest('Inproper request')
+
+    # Update with the new data
+    if 'id' not in data:
+        data['id'] = index
+    if update:
+        # re-use the existing data
+        record = db.update(tablecls, data)
+    else:
+        # Overwrite existing data
+        record = tablecls(**data)
+        db.set(record)
+
+    return flask.make_response(serialiseDataclass(record), 201)
+
+
+def add_record(table, tablecls, data):
+    fullpath = mk_fullpath(table)
+
+
+    # There is no ID field, create one.
+    ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
+    my_id = max(ids) + 1 if ids else 1
+    data['id'] = my_id
+    fullpath = f'{fullpath}/{my_id}'
+    print('Created ID', str(my_id))
+
+    data_obj = tablecls(**data)
+    data_str = serialiseDataclass(data_obj)
+    with open(fullpath, "w") as dest_file:
+        dest_file.write(data_str)
+    return flask.make_response(data_str, 201)
+
+
 def add_handlers(app, context):
     """ This function creates and installs a number of flask handlers. """
-    offset = os.getcwd() + '/data'
-    
     db = context['the_db']
     table_classes = {t.__name__: t for t in context['tables']}
 
     # First define some helper functions.
-    def mk_fullpath(path):
-        if '.' in os.path.basename(path):
-            raise BadRequest("Path must be absolute.")
-        fullpath = os.path.join(offset, path)
-        if not os.path.exists(fullpath):
-            raise NotFound(path)
-        return fullpath
 
     def do_leftjoin(tabl1, tabl2, data1, data2, condition):
         condition = unquote(condition)
@@ -133,18 +196,6 @@ def add_handlers(app, context):
             results.append(result)
         return results
     
-    def get_request_data():
-        if flask.request.data:
-            encoding = flask.request.args.get('encoding')
-            if encoding == 'base64':
-                new_data = flask.request.data.decode('base64')
-            else:
-                new_data = flask.request.data
-        else:
-            # The data is encoded as form data. Just save them as JSON
-            new_data = flask.request.values.to_dict()
-        return new_data
-        
 
     @app.route('/data/<path:table>', methods=['GET'])
     def get_table(table):
@@ -152,6 +203,10 @@ def add_handlers(app, context):
             return
         tablecls = table_classes[table]
         data = db.query(tablecls)
+        # For the User class, replace the password with asterixes.
+        if table == 'User':
+            for d in data:
+                d.password = '****'
         # Check if the foreignkeys need to be resolved
         if 'resolve_fk' in flask.request.args:
             # TODO: Look for all foreign keys in the dataset, and fill in the data like a join
@@ -203,7 +258,11 @@ def add_handlers(app, context):
 
     @app.route('/data/<path:table>/<int:index>', methods=['GET'])
     def get_item(table, index):
-        res = flask.make_response(serialiseDataclass(db.get(table_classes[table], index)))
+        data = db.get(table_classes[table], index)
+        # For the User records, set the password to asterixes
+        if table == 'User':
+            data.password = '****'
+        res = flask.make_response(serialiseDataclass(data))
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
         return res
 
@@ -211,25 +270,8 @@ def add_handlers(app, context):
     def put_item(table, index):
         """ Flask handler for put requests """
         tablecls = table_classes[table]
-        # Check we have either JSON or form-encoded data
-        if not (flask.request.values or flask.request.is_json):
-            logging.info("Client tried to post without any data")
-            raise BadRequest('Inproper request')
-    
-        # Update with the new data
         data = get_request_data()
-        if 'id' not in data:
-            data['id'] = index
-        if flask.request.method == 'POST':
-            # re-use the existing data
-            record = db.update(tablecls, data)
-        else:
-            # Overwrite existing data
-            record = tablecls(**data)
-            db.set(record)
-
-        return flask.make_response(serialiseDataclass(record), 201)
-
+        return update_record(tablecls, index, the_db, data, flask.request.method == 'POST')
 
     @app.route('/data/<path:table>/<int:index>', methods=['DELETE'])
     def delete_item(table, index):
@@ -239,23 +281,9 @@ def add_handlers(app, context):
 
     @app.route('/data/<path:table>', methods=['POST', 'PUT'])
     def add(table):
-        fullpath = mk_fullpath(table)
         tablecls = table_classes[table]
-
         data = get_request_data()
-
-        # There is no ID field, create one.
-        ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
-        my_id = max(ids) + 1 if ids else 1
-        data['id'] = my_id
-        fullpath = f'{fullpath}/{my_id}'
-        print('Created ID', str(my_id))
-
-        data_obj = tablecls(**data)
-        data_str = serialiseDataclass(data_obj)
-        with open(fullpath, "w") as dest_file:
-            dest_file.write(data_str)
-        return flask.make_response(data_str, 201)
+        return add_record(table, tablecls, data)
 
     print('Loaded data server')
 

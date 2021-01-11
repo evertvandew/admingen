@@ -9,6 +9,7 @@ from enum import Enum
 import logging
 import re
 import codecs
+import bcrypt
 from admingen.util import isoweekno2day
 from yaml import load, dump
 from collections.abc import Mapping
@@ -139,6 +140,16 @@ class dataset:
         if isinstance(condition, str):
             condition = lambda r: eval(condition, None, r.__dict__)
         return dataset(r for r in self.data.values() if condition(r))
+
+
+def password2str(value):
+    salt = bcrypt.gensalt()
+    hash = bcrypt.hashpw(value, salt)
+    return hash
+
+def checkpasswd(clear, hashed):
+    return bcrypt.checkpw(clear, hashed)
+
 
 
 
