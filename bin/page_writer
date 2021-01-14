@@ -53,6 +53,17 @@ page_template = Template("""<!DOCTYPE html>
     function acm_authorized(required) {
         return true;
     }
+    
+    function now() {
+        var today = new Date();
+        var dd = String(today.getDate()).padStart(2, '0');
+        var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+        var yyyy = today.getFullYear();
+        var hh = String(today.getHours()).padStart(2, '0');
+        var m = String(today.getMinutes()).padStart(2, '0');
+        today = dd + '-' + mm + '-' + yyyy + ' ' + hh + ':' + m + ':00';
+        return today;
+    }
 </script>
 ${heading}
 ${lines}
