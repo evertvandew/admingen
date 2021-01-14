@@ -174,8 +174,24 @@ def generate_overview(org, rel_nr, user, gifts):
     return filtered, total, rst
 
 
+def parse_accounts(s):
+    """ Parse the gift accounts, including ranges. """
+    # Remove any spaces around dashes.
+    s = s.replace(' -', '-').replace('- ', '-')
+    accounts = [acc.strip() for acc in s.split()]
+    # Generate the actual result, by expanding the ranges.
+    result = []
+    for acc in accounts:
+        if '-' in acc:
+            start, end = [int(a) for a in acc.split('-')]
+            result.extend(str(i) for i in range(start, end+1))
+        else:
+            result.append(acc)
+    return result
+
+
 def generate_overviews(org, users, transactions):
-    gift_accounts = [acc for acc in org['gift_accounts'].split()]
+    gift_accounts = parse_accounts(org['gift_accounts'])
     gifts = [odataDate2Datetime(t) for t in transactions if t['GLAccountCode'] in gift_accounts]
     users_lu = {u['Code']: u for u in users}
     relatienrs = set(g['AccountCode'] for g in gifts if 'AccountCode' in g and g['AccountCode'])
@@ -210,7 +226,7 @@ def pdfUrl2Name(org_id, pdfurl):
         pdfurl = '/'.split(pdfurl)[-1]
     return os.path.join(PDF_DIR.format(vardir, org_id), pdfurl)
 
-def generate_pdfs(org, users, transactions):
+def generate_pdfs(org, users, transactions, status_update=None):
     temp_file = '%i.temp.rst' % org['id']
     pdfdir = PDF_DIR.format(vardir, org['id'])
     if not os.path.exists(pdfdir):
@@ -220,7 +236,8 @@ def generate_pdfs(org, users, transactions):
             f.write(rst)
         fname = pdfName(org['id'], name, code)
         cmnd = [RST2PDF, temp_file, '-o', fname, '-s', 'stylesheet.txt']
-        print ('Executing:', cmnd)
+        if status_update:
+            status_update(name)
         subprocess.call(cmnd)
 
 
