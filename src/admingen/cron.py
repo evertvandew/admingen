@@ -1,8 +1,11 @@
 """ A set of functions that are useful for handling repetative tasks """
 
-from datetime import datetime, date, time, timedelta
+from datetime import datetime, date, timedelta
 import dataclasses as dc
 from typing import Union, List
+import threading
+import logging
+import time
 
 
 @dc.dataclass
@@ -108,18 +111,102 @@ class CronSchedule:
             
             # Now we need to be careful: check on dow and wdom.
             # We need to find a date that matches both, if applicable.
+            valid = True
             d = date(year, month, day)
             if self.dow is not None:
-                valid = valid and fits_in_range(range.dow, d.weekday())
+                valid = fits_in_range(range.dow, d.weekday())
             
             # First check the situation where a wdom is set.
             if self.wdom is not None:
                 valid = valid and fits_in_range(range.wdom, d.day // 7)
         
         return datetime(year, month, day, hour, minute, 0)
+    
+    @staticmethod
+    def parse(s):
+        """ Parse a crontab schedule string and create a Cron object from it.
+            The string consists of a set of whitespace-separated ranges for respectively
+            minutes, hours, days and months, with optional day of week and week of month ranges.
+            
+            The ranges are set using either:
+                An astrix to match any value
+                An integer defining a specific value
+                A comma-separated list of specific values
+                A range indicated by two integers separated by a dash,
+                with optionally a step after a slash
+            
+            For example: 0 */4 * * 0-4 *
+            
+            Will trigger every four hours at the hour, for all working days.
+        """
+        def parse_part(s):
+            if ',' in s:
+                result = [parse_part(i) for i in s.split(',')]
+                return result
+            if '-' in s:
+                parts = s.split('-', maxsplit=1)
+                if '/' in parts[1]:
+                    end, step = parts[1].split('/', maxsplit=1)
+                    return Range(int(parts[0]), int(end), int(step))
+            elif '/' in s:
+                # Now the only other part must be an astrix
+                parts = s.split('/', maxsplit=1)
+                assert parts[0] == '*'
+                return Range(0, None, int(parts[1]))
+            elif s.startswith('*'):
+                return None
+            return int(s)
+        
+        parts = s.split()
+        ranges = [parse_part(p) for p in parts]
+        return CronSchedule(*ranges)
 
+
+def scheduled_action(cron_schedule):
+    """ Decorator that makes an action run periodically. """
+    def wrap(action):
+        def run():
+            cron = CronSchedule.parse(cron_schedule)
+            while True:
+                # Calculate when to activate
+                next_action = cron.next_action()
+                activate_ts = next_action.timestamp()
+                
+                # Wait to activate. Work in 1-minute steps
+                # to avoid problems with a change in system time.
+                while (t := time.time()) < activate_ts:
+                    # Ensure synchronisation on a whole minute.
+                    n = 60 - (t % 60)
+                    time.sleep(n)
+                
+                # Trigger the action
+                try:
+                    action()
+                except:
+                    logging.exception('Error executing scheduled action!')
+        def start():
+            th = threading.Thread(target=run)
+            th.daemon = True
+            th.start()
+        
+        return start
+    return wrap
 
 def tests():
+    # Test the updating of dates and times.
+    fmt = '%d-%m-%Y %H:%M'
+    dt = datetime.strptime('1-1-2020 00:00', fmt)
+    c = CronSchedule.parse('0 */8 1,15')
+    e = ['1-1-2020 8:00', '1-1-2020 16:00', '15-1-2020 0:00', '15-1-2020 8:00', '15-1-2020 16:00',
+         '1-2-2020 0:00', '1-2-2020 8:00', '1-2-2020 16:00', '15-2-2020 0:00', '15-2-2020 8:00',
+         '15-2-2020 16:00']
+    e = [datetime.strptime(t, fmt) for t in e]
+    
+    for check in e:
+        dt = c.next_action(dt)
+        assert check == dt
+    
+    # Test the generation of single ranges.
     ranges = [[3, Range(7, 13, 3)], Range(0, 10), Range(1, 10, 2), [1, 9, 11]]
     expecteds = [
         [3, 3, 3, 7, 7, 7, 7, 10, 10, 10, 13, 13, 13, 3, 3],
