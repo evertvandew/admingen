@@ -35,9 +35,11 @@ class enum_type:
         self._my_enum = Enum(name, options)
         self._my_enum.__str__ = lambda self: str(self.value)
     def __call__(self, x):
+        if isinstance(x, int):
+            return self._my_enum(x)
         if '.' in x:
             x = x.split('.')[-1]
-        elif (isinstance(x, str) and x.isnumeric()) or isinstance(x, int):
+        elif isinstance(x, str) and x.isnumeric():
             return self._my_enum(int(x))
         return self._my_enum[x]
     def __getattr__(self, key):
@@ -115,7 +117,6 @@ def mydataclass(cls):
     """
     # All tables must have a primary key field.
     cls.__annotations__['id'] = int
-    cls.id = None
 
     def __init__(self, *args, **kwargs):
         data = dict(zip(cls.__annotations__, args))
@@ -195,6 +196,8 @@ for database, tables in data_models.items():
             cld = ', '.join(details)
             if len(details) > 1:
                 cld = f'mkColumnDetails("{cld}")'
+            elif cld == k:
+                cld = 'int'
             elif cld == 'datetime':
                 cld = "formatted_date('%d-%m-%Y %H:%M:%S')"
             elif cld == 'date':

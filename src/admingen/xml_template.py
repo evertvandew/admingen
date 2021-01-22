@@ -58,11 +58,11 @@ def handle_Datamodel(args, lines):
     """ Analyse and store data model definitions """
     def handle_table(line_it):
         """ Read the """
-        result = {}
+        result = {'id': ['int']}
         # Consume and handle the column definitions
         l = next(line_it)
         try:
-            while l[0] in ' \t':
+            while l and l[0] in ' \t':
                 name, details = l.split(':', maxsplit=1)
                 colname = name.strip()
                 details = [d.strip() for d in details.split(',')]

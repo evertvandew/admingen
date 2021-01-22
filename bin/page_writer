@@ -5,13 +5,11 @@ write them to the file system as static pages.
 """
 
 
-# TODO: Create directories for the data tables
-
 from admingen.xml_template import processor, Tag, Template
 import os, os.path
 import sys
 import json
-
+import markdown
 
 page_template = Template("""<!DOCTYPE html>
 <html lang="en">
@@ -104,14 +102,23 @@ def handle_PageContextValue(args, lines):
     current_page_context[args['name']] = lines
     return ''
 
+
+def handle_Markdown(args, lines):
+    return markdown.markdown('\n'.join(lines))
+
+
 if False:
     os.chdir('/home/ehwaal/projects/sab')
     processor({'Page': Tag('Page', handle_Page),
-               'PageContextValue': Tag('PageContextValue', handle_PageContextValue)},
+               'PageContextValue': Tag('PageContextValue', handle_PageContextValue),
+               'MarkDown': Tag('MarkDown', handle_Markdown)
+               },
               open('page_definitions.xml'))
 else:
     processor({'Page': Tag('Page', handle_Page),
-               'PageContextValue': Tag('PageContextValue', handle_PageContextValue)},
+               'PageContextValue': Tag('PageContextValue', handle_PageContextValue),
+               'MarkDown': Tag('MarkDown', handle_Markdown)
+               },
               sys.stdin)
     # Also update the ACM table
     with open('acm_table.json', 'w') as out:
