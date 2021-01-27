@@ -57,7 +57,7 @@ url_prefixes = {}
 def handle_Datamodel(args, lines):
     """ Analyse and store data model definitions """
     def handle_table(line_it):
-        """ Read the """
+        """ Read the column definitions for a table"""
         result = {'id': ['int']}
         # Consume and handle the column definitions
         l = next(line_it)
@@ -94,6 +94,7 @@ def handle_Datamodel(args, lines):
     url_prefixes[url_prefix] = name
     line_it = iter(lines.splitlines())
     l = next(line_it)
+    acm_default = args.get('ACM_default', '')
     try:
         while True:
             # Consume lines until we get a table or enum
@@ -101,10 +102,18 @@ def handle_Datamodel(args, lines):
                 l = next(line_it)
             
             table_type, tablename = l.strip().split(':', maxsplit=1)
+            if ',' in tablename:
+                tablename, acm = tablename.split(',', maxsplit=1)
+            else:
+                acm = acm_default
             tablename = tablename.strip()
             tabledef = None
             if table_type.strip() == 'table':
                 l, tabledef = handle_table(line_it)
+                acm_details = re.match(r'\sACM\(([-a-zA-Z0-9_.,]*)\)', acm)
+                if acm_details:
+                    acm = acm_details.groups()[0]
+                tabledef['__acm'] = acm
             elif table_type.strip() == 'enum':
                 l, tabledef = handle_enum(line_it, tablename)
             data_model[tablename] = tabledef

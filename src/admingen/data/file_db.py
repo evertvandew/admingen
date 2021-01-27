@@ -58,6 +58,7 @@ class FileDatabase:
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
+        return record
     
     def set(self, record):
         fullpath = f"{self.path}/{type(record).__name__}/{record.id}"

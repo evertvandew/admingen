@@ -43,7 +43,7 @@ def mk_response(reply):
     return response
 
 
-def read_records(fullpath, cls=None):
+def read_records(fullpath, cls=None, raw=False):
     """ Reads all records in a table and returns them as dictionaries. """
     # TODO: Make me return record objects instead of dictionaries.
     if fullpath[0] != '/':
@@ -55,13 +55,13 @@ def read_records(fullpath, cls=None):
     if cls:
         data = [deserialiseDataclass(cls, open(os.path.join(fullpath, str(e))).read()) for e in entries]
         # The User table is treated differently: the password is set to asterixes.
-        if fullpath.endswith('User'):
+        if fullpath.endswith('User') and not raw:
             for d in data:
                 d.password = '****'
     else:
         data = [json.load(open(os.path.join(fullpath, str(e)))) for e in entries]
         # The User table is treated differently: the password is set to asterixes.
-        if fullpath.endswith('User'):
+        if fullpath.endswith('User') and not raw:
             for d in data:
                 d['password'] = '****'
     return data
@@ -124,7 +124,7 @@ def get_request_data():
     return new_data
 
 
-def update_record(tablecls, index, db, data, update=True):
+def update_record(tablecls, index, db, data, update=True, mk_response=True):
     """ Flask handler for put requests """
     # Check we have either JSON or form-encoded data
     if not (flask.request.values or flask.request.is_json):
@@ -142,10 +142,12 @@ def update_record(tablecls, index, db, data, update=True):
         record = tablecls(**data)
         db.set(record)
 
-    return flask.make_response(serialiseDataclass(record), 201)
+    if mk_response:
+        return flask.make_response(serialiseDataclass(record), 201)
+    return record
 
 
-def add_record(table, tablecls, data):
+def add_record(table, tablecls, data, mk_response=True):
     fullpath = mk_fullpath(table)
 
 
@@ -160,7 +162,9 @@ def add_record(table, tablecls, data):
     data_str = serialiseDataclass(data_obj)
     with open(fullpath, "w") as dest_file:
         dest_file.write(data_str)
-    return flask.make_response(data_str, 201)
+    if mk_response:
+        return flask.make_response(data_str, 201)
+    return data_str
 
 
 def add_handlers(app, context):

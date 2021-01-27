@@ -143,11 +143,17 @@ class dataset:
 
 
 def password2str(value):
+    if isinstance(value, str):
+        value = value.encode('utf-8')
     salt = bcrypt.gensalt()
-    hash = bcrypt.hashpw(value, salt)
+    hash = bcrypt.hashpw(value, salt).decode('utf-8')
     return hash
 
 def checkpasswd(clear, hashed):
+    if isinstance(clear, str):
+        clear = clear.encode('utf-8')
+    if isinstance(hashed, str):
+        hashed = hashed.encode('utf8')
     return bcrypt.checkpw(clear, hashed)
 
 

@@ -193,6 +193,9 @@ for database, tables in data_models.items():
         the_tables.append(k)
         cls = []
         for name, details in cls_def.items():
+            # Skip any private or protected items.
+            if name.startswith('_'):
+                continue
             cld = ', '.join(details)
             if len(details) > 1:
                 cld = f'mkColumnDetails("{cld}")'

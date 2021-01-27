@@ -71,7 +71,6 @@ ${footer}
 
 
 created_pages = []
-acm = {}
 current_page_context = dict(headers='', title='admingen', heading='', footer='', acm='user,editor,administrator')
 
 
@@ -88,9 +87,6 @@ def handle_Page(args, lines):
         os.makedirs(dirname)
     with open(os.path.join(dirname, fname), 'w') as out:
         out.write(text)
-    
-    # Also determine the ACM parameters
-    acm[url.strip('/')] = args.get('acm', current_page_context['acm'])
     return ''
 
 
@@ -104,7 +100,8 @@ def handle_PageContextValue(args, lines):
 
 
 def handle_Markdown(args, lines):
-    return markdown.markdown('\n'.join(lines))
+    md = markdown.markdown(''.join(lines))
+    return md
 
 
 if False:
@@ -120,6 +117,4 @@ else:
                'MarkDown': Tag('MarkDown', handle_Markdown)
                },
               sys.stdin)
-    # Also update the ACM table
-    with open('acm_table.json', 'w') as out:
-        json.dump(acm, out)
+
