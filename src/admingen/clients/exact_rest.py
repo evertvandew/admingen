@@ -67,7 +67,8 @@ def request(url, token=None, method='GET', params={}, query={}, handle=None, pro
     part_count = 0
     while True:
         part_count += 1
-        progress('part %i' % part_count)
+        if progress:
+            progress('part %i' % part_count)
         logging.info('Sending request %s, %s, %s', url, method, data)
         r = urllib.request.Request(url=url, method=method, data=data, headers=headers)
         try:
