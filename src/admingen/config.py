@@ -5,7 +5,6 @@ import os.path
 import sys
 import argparse
 import re
-from configobj import ConfigObj
 import json
 from io import StringIO
 from string import Template
@@ -16,9 +15,14 @@ import logging.handlers
 theconfig = {}
 configdir = os.environ.get('CONFDIR', '.')
 
+config_parsers = {'.json': json.loads, '.conf': None}
 
-config_parsers = {'.ini': lambda s: ConfigObj(StringIO(s)), '.json': json.loads,
-                  '.conf': None}
+try:
+    from configobj import ConfigObj
+    config_parsers['.ini'] = lambda s: ConfigObj(StringIO(s))
+except:
+    pass
+
 
 def configfiles():
     """ Generator that returns the full paths to configuration files """

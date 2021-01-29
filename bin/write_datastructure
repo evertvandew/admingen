@@ -59,7 +59,10 @@ def formatted_date(fmt):
                 self.dt = x.dt
             else:
                 if x:
-                    self.dt = datetime.strptime(x, fmt)
+                    if isinstance(x, str):
+                        self.dt = datetime.strptime(x, fmt)
+                    elif isinstance(x, datetime):
+                        self.dt = copy.copy(x)
                 else:
                     self.dt = None
             self.fmt = fmt

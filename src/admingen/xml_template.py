@@ -53,6 +53,7 @@ TAG_CLOSE_MSG = '__TAG_CLOSE__'
 
 data_models = {}
 url_prefixes = {}
+table_acm = {}
 
 def handle_Datamodel(args, lines):
     """ Analyse and store data model definitions """
@@ -113,7 +114,7 @@ def handle_Datamodel(args, lines):
                 acm_details = re.match(r'\sACM\(([-a-zA-Z0-9_.,]*)\)', acm)
                 if acm_details:
                     acm = acm_details.groups()[0]
-                tabledef['__acm'] = acm
+                table_acm[tablename] = acm
             elif table_type.strip() == 'enum':
                 l, tabledef = handle_enum(line_it, tablename)
             data_model[tablename] = tabledef
@@ -546,7 +547,8 @@ def handle_Template(args, template_lines):
         else:
             kwargsdef[parts[0]] = ''
     
-    # Find any slots
+    # Find any slots and replace them with Mako references
+    # Slots are expanded only during template expansion, not during template definition.
     slots = []
     slot_linenrs = []
     template_lines_2 = []
@@ -564,11 +566,9 @@ def handle_Template(args, template_lines):
                 template_lines_2.append(after)
         else:
             template_lines_2.append(line)
-    
-    # template = env.from_string(lines)
+
     template_lines_2 = '\n'.join(template_lines_2)
     template = Template(template_lines_2)
-    #template = Template(template_lines, strict_undefined=True)
 
     def expand_template(args, lines):
         expand_self = None
@@ -580,20 +580,27 @@ def handle_Template(args, template_lines):
             arguments['id'] = None
         # Render the slots in the lines submitted to the template
         # We assume that the <TemplateSlot> tag starts and ends on an otherwise empty line
+        # Also cut the template slot lines from the lines to be rendered.
         if slots:
             default_lines = []
             slots_lines = {}
             ilines = iter(lines.splitlines())
             for line in ilines:
                 if m := slot_matcher.search(line):
+                    # Do not include the tag start
+                    line = line[m.endpos:]
                     slot_lines = []
                     while not slot_close_matcher.search(line):
                         slot_lines.append(line)
                         line = next(ilines)
+                        slot_lines.append(line[:m.pos])
                     slots_lines[m.groups()[0]] = '\n'.join(slot_lines)
                 else:
                     default_lines.append(line)
             default_lines = '\n'.join(default_lines)
+            lines = default_lines
+        else:
+            default_lines = lines
         
         try:
             # Render the template, replacing slots with the relevant texts
@@ -654,6 +661,8 @@ def handle_Context(args, lines):
     # Return the expanded text for insertion in the document.
     return expand_others.getvalue()
 
+
+# Note: There is no tag handler for the TemplateSlots, these are hard-coded.
 default_generators = {'Datamodel': Tag('Datamodel', handle_Datamodel),
                       'Template': Tag('Template', handle_Template, expand_tags=False),
                       'Context': Tag('Context', handle_Context, expand_tags=False)}

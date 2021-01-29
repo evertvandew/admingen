@@ -14,6 +14,7 @@ De template engine van het mailtje struikelt over het percentage teken. Gebruik 
 # TODO:
 Framework:
 * Automatische validatie van de velden
+* Voeg support voor unix RC files toe aan de configuratie tools.
 
 
 ## Giftenoverzicht:

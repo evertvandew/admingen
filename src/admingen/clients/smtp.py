@@ -1,6 +1,12 @@
 
 import smtplib
 from urllib.parse import urlparse
+import markdown
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+from email.utils import formatdate
+
 
 SSL_SMTP_SCHEMES = ['smtps', '+ssl']
 
@@ -41,3 +47,27 @@ def mkclient(url, user=None, password=None):
         client.login(user, password)
 
     return client
+
+def constructMailMd(md_msg, **headers):
+    """ Construct an email from a MarkDown text, and add headers. """
+    # TODO: Add support for multiple recipients
+    # We are using the old API for constructing emails:
+    # the new one does not encode PDF attachments correctly.
+
+    outer = MIMEMultipart()
+    for key, value in headers.items():
+        outer[key] = value
+
+    outer['Date'] = formatdate(localtime=True)
+    html_msg = markdown.markdown(md_msg)
+
+    # parts = [': '.join(h) for h in zip(headers, details)]
+    text_parts = MIMEMultipart('alternative')
+    msg_plain = MIMEText(md_msg)
+    msg_html = MIMEText(html_msg, 'html')
+    text_parts.attach(msg_plain)
+    text_parts.attach(msg_html)
+    outer.attach(text_parts)
+
+    return outer
+

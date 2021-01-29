@@ -54,6 +54,10 @@ class FileDatabase:
             # We need to know the highest current ID in the database
             ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
             record.id = max(ids) + 1 if ids else 1
+        else:
+            # Ensure the object does not already exist
+            if str(record.id) in os.listdir(fullpath):
+                raise RuntimeError('Record ID already exists', 400)
         fullpath = f'{fullpath}/{record.id}'
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:

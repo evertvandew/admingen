@@ -2,7 +2,7 @@
 
 import sys
 import json
-from admingen.xml_template import processor, data_models, default_generators, Tag
+from admingen.xml_template import processor, data_models, default_generators, Tag, table_acm
 
 from argparse import ArgumentParser
 
@@ -49,8 +49,8 @@ _ = processor(generators, istream=args.input)
 # Add the ACM details for accessing the data tables
 for db, db_details in data_models.items():
     for table, table_def in db_details.items():
-        if isinstance(table_def, dict) and '__acm' in table_def:
-            acm['data/%s'%table] = table_def['__acm']
+        if isinstance(table_def, dict) and table in table_acm:
+            acm['data/%s'%table] = table_acm[table]
 
 # Write the ACM table
 with open('acm_table.json', 'w') as out:
