@@ -6,14 +6,12 @@ This data will be stored directly in the file system as JSON files.
 import os, os.path
 import json
 import flask
-import operator
 import functools
 import logging
 from dataclasses import is_dataclass, asdict
-from urllib.parse import unquote
 from werkzeug.exceptions import BadRequest, NotFound
 from admingen.data.file_db import (FileDatabase, serialiseDataclass, deserialiseDataclass, the_db,
-                                   serialiseDataclasses)
+                                   serialiseDataclasses, filter_context, multi_sort, do_leftjoin)
 
 # Define the key for the data element that is added to indicate limited queries have reached the end
 IS_FINAL_KEY = '__is_last_record'
@@ -21,21 +19,6 @@ IS_FINAL_KEY = '__is_last_record'
 
 root_path = os.getcwd()
 db = None
-
-
-# Define the operators that can be used in filter and join conditions
-filter_context = {
-    'isIn': operator.contains,
-    'isTrue': lambda x: x.lower()=='true',
-    'isFalse': lambda x: x.lower()!='true',
-    'and_': operator.and_,
-    'eq': operator.eq,
-    'neq': operator.ne,
-    'lt': operator.lt,
-    'gt': operator.gt,
-    'le': operator.le,
-    'ge': operator.ge
-}
 
 
 def mk_response(reply):
@@ -69,36 +52,6 @@ def read_records(fullpath, cls=None, raw=False):
 def read_records_asdict(fullpath: str, cls=None):
     data = read_records(fullpath, cls)
     return {d['id']: d for d in data}
-
-
-def multi_sort(descriptor, data):
-    """ A function to sort a list of data (dictionaries).
-        The sort descriptor is a comma-separated string of keys into the dicts.
-        Optionally, the key is followed by the word ":desc", for example
-            "a,b:desc,c"
-    """
-    sorts = descriptor.split(',')
-    
-    def sort_predicate(it1, it2):
-        for key in sorts:
-            sort_desc = False
-            sort_desc = key.endswith(':desc')
-            if sort_desc:
-                key = key.split(':')[0]
-            # Retrieve the values to be sorted on now.
-            v1, v2 = [i[key] for i in [it1, it2]]
-            # Do the actual comparison
-            if sort_desc:
-                result = (v2 > v1) - (v2 < v1)
-            else:
-                result = (v1 > v2) - (v1 < v2)
-            # If there is a difference based on the current key, return the value
-            if result != 0:
-                return result
-        # There was no difference in any of the keys, return 0.
-        return 0
-    
-    return sorted(data, key=functools.cmp_to_key(sort_predicate))
 
 
 def mk_fullpath(path):
@@ -173,33 +126,6 @@ def add_handlers(app, context):
     table_classes = {t.__name__: t for t in context['tables']}
 
     # First define some helper functions.
-
-    def do_leftjoin(tabl1, tabl2, data1, data2, condition):
-        condition = unquote(condition)
-        # Make the association.
-        results = []
-        for d1 in data1:
-            if is_dataclass(d1):
-                d1 = asdict(d1)
-    
-            def eval_cond(d2):
-                """ Function returns true if d2 is to be joined to d1 """
-                local_context = {tabl1: d1, tabl2: d2}
-                local_context.update(d2)
-                local_context.update(d1)
-                return bool(eval(condition, filter_context, local_context))
-        
-            d2s = list(filter(eval_cond, data2))
-            assert len(d2s) <= 1, "Join condition %s didn't result in a unique match" % condition
-            result = {}
-            if d2s:
-                result.update(d2s[0])
-                result[tabl2] = d2s[0]
-            result[tabl1] = d1
-            result.update(d1)
-            results.append(result)
-        return results
-    
 
     @app.route('/data/<path:table>', methods=['GET'])
     def get_table(table):

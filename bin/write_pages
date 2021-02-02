@@ -10,6 +10,8 @@ import os, os.path
 import sys
 import json
 import markdown
+from mako.template import Template, DefTemplate
+
 
 page_template = Template("""<!DOCTYPE html>
 <html lang="en">
@@ -82,6 +84,12 @@ def handle_Page(args, lines):
         raise RuntimeError('Creating page', url, 'for the second time')
     text = page_template.render(lines=lines, **current_page_context)
     dirname, fname = os.path.split('html/'+url.strip('/'))
+
+    # Expand any Mako templates inside the page.
+    t = Template(text)
+    text = t.render()
+
+    # Write the result to file
     print ('Writing:', dirname, fname)
     if not os.path.exists(dirname):
         os.makedirs(dirname)

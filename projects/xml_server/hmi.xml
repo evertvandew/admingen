@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <!-- Use me as follows:
-        ~/admingen/bin/xml_template -i hmi.xml |/admingen/bin/page_writer
+        ~/admingen/bin/xml_template -i hmi.xml |/admingen/bin/write_pages
         webfs.py --root-path html
 -->
 

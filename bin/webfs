@@ -51,10 +51,12 @@ if __name__ == "__main__":
 
     for m in args.filename:
         mod_name = os.path.basename(m).split('.')[0]
-        spec = importlib.util.spec_from_file_location(mod_name, m)
-        new_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(new_mod)
-    
+        new_mod = sys.modules.get(mod_name, None)
+        if new_mod is None:
+            spec = importlib.util.spec_from_file_location(mod_name, m)
+            new_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(new_mod)
+
         new_mod.add_handlers(app, context)
     
     app.run(threaded=True, host=args.host, port=args.port, debug=args.debug)
