@@ -148,7 +148,7 @@ class FileDatabase:
             dest_file.write(data_str)
         return record
 
-    def update(self, table, record):
+    def update(self, table, record=None):
         """ Update the values in an existing record.
             The record is identified by id, which can not be changed.
             Only the values in the record are updated (apart from id).
@@ -156,6 +156,9 @@ class FileDatabase:
             'record' must be a dictionary. When storing a dataclass object,
             just use the set function.
         """
+        if record is None:
+            record = asdict(table)
+            table = type(table)
         fullpath = f"{self.path}/{table.__name__}/{record['id']}"
         if not os.path.exists(fullpath):
             raise(UnknownRecord())
@@ -168,7 +171,7 @@ class FileDatabase:
             if k == 'id':
                 # The ID attribute can not be changed.
                 continue
-            if v in [None, 'None', 'null', '']:
+            if v is None or (isinstance(v, str) and v in ['None', 'null', '']):
                 value = None
             else:
                 value = data.__annotations__[k](v)

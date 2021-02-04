@@ -50,8 +50,20 @@ page_template = Template("""<!DOCTYPE html>
   </div>
 </div>
 <script>
-    function acm_authorized(required) {
-        return true;
+    function getCookie(name) {
+        var nameEQ = name + "=";
+        var ca = document.cookie.split(';');
+        for(var i=0;i < ca.length;i++) {
+            var c = ca[i];
+            while (c.charAt(0)==' ') c = c.substring(1,c.length);
+            if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+        }
+        return null;
+    }
+    function acm_authorized(roles) {
+        var role = getCookie("${role_cookie_name}");
+        var allowed_roles = roles.split(',');
+        return allowed_roles.includes(role);
     }
     
     function now() {
@@ -64,6 +76,11 @@ page_template = Template("""<!DOCTYPE html>
         today = dd + '-' + mm + '-' + yyyy + ' ' + hh + ':' + m + ':00';
         return today;
     }
+    $(document).ready(function(){
+        $("#div_current_user").each(function(i){
+            this.innerHTML = getCookie("user_name");
+        });
+    });
 </script>
 ${heading}
 ${lines}

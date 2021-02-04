@@ -269,6 +269,7 @@ def deserialiseDataclass(cls, s):
     return result
 
 def serialiseDataclasses(data):
+    """ Serialize a list of data items """
     # We need to convert all simple types to strings, but not lists or dictionaries.
     result = json.dumps(data, cls=ExtendibleJsonEncoder)
     return result

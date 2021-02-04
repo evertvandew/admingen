@@ -119,7 +119,10 @@ def mydataclass(cls):
         The constructor assures that the keys of the object have the correct type.
     """
     # All tables must have a primary key field.
-    cls.__annotations__['id'] = int
+    if 'id' not in cls.__annotations__:
+        cls.__annotations__['id'] = int
+    
+    original_annotations = copy.copy(cls.__annotations__)
 
     def __init__(self, *args, **kwargs):
         data = dict(zip(cls.__annotations__, args))
@@ -147,9 +150,22 @@ def mydataclass(cls):
     def __json__(self):
         return asdict(self)
 
+    def my_setattr(self, atrr, value):
+        constructor = cls.__annotations__[attr]
+        v = constructor(value)
+        self.__dict__[attr] = v
+    
+    def get_fks(cls):
+        fks = [k for k, t in original_annotations.items() if is_dataclass(t)]
+        fkts = [original_annotations[k] for k in fks]
+        return dict(zip(fks, fkts))
+    
+
     cls.__init__ = __init__
     cls.__json__ = __json__
-
+    cls.set_attr = my_setattr
+    cls.get_fks = classmethod(get_fks)
+    
     wrapped = dataclass(cls)
     
     # Replace any references to other data classes with integers

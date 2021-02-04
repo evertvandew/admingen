@@ -139,8 +139,11 @@ def add_handlers(app, context):
                 d.password = '****'
         # Check if the foreignkeys need to be resolved
         if 'resolve_fk' in flask.request.args:
-            # TODO: Look for all foreign keys in the dataset, and fill in the data like a join
-            pass
+            fks = tablecls.get_fks()
+            for record in data:
+                for key, t in fks.items():
+                    referenced = db.get(t, getattr(record, key))
+                    setattr(record, key, referenced)
         # First perform any joins
         if 'join' in flask.request.args:
             other_table, condition = flask.request.args['join'].split(',', maxsplit=1)
@@ -165,13 +168,12 @@ def add_handlers(app, context):
             data = multi_sort(flask.request.args['sort'], data)
         
         # Apply limit and offset
+        is_final = True
         if 'limit' in flask.request.args:
             offset = int(flask.request.args.get('offset', 0))
             limit = int(flask.request.args['limit'])
             is_final = len(data) < offset+limit
             data = data[offset:offset+limit]
-            if data:
-                data[-1][IS_FINAL_KEY] = is_final
 
         # Check for the single argument
         if flask.request.args.get('single', False):
