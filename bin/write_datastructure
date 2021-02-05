@@ -160,11 +160,17 @@ def mydataclass(cls):
         fkts = [original_annotations[k] for k in fks]
         return dict(zip(fks, fkts))
     
+    def get_referrers(cls):
+        """ Find all table:item pairs that refer to this table """
+        referrers = [(t, k) for t in all_tables for k, fkt in t.get_fks().items() if fkt is cls]
+        return referrers
+            
 
     cls.__init__ = __init__
     cls.__json__ = __json__
     cls.set_attr = my_setattr
     cls.get_fks = classmethod(get_fks)
+    cls.get_referrers = classmethod(get_referrers)
     
     wrapped = dataclass(cls)
     

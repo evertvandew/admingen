@@ -40,7 +40,7 @@ import enum
 import tempfile
 import shutil
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass
 from typing import List, Tuple, Any, Dict
 import urllib.parse
 from mako.template import Template, DefTemplate
@@ -157,6 +157,8 @@ double_brace_specials = {'@': handle_dom_name,  # Refers to DOM element by name
 class DataContext:
     """ This class is basically a namespace for defining functions that are passed to the templates"""
     bit_scanner = re.compile(r'\{\{[^}]*\}\}')
+
+    isdataclass = staticmethod(is_dataclass)
     
     @property
     def datamodels(self):
@@ -184,7 +186,26 @@ class DataContext:
         if coltype not in data_models[source]:
             return False
         return not isinstance(data_models[source][coltype], enum.EnumMeta)
-    
+
+    @staticmethod
+    def getForeignTable(source, table, col):
+        coltype = data_models[source][table][col]
+        if isinstance(coltype, list):
+            coltype = coltype[0]
+        if coltype not in data_models[source]:
+            return False
+        reftable = data_models[source][coltype]
+        if isinstance(reftable, enum.EnumMeta):
+            return False
+        return coltype
+
+    @staticmethod
+    def firstElementName(source, table):
+        items = list(data_models[source][table].keys())
+        if items[0] != 'id':
+            return items[0]
+        return items[1]
+
     @staticmethod
     def GetEnumOptions(source, coltype):
         if not coltype:

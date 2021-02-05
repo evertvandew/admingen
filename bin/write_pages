@@ -61,7 +61,7 @@ page_template = Template("""<!DOCTYPE html>
         return null;
     }
     function acm_authorized(roles) {
-        var role = getCookie("${role_cookie_name}");
+        var role = getCookie("role_name");
         var allowed_roles = roles.split(',');
         return allowed_roles.includes(role);
     }

@@ -101,6 +101,7 @@ def do_leftjoin(tabl1, tabl2, data1, data2, condition):
 
 class FileDatabase:
     def __init__(self, path, tables):
+        self.archive_dir = 'archived'
         self.path = path
         self.tables = tables
         self.create()
@@ -130,7 +131,8 @@ class FileDatabase:
         if not getattr(record, 'id', None):
             # We need to know the highest current ID in the database
             ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
-            record.id = max(ids) + 1 if ids else 1
+            archived = [int(f) for f in os.listdir(f"{fullpath}/{self.archive_dir}") if f.isnumeric()]
+            record.id = max(max(ids), max(archived)) + 1 if ids else 1
         else:
             # Ensure the object does not already exist
             if str(record.id) in os.listdir(fullpath):
@@ -188,16 +190,26 @@ class FileDatabase:
         fullpath = f"{self.path}/{table.__name__}/{index}"
         if not os.path.exists(fullpath):
             raise(UnknownRecord())
-        os.remove(fullpath)
+
+        # Don't actually delete the record, move it to the "archived" directory
+        ad = f"{self.path}/{table.__name__}/{self.archive_dir}"
+        if not os.path.exists(ad):
+            os.mkdir(ad)
+        newpath = f"{ad}/index"
+        os.rename(fullpath, newpath)
 
     def get(self, table, index):
         """ Retrieve a record identified by table name and index.
             The table is a dataclass with a name that is initialised with list of named
             arguments.
+            With this method, you can also retrieve archived records.
         """
         fullpath = f"{self.path}/{table.__name__}/{index}"
         if not os.path.exists(fullpath):
-            raise(UnknownRecord())
+            # See if that object was archived.
+            fullpath = f"{self.path}/{table.__name__}/{self.archive_dir}/{index}"
+            if not os.path.exists(fullpath):
+                raise(UnknownRecord())
         data = open(fullpath).read()
         return deserialiseDataclass(table, data)
     
