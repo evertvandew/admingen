@@ -115,6 +115,9 @@ class FileDatabase:
             tp = os.path.join(path, table.__name__)
             if not os.path.exists(tp):
                 os.mkdir(tp)
+            ad = os.path.join(tp, self.archive_dir)
+            if not os.path.exists(ad):
+                os.mkdir(ad)
                 
     def clear(self):
         """ Delete the whole structure and build anew, without any records """
@@ -131,8 +134,10 @@ class FileDatabase:
         if not getattr(record, 'id', None):
             # We need to know the highest current ID in the database
             ids = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
+            record.id = max(ids) + 1 if ids else 1
             archived = [int(f) for f in os.listdir(f"{fullpath}/{self.archive_dir}") if f.isnumeric()]
-            record.id = max(max(ids), max(archived)) + 1 if ids else 1
+            if archived and (i:=max(archived)) >= record.id:
+                    record.id = i+1
         else:
             # Ensure the object does not already exist
             if str(record.id) in os.listdir(fullpath):
