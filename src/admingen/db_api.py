@@ -35,9 +35,6 @@ class ColumnDetails:
 def mkColumnDetails(t: Any, *args):
     if t == 'self':
         return int
-    # Catch foreign references
-    if is_dataclass(t):
-        return int
     return t
 
 

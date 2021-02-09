@@ -230,6 +230,8 @@ for database, tables in data_models.items():
                 t = "formatted_date('%Y-%m-%d')"
             elif t == 'time':
                 t = 'time.fromisoformat'
+            elif t == 'longstr':
+                t = 'str'
             elif t in the_tables:
                 t = t
             elif t in enum_defs:
