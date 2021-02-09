@@ -2,7 +2,7 @@
 import logging
 import os.path
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass
 from typing import Tuple
 from urllib.parse import urlparse
 from typing import Any
@@ -35,8 +35,10 @@ class ColumnDetails:
 def mkColumnDetails(t: Any, *args):
     if t == 'self':
         return int
-    # FIXME: I need implementing!
-    return str
+    # Catch foreign references
+    if is_dataclass(t):
+        return int
+    return t
 
 
 @dataclass

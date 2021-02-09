@@ -363,6 +363,13 @@ class DataContext:
         the_query = ''.join(f'"{a}"+{b}+' for a, b in zip(parts, parameter_urls)) + '"' + parts[
             -1] + '"'
         return the_query
+
+    @staticmethod
+    def getHidden(datasource):
+        source, table = datasource.split('.')
+        table_data = data_models[source][table]
+        result = ['id'] + [k for k, v in table_data.items() if any('protected' in i for i in v)]
+        return ','.join(result)
     
 
 def read_argument_lines(line, istream):

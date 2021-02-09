@@ -150,7 +150,7 @@ def mydataclass(cls):
     def __json__(self):
         return asdict(self)
 
-    def my_setattr(self, atrr, value):
+    def my_setattr(self, attr, value):
         constructor = cls.__annotations__[attr]
         v = constructor(value)
         self.__dict__[attr] = v
@@ -221,17 +221,34 @@ for database, tables in data_models.items():
             # Skip any private or protected items.
             if name.startswith('_'):
                 continue
-            cld = ', '.join(details)
+            t = details[0]
+            if t == k:
+                t = '"self"'
+            elif t == 'datetime':
+                t = "formatted_date('%d-%m-%Y %H:%M:%S')"
+            elif t == 'date':
+                t = "formatted_date('%Y-%m-%d')"
+            elif t == 'time':
+                t = 'time.fromisoformat'
+            elif t in the_tables:
+                t = t
+            elif t in enum_defs:
+                t = t
+            elif t[0].isupper():
+                # This is a forward reference to an unknown entity...
+                t = f'"{t}"'
+            else:
+                pass
+
             if len(details) > 1:
-                cld = f'mkColumnDetails("{cld}")'
-            elif cld == k:
-                cld = 'int'
-            elif cld == 'datetime':
-                cld = "formatted_date('%d-%m-%Y %H:%M:%S')"
-            elif cld == 'date':
-                cld = "formatted_date('%Y-%m-%d')"
-            elif cld == 'time':
-                cld = 'time.fromisoformat'
+                options = ', '.join(details[1:])
+                cld = f'mkColumnDetails({t}, "{options}")'
+            else:
+                if t[0] == '"':
+                    cld = f'mkColumnDetails({t})'
+                else:
+                    cld = t
+
             cls.append(f'{name}: {cld}')
         c = class_template.format(name=k, class_lines='\n    '.join(cls))
         lines.append(c)
