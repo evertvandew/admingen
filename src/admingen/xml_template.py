@@ -219,7 +219,16 @@ class DataContext:
     def GetRefUrl(url):
         """ Process an URL. This has a LOT of overlap with the query URL... """
         # Currently, only replace {{ with '+ and }} with +'
-        return url.replace('{{', "'+").replace('}}', "+'")
+        parts = re.split(r'\{\{([^}]*)\}\}', url)
+
+        result = []
+        for regular, param in zip(parts[0:None:2], parts[1:None:2]):
+            if regular:
+                result.append(f'"{regular}"')
+            if param:
+                result.append(double_brace_specials[param[0]][0](param))
+
+        return '+'.join(result)
     
     
     @staticmethod

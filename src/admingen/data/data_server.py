@@ -203,7 +203,7 @@ def add_handlers(app, context):
         """ Flask handler for put requests """
         tablecls = table_classes[table]
         data = get_request_data()
-        return update_record(tablecls, index, the_db, data, flask.request.method == 'POST')
+        return update_record(tablecls, index, db, data, flask.request.method == 'POST')
 
     @app.route('/data/<path:table>/<int:index>', methods=['DELETE'])
     def delete_item(table, index):

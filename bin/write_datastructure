@@ -27,7 +27,32 @@ from enum import Enum
 from datetime import datetime, date, time
 from decimal import Decimal
 import copy
+import base64
 from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
+
+class fileblob:
+    """ A data structure that lets random binary data be stored in the database.
+        The data is stored in a base85 data structure.
+        Also the original file name and data length are stored in the structure.
+    """
+    def __init__(self, x=None):
+        if x:
+            self.fname, length, data = x.split(',', maxsplit=2)
+            self.length = int(length)
+            self.data = base64.b64decode(data)
+        else:
+            self.fname = self.data = ''
+            self.length = 0
+    def __str__(self):
+        return ','.join([self.fname, str(self.length), base64.b64encode(self.data).decode('ascii')])
+    @staticmethod
+    def construct(fname, data):
+        blob = fileblob()
+        blob.fname = fname
+        blob.data = data
+        blob.length = len(data)
+        return blob
+        
 
 class enum_type:
     def __init__(self, name, options):
