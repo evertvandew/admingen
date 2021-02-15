@@ -54,6 +54,7 @@ TAG_CLOSE_MSG = '__TAG_CLOSE__'
 data_models = {}
 url_prefixes = {}
 table_acm = {}
+id_counter = 0
 
 def handle_Datamodel(args, lines):
     """ Analyse and store data model definitions """
@@ -222,17 +223,17 @@ class DataContext:
         parts = re.split(r'\{\{([^}]*)\}\}', url)
 
         result = []
-        for regular, param in zip(parts[0:None:2], parts[1:None:2]):
-            if regular:
-                result.append(f'"{regular}"')
-            if param:
+        for i, regular in enumerate(parts[0:None:2]):
+            result.append(f'"{regular}"')
+            if len(parts) > i*2+1:
+                param  = parts[i*2+1]
                 result.append(double_brace_specials[param[0]][0](param))
 
         return '+'.join(result)
     
     
     @staticmethod
-    def makeUrl(reference):
+    def makeUrl(reference, strip_quotes=True):
         """ Create an URL from a reference. This reference can be either an URL, or a
             reference to a database table.
         """
@@ -246,7 +247,10 @@ class DataContext:
             raise RuntimeError('Did not find the url base for database %s' % db_parts)
         
         # The reference is supposed to be a regular url.
-        return DataContext.GetRefUrl(reference)
+        result = DataContext.GetRefUrl(reference)
+        if strip_quotes:
+            result = result.strip('"')
+        return result
     
     
     @staticmethod
@@ -325,11 +329,15 @@ class DataContext:
                 # Also get the type of columns from other tables
                 if '.' in col:
 
-                    fk, c = col.split('.')
-                    for t in [details.table, *details.join_tables]:
-                        if fk in data_models[source][t]:
-                            ftable = data_models[source][t][fk][0]
-                            return data_models[source][ftable][c]
+                    *fks, c = col.split('.')
+                    # Find the starting object
+                    ftable = details.table
+                    for fk in fks:
+                        if fk in data_models[source]:
+                            ftable = fk
+                        else:
+                            ftable = data_models[source][ftable][fk][0]
+                    return data_models[source][ftable][c]
                 for t in [details.table, *details.join_tables]:
                     if col in data_models[source][t]:
                         return data_models[source][t][col]
@@ -337,7 +345,7 @@ class DataContext:
         
             details.column_types = [get_col_type(c) for c in details.column_names]
             
-            details.columns = zip(details.column_names, details.column_types)
+            details.columns = list(zip(details.column_names, details.column_types))
         return details
     
     @staticmethod
@@ -379,6 +387,12 @@ class DataContext:
         table_data = data_models[source][table]
         result = ['id'] + [k for k, v in table_data.items() if any('protected' in i for i in v)]
         return ','.join(result)
+
+    @staticmethod
+    def unique_id():
+        global id_counter
+        id_counter += 1
+        return f'unique{id_counter}'
     
 
 def read_argument_lines(line, istream):
@@ -581,7 +595,15 @@ slot_close_matcher = re.compile(r'</TemplateSlot>')
 def handle_Template(args, template_lines):
     tag = args['tag']
     kwargsdef = {}
+    gather_all = None
+    # Handle each argument
     for adef in args.get('args', '').split(','):
+        # Check if this is a catch-all argument
+        if adef.startswith('**'):
+            gather_all = adef[2:]
+            # No morer other arguments are allowed
+            break
+        # Determine if this argument has a default value
         parts = adef.split('=', maxsplit=1)
         if len(parts) > 1:
             kwargsdef[parts[0]] = eval(parts[1])
@@ -614,8 +636,14 @@ def handle_Template(args, template_lines):
     def expand_template(args, lines):
         expand_self = None
         arguments = kwargsdef.copy()
+        catch_all_args = {}
         for k, v in args.items():
-            arguments[k] = v
+            if k in kwargsdef or k == 'id':
+                arguments[k] = v
+            elif gather_all:
+                catch_all_args[k] = v
+            else:
+                raise RuntimeError(f"Assigning an undefined argument: {k}={v} in tag {tag}")
         if 'id' not in arguments:
             # 'id' is much used in HTML. Ensure it exists.
             arguments['id'] = None
@@ -648,10 +676,13 @@ def handle_Template(args, template_lines):
             rendered_slots = {name: slots_lines.get(name, '') for name in slots}
             if slots and not rendered_slots[slots[-1]]:
                 rendered_slots[slots[-1]] = default_lines
-            expand_self = io.StringIO(
-                template.render(nspace=DataContext(),
+            render_context = dict(nspace=DataContext(),
                                 **rendered_slots,
-                                **arguments))
+                                **arguments)
+            if gather_all:
+                render_context[gather_all] = catch_all_args
+            expand_self = io.StringIO(
+                template.render(**render_context))
         except:
             # Try to re-create the error using a proper file template
             # This will give a clearer error message.
@@ -660,8 +691,7 @@ def handle_Template(args, template_lines):
             import failed_template
             data = dict(callable=failed_template.render_body,
                         lines=lines,
-                        nspace=DataContext(),
-                        **arguments)
+                        **render_context)
             try:
                 _render(DefTemplate(template, failed_template.render_body),
                         failed_template.render_body,

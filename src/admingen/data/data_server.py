@@ -157,7 +157,7 @@ def add_handlers(app, context):
                 try:
                     return bool(eval(condition, filter_context, d))
                 except:
-                    logging.error(f"Error in evaluating {condition} with variables {d}")
+                    logging.exception(f"Error in evaluating {condition} with variables {d}")
                     raise
         
             condition = flask.request.args['filter']

@@ -158,6 +158,8 @@ def mydataclass(cls):
             v = data.get(k, None)
             if type(v) == t or v is None:
                 pass
+            elif v == 'null':
+                v = None
             elif t == time.fromisoformat and type(v) == time:
                 # Don't convert time fields that are already in the correct type.
                 pass
