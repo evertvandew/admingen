@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+""" render_word script
+
+Reads a Word document that contains ${<define>} tags.
+It reads definitions from stdin and from the command line to replace the tags with.
+
+A special tag exists: if a 'define' is rendered to an `img(path/to/image)` text,
+the tag is replaced by an image. Note that the template does NOT contain direct references
+to the file system, because the template is expected to be user input.
+
+The rendered file is either writen to standard output, or the file specified with the -o option.
+"""
+import re
+import uno
+from com.sun.star.awt import Size
+from pythonscript import ScriptContext
+import json
+import sys
+import os.path
+
+import argparse
+
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument('template', help="Word template to be rendered.")
+parser.add_argument('output', help="Location where the file is writen to.")
+
+
+def open_template(template):
+    local = uno.getComponentContext()
+    resolver = local.ServiceManager.createInstanceWithContext("com.sun.star.bridge.UnoUrlResolver", local)
+    context = resolver.resolve("uno:socket,host=localhost,port=8100;urp;StarOffice.ComponentContext")
+    desktop = context.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", context)
+
+    # Load document template
+    document = desktop.loadComponentFromURL("file:///home/ehwaal/projects/ondervrager/test.docx", "_blank", 0, ())
+    return document
+
+def insert_image(doc, found, img_path):
+    image = doc.createInstance( 'com.sun.star.drawing.GraphicObjectShape')
+    image.GraphicURL = f"file://{img_path}"
+    doc.Text.insertTextContent(found, image, 0)
+    image.setPropertyValue('AnchorType', 'AS_CHARACTER')
+    image.setSize(image.Graphic.Size100thMM)
+
+def render(doc, parameters):
+    # Search for the tags to be replaced.
+    search = doc.createSearchDescriptor()
+    search.SearchString = r"\$\{[^}]*\}"
+    search.SearchRegularExpression = True
+
+    found = doc.findFirst(search)
+    while found:
+        print("Found:", found.String)
+        # Get the wrapped tag, removing the ${} wrapper
+        tag = found.String[2:-1]
+
+        replacement = parameters
+        for a in tag.split('.'):
+            replacement = replacement.get(a, {})
+        replacement = replacement or ''
+
+        if m := re.match(r'img\(([^)]*)\)', replacement):
+            fname = m.groups()[0]
+            print("Rendering image", fname)
+            insert_image(doc, found, fname)
+            found.String = ''
+        elif replacement:
+            found.String = replacement
+
+        # Find the next instance, if any.
+        found = doc.findNext(found.End, search)
+
+
+def run(args):
+    """ Get the parameters, the open the template, render it and write to the output. """
+    parameters = json.load(sys.stdin)
+    doc = open_template(args.template)
+    render(doc, parameters)
+
+    # Store the rendered file
+    doc.storeToURL(f'file://{os.path.abspath(args.output)}', [])
+    # Also store a PDF version for customers to download
+    pdffile = os.path.abspath(os.path.splitext(args.output)[0] + '.pdf')
+    doc.storeToURL(f'file://{pdffile}', [])
+
+
+if __name__ == '__main__':
+    args = parser.parse_args()
+    run(args)
