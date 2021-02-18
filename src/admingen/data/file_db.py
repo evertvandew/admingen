@@ -181,7 +181,7 @@ class FileDatabase:
             if v is None or (isinstance(v, str) and v in ['None', 'null', '']):
                 value = None
             else:
-                if type(v) != data.__annotations__[k]:
+                if not v or type(v) != data.__annotations__[k]:
                     value = data.__annotations__[k](v)
                 else:
                     value = v

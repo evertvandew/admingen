@@ -265,7 +265,8 @@ def serialiseDataclass_old(data):
 def deserialiseDataclass(cls, s):
     """ Read the dataclass from a JSON string """
     ddict = json.loads(s)
-    result = cls(**{k: (None if ddict[k] in [None, 'None', ''] else t(ddict[k])) for k, t in cls.__annotations__.items()})
+    result = cls(**{k: (None if ddict[k] in [None, 'None', ''] else t(ddict[k])) for k, t in cls.__annotations__.items()
+                    if k in ddict})
     return result
 
 def serialiseDataclasses(data):

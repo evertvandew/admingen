@@ -74,11 +74,19 @@ def render(doc, parameters):
 def run(args):
     """ Get the parameters, the open the template, render it and write to the output. """
     parameters = json.load(sys.stdin)
-    doc = open_template(args.template)
+    input = os.path.abspath(args.template)
+    output = os.path.abspath(args.output)
+
+    assert os.path.exists(input)
+
+    doc = open_template(input)
     render(doc, parameters)
 
+    print(f"Rendered {input}")
+
     # Store the rendered file
-    doc.storeToURL(f'file://{os.path.abspath(args.output)}', [])
+    doc.storeToURL(f'file://{output}', [])
+    print(f"Writen to {output}")
     # Also store a PDF version for customers to download
     pdffile = os.path.abspath(os.path.splitext(args.output)[0] + '.pdf')
     doc.storeToURL(f'file://{pdffile}', [])
