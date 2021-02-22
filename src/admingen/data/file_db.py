@@ -155,7 +155,7 @@ class FileDatabase:
             dest_file.write(data_str)
         return record
 
-    def update(self, table, record=None):
+    def update(self, table, record=None, checker=None):
         """ Update the values in an existing record.
             The record is identified by id, which can not be changed.
             Only the values in the record are updated (apart from id).
@@ -172,6 +172,10 @@ class FileDatabase:
 
         # Make an initial data object for merging old and new data
         data = deserialiseDataclass(table, open(fullpath).read())
+
+        if checker:
+            if not checker(record, data):
+                return
 
         # Update with the new data
         for k, v in record.items():

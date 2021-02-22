@@ -142,7 +142,10 @@ def add_handlers(app, context):
             fks = tablecls.get_fks()
             for record in data:
                 for key, t in fks.items():
-                    referenced = db.get(t, getattr(record, key))
+                    foreign_key = getattr(record, key)
+                    if not isinstance(foreign_key, int):
+                        continue
+                    referenced = db.get(t, foreign_key)
                     setattr(record, key, referenced)
         # First perform any joins
         if 'join' in flask.request.args:
