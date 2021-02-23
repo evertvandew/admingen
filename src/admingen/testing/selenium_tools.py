@@ -1,4 +1,4 @@
-""" A collection of usefull tools for testing with selenium, """
+""" A collection of tools for testing with selenium, """
 
 from selenium import webdriver
 import unittest
@@ -8,8 +8,6 @@ import os.path
 import time
 
 server = 'http://localhost:5000'
-db_path = '../data'
-
 
 def ensure_login(name, password):
     """ A decorator that checks a specific user is logged in before
@@ -26,16 +24,14 @@ def ensure_login(name, password):
     return wrapper
 
 
-
-class SeleniumTestCase(unittest.TestCase):
-    @classmethod
+class SeleniumPlugin:
     def setUpClass(cls) -> None:
         cls.driver = webdriver.Firefox()
+        cls.driver.implicitly_wait(2)
         # Ensure there is no login tokens lurking around...
         cls.driver.get(f"{server}/logout")
         cls.to_delete = []
 
-    @classmethod
     def tearDownClass(cls) -> None:
         cls.driver.close()
         for f in cls.to_delete:
@@ -99,5 +95,7 @@ class SeleniumTestCase(unittest.TestCase):
         w = self.get_element(key)
         w.click()
 
-
+    def get(self, rel_url):
+        """ Direct the driver to get a location relative to our test server. """
+        self.driver.get(f'{server}/{rel_url}')
 
