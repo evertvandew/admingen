@@ -44,7 +44,7 @@ generators.update(
     PageContextValue=Tag('PageContextValue', handle_PageContextValue),
     QueryAcm=Tag('QueryAcm', handle_QueryAcm)
 )
-_ = processor(generators, istream=args.input)
+_ = processor(generators, istream=args.input, ostream=open('/dev/null', 'w'))
 
 # Add the ACM details for accessing the data tables
 for db, db_details in data_models.items():
@@ -53,5 +53,5 @@ for db, db_details in data_models.items():
             acm['data/%s'%table] = table_acm[table]
 
 # Write the ACM table
-with open('acm_table.json', 'w') as out:
-    json.dump(acm, out, indent=4, sort_keys=True)
+for k, v in acm.items():
+    print(f'{k}:{v}')

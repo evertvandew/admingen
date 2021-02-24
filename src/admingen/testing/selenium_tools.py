@@ -15,6 +15,7 @@ def ensure_login(name, password):
     """
     def wrapper(func):
         def doIt(self):
+            self.get('')
             token = self.driver.get_cookie('token_data')
             uname = self.driver.get_cookie('user_name')
             if not token or uname != name:
