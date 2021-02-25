@@ -40,7 +40,7 @@ page_template = Template("""<!DOCTYPE html>
         </button>
       </div>
       <div class="modal-body">
-        <p>Weet je het zeker?</p>
+        <p id="error-reporter">Weet je het zeker?</p>
       </div>
       <div class="modal-footer">
         <button id="ackDeleteYes" type="button" class="btn btn-primary">Yes</button>
