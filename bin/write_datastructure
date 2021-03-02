@@ -52,7 +52,8 @@ class fileblob:
         blob.data = data
         blob.length = len(data)
         return blob
-        
+
+image = fileblob
 
 class enum_type:
     def __init__(self, name, options):
