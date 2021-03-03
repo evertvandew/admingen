@@ -269,13 +269,15 @@ def delete(path):
     else:
         os.remove(fullpath)
         return flask.make_response('', 204)
-    
+
+
 def add_handlers(app):
     getter = app.route('/<path:path>', methods=['GET', 'HEAD'])(get)
     app.route('/', defaults={'path': ''}, methods=['GET', 'HEAD'])(getter)
     if debug_mode:
         app.route('/<path:path>', methods=['PUT', 'POST'])(put)
         app.route('/<path:path>', methods=['DELETE'])(delete)
+
 
 
 def testjoin():

@@ -36,9 +36,10 @@ set_root(root_path)
 
 app = flask.Flask(__name__)
 
-add_handlers(app)
 
 context = {}
+
+add_handlers(app)
 
 if args.datamodel:
     mod_name = os.path.basename(args.datamodel).split('.')[0]

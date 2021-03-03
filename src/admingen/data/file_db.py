@@ -105,7 +105,21 @@ class FileDatabase:
         self.path = path
         self.tables = tables
         self.create()
-    
+        self.hooks = {}
+
+    def data_hook(self, table):
+        """ Decorator that defines a hook for updates on data of a specific type.
+        """
+        def add_hook(hook):
+            hooks = self.hooks.setdefault(table.__name__, [])
+            hooks.append(hook)
+            return hook
+        return add_hook
+
+    def call_hooks(self, table, action, record):
+        for hook in self.hooks.get(table.__name__, []):
+            hook(action, record)
+
     def create(self):
         path = self.path
         if not os.path.exists(path):
@@ -146,6 +160,7 @@ class FileDatabase:
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
+        self.call_hooks(type(record), 'add', record)
         return record
     
     def set(self, record):
@@ -153,6 +168,7 @@ class FileDatabase:
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
+        self.call_hooks(type(record), 'update', record)
         return record
 
     def update(self, table, record=None, checker=None):
@@ -195,6 +211,7 @@ class FileDatabase:
         data_str = serialiseDataclass(data)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
+        self.call_hooks(table, 'update', data)
         return data
             
     def delete(self, table, index):
@@ -209,6 +226,8 @@ class FileDatabase:
             os.mkdir(ad)
         newpath = f"{ad}/index"
         os.rename(fullpath, newpath)
+        self.call_hooks(table, 'delete', index)
+
 
     def get(self, table, index):
         """ Retrieve a record identified by table name and index.
