@@ -235,6 +235,8 @@ class FileDatabase:
             arguments.
             With this method, you can also retrieve archived records.
         """
+        if not index:
+            return None
         fullpath = f"{self.path}/{table.__name__}/{index}"
         if not os.path.exists(fullpath):
             # See if that object was archived.
@@ -243,8 +245,12 @@ class FileDatabase:
                 raise(UnknownRecord())
         data = open(fullpath).read()
         return deserialiseDataclass(table, data)
+
+    def get_many(self, table, indices):
+        """ Retrieve a (large) set of records at once. There are returned as a list. """
+        return [self.get(table, i) for i in indices]
     
-    def query(self, table, filter=None, join=None, sort=None, limit=None):
+    def query(self, table, filter=None, join=None, resolve_fk=None, sort=None, limit=None):
         """ A simple query function that uses in-memory filtering.
             A join can be defined by supplying a tuple with a Table name and
             a lambda function expecting two arguments that returns True if they match.
@@ -258,6 +264,14 @@ class FileDatabase:
         entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
         data = [open(os.path.join(fullpath, str(e))).read() for e in entries]
         records = [deserialiseDataclass(table, s) for s in data]
+
+        if resolve_fk:
+            for member, ftable in table.get_fks().items():
+                ids = [getattr(r, member) for r in records]
+                ids_set = list(set(ids))
+                foreigns = {(r and r.id): r for i, r in zip(ids_set, self.get_many(ftable, ids_set))}
+                for r, i in zip(records, ids):
+                    setattr(r, member, foreigns[i])
 
         if join:
             b_records = self.query(join[0])

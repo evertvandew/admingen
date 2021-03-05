@@ -132,21 +132,14 @@ def add_handlers(app, context):
         if not table:
             return
         tablecls = table_classes[table]
-        data = db.query(tablecls)
+        details = {
+            'resolve_fk': 'resolve_fk' in flask.request.args
+        }
+        data = db.query(tablecls, **details)
         # For the User class, replace the password with asterixes.
         if table == 'User':
             for d in data:
                 d.password = '****'
-        # Check if the foreignkeys need to be resolved
-        if 'resolve_fk' in flask.request.args:
-            fks = tablecls.get_fks()
-            for record in data:
-                for key, t in fks.items():
-                    foreign_key = getattr(record, key)
-                    if not isinstance(foreign_key, int):
-                        continue
-                    referenced = db.get(t, foreign_key)
-                    setattr(record, key, referenced)
         # First perform any joins
         if 'join' in flask.request.args:
             other_table, condition = flask.request.args['join'].split(',', maxsplit=1)
