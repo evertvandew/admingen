@@ -269,6 +269,8 @@ for database, tables in data_models.items():
                 t = 'str'
             elif t in the_tables:
                 t = t
+            elif t == 'Color':
+                t = 'str'
             elif t in enum_defs:
                 t = t
             elif t[0].isupper():
