@@ -29,3 +29,7 @@ A number of nuggets are defined:
 For now, `admingen` is used as a git submodule. The `src` directory should be put in the `PYTHONPATH`, and the tools
 are located in the `bin` directory. When mature, it can be installed as a regular Python module.
 
+## Deployment
+The easiest way to deploy an admingen application is to link using git remote. If doing that, the actual project and
+the admingen module need to have the remote added separately.
+
