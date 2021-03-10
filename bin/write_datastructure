@@ -52,6 +52,10 @@ class fileblob:
             self.length = 0
     def __str__(self):
         return ','.join([self.fname, str(self.length), self.mime_type, base64.b64encode(self.data).decode('ascii')])
+    def __hash__(self):
+        return hash(self.data)
+    def __eq__(self, other):
+        return hash(self.data) == hash(other.data)
     @staticmethod
     def construct(fname, data):
         blob = fileblob()

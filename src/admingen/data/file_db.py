@@ -246,9 +246,15 @@ class FileDatabase:
         data = open(fullpath).read()
         return deserialiseDataclass(table, data)
 
-    def get_many(self, table, indices):
-        """ Retrieve a (large) set of records at once. There are returned as a list. """
-        return [self.get(table, i) for i in indices]
+    def get_many(self, table, indices=None):
+        """ Retrieve a (large) set of records at once. There are returned as a list.
+            If indices is not specified, empty or None, ALL records from the table are read.
+        """
+        indices = indices or [int(f) for f in os.listdir(f"{self.path}/{table.__name__}") if f.isnumeric()]
+        records = [self.get(table, i) for i in indices]
+        records = [r for r in records if r]
+        return records
+
     
     def query(self, table, filter=None, join=None, resolve_fk=None, sort=None, limit=None):
         """ A simple query function that uses in-memory filtering.
@@ -258,12 +264,8 @@ class FileDatabase:
             A filter can be supplied as a lambda function that receives
             a record as argument.
         """
-        fullpath = f"{self.path}/{table.__name__}"
-        
         # We need to make an object of the whole contents of a directory
-        entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
-        data = [open(os.path.join(fullpath, str(e))).read() for e in entries]
-        records = [deserialiseDataclass(table, s) for s in data]
+        records = self.get_many(table)
 
         if resolve_fk:
             for member, ftable in table.get_fks().items():
@@ -271,7 +273,7 @@ class FileDatabase:
                 ids_set = list(set(ids))
                 foreigns = {(r and r.id): r for i, r in zip(ids_set, self.get_many(ftable, ids_set))}
                 for r, i in zip(records, ids):
-                    setattr(r, member, foreigns[i])
+                    setattr(r, member, foreigns.get(i, None))
 
         if join:
             b_records = self.query(join[0])

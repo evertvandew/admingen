@@ -37,7 +37,7 @@ def ensure_prerequisites(records):
 
             # The pre-requisites have been created. Run the test function.
             try:
-                func(self)
+                 func(self)
             finally:
                 # Now delete the objects that were created.
                 self.db_restore(db_state)
