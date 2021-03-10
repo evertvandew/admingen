@@ -47,7 +47,8 @@ class fileblob:
             self.length = int(length)
             self.data = base64.b64decode(data)
         else:
-            self.fname = self.data = ''
+            self.fname = self.mime_type = ''
+            self.data = b''
             self.length = 0
     def __str__(self):
         return ','.join([self.fname, str(self.length), self.mime_type, base64.b64encode(self.data).decode('ascii')])
