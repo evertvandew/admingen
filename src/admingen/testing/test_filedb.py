@@ -71,6 +71,7 @@ class FiledbTestPlugin:
                     continue
                 with open(fname) as f:
                     data = f.read()
+                    print('FNAME:', fname)
                     state.append(deserialiseDataclass(data_classes[table], data))
         return state
 

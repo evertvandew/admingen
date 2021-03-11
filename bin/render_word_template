@@ -11,7 +11,11 @@ to the file system, because the template is expected to be user input.
 The rendered file is either writen to standard output, or the file specified with the -o option.
 """
 import re
-import uno
+try:
+    import uno
+except:
+    raise RuntimeError("Please link the files /usr/lib/python3/dist-packages/uno.py en /usr/lib/python3/dist-packages/unohelper.py into the venv.")
+
 from com.sun.star.awt import Size
 from pythonscript import ScriptContext
 import json
@@ -56,7 +60,10 @@ def render(doc, parameters):
 
         replacement = parameters
         for a in tag.split('.'):
-            replacement = replacement.get(a, {})
+            if isinstance(a, dict):
+                replacement = replacement.get(a, {})
+            else:
+                replacement = getattr(replacement, a, {})
         replacement = replacement or ''
 
         if m := re.match(r'img\(([^)]*)\)', replacement):
