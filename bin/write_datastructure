@@ -161,9 +161,16 @@ def mydataclass(cls):
     """
     # All tables must have a primary key field.
     if 'id' not in cls.__annotations__:
-        cls.__annotations__['id'] = int
+        cls.__annotations__['id'] = cls
+
+    # Replace any 'self' annotations with cls.
+    for k in cls.__annotations__.keys():
+        t = cls.__annotations__[k]
+        if isinstance(t, str) and t == 'self':
+            cls.__annotations__[k] = cls
     
     original_annotations = copy.copy(cls.__annotations__)
+    cls.__original_annotations = original_annotations
 
     def __init__(self, *args, **kwargs):
         data = dict(zip(cls.__annotations__, args))

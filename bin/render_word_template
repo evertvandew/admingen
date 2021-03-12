@@ -99,6 +99,7 @@ def run(args):
     # Also store a PDF version for customers to download
     pdffile = os.path.abspath(os.path.splitext(args.output)[0] + '.pdf')
     doc.storeToURL(f'file://{pdffile}', [])
+    doc.close(False)
 
 
 if __name__ == '__main__':
