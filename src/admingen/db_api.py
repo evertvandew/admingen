@@ -33,8 +33,6 @@ class ColumnDetails:
     default: Any
 
 def mkColumnDetails(t: Any, *args):
-    if t == 'self':
-        return int
     return t
 
 

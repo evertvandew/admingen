@@ -27,6 +27,8 @@ import argparse
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument('template', help="Word template to be rendered.")
 parser.add_argument('output', help="Location where the file is writen to.")
+parser.add_argument('--details', '-d', help="File containing details to be filled into the template. Default: stdin",
+                    default=None)
 
 
 def open_template(template):
@@ -36,7 +38,7 @@ def open_template(template):
     desktop = context.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", context)
 
     # Load document template
-    document = desktop.loadComponentFromURL("file:///home/ehwaal/projects/ondervrager/test.docx", "_blank", 0, ())
+    document = desktop.loadComponentFromURL(f"file://{template}", "_blank", 0, ())
     return document
 
 def insert_image(doc, found, img_path):
@@ -60,18 +62,18 @@ def render(doc, parameters):
 
         replacement = parameters
         for a in tag.split('.'):
-            if isinstance(a, dict):
+            if isinstance(replacement, dict):
                 replacement = replacement.get(a, {})
             else:
                 replacement = getattr(replacement, a, {})
         replacement = replacement or ''
 
-        if m := re.match(r'img\(([^)]*)\)', replacement):
-            fname = m.groups()[0]
+        if isinstance(replacement, str) and replacement.startswith('img(') and replacement[-1] == ')':
+            fname = replacement[4:-1]
             print("Rendering image", fname)
             insert_image(doc, found, fname)
             found.String = ''
-        elif replacement:
+        else:
             found.String = replacement
 
         # Find the next instance, if any.
@@ -80,7 +82,7 @@ def render(doc, parameters):
 
 def run(args):
     """ Get the parameters, the open the template, render it and write to the output. """
-    parameters = json.load(sys.stdin)
+    parameters = json.load(args.details)
     input = os.path.abspath(args.template)
     output = os.path.abspath(args.output)
 
@@ -101,4 +103,5 @@ def run(args):
 
 if __name__ == '__main__':
     args = parser.parse_args()
+    args.details = open(args.details) if args.details else sys.stdin
     run(args)
