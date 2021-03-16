@@ -11,6 +11,7 @@ This module defines a simple class that is the API to this database.
 """
 
 import os, os.path
+import enum
 import json
 import operator
 import shutil
@@ -100,12 +101,14 @@ def do_leftjoin(tabl1, tabl2, data1, data2, condition):
 
 
 class FileDatabase:
+    actions = enum.Enum('actions', 'add update delete')
     def __init__(self, path, tables):
         self.archive_dir = 'archived'
         self.path = path
         self.tables = tables
         self.create()
         self.hooks = {}
+        self.active_hooks = set()
 
     def data_hook(self, table):
         """ Decorator that defines a hook for updates on data of a specific type.
@@ -117,8 +120,14 @@ class FileDatabase:
         return add_hook
 
     def call_hooks(self, table, action, record):
+        # Call the hooks, but make sure there is no recursion.
         for hook in self.hooks.get(table.__name__, []):
-            hook(action, record)
+            if hook not in self.active_hooks:
+                self.active_hooks.add(hook)
+                try:
+                    hook(action, record)
+                finally:
+                    self.active_hooks.remove(hook)
 
     def create(self):
         path = self.path
@@ -160,7 +169,7 @@ class FileDatabase:
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
-        self.call_hooks(type(record), 'add', record)
+        self.call_hooks(type(record), self.actions.add, record)
         return record
     
     def set(self, record):
@@ -168,7 +177,7 @@ class FileDatabase:
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
-        self.call_hooks(type(record), 'update', record)
+        self.call_hooks(type(record), self.actions.update, record)
         return record
 
     def update(self, table, record=None, checker=None):
@@ -211,7 +220,7 @@ class FileDatabase:
         data_str = serialiseDataclass(data)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
-        self.call_hooks(table, 'update', data)
+        self.call_hooks(table, self.actions.update, data)
         return data
             
     def delete(self, table, index):
@@ -226,7 +235,7 @@ class FileDatabase:
             os.mkdir(ad)
         newpath = f"{ad}/index"
         os.rename(fullpath, newpath)
-        self.call_hooks(table, 'delete', index)
+        self.call_hooks(table, self.actions.delete, index)
 
 
     def get(self, table, index):

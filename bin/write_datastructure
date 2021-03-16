@@ -237,7 +237,7 @@ class email(str): pass
 class longstr(str): pass
 class password(str): pass
 class phone(str): pass
-
+class Order(int): pass
 
 # The actual data model.
 {model_lines}
