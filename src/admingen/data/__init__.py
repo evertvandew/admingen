@@ -246,7 +246,7 @@ class ExtendibleJsonEncoder(json.JSONEncoder):
             * For other objects, the str() protocol is used, i.e. the __str__ method is called.
         """
         if is_dataclass(o):
-            result = asdict(o)
+            result = o.__dict__
             return result
         if hasattr(o, '__json__'):
             return o.__json__()
