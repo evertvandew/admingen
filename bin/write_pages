@@ -49,7 +49,45 @@ page_template = Template("""<!DOCTYPE html>
     </div>
   </div>
 </div>
+<div id="notification" class="modal" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"></h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <i id="notification_icon" style="font-size:30pt;width:2em"></i><span id="notification_message">Weet je het zeker?</span>
+      </div>
+      <div class="modal-footer">
+        <button id="ack" type="button" class="btn btn-secondary" data-dismiss="modal">Ok</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
+    function show_info(msg) {
+        let icon = $("i[id='notification_icon']")[0];
+        icon.className = "";
+        icon.classList.add('fa');
+        icon.classList.add('fa-info-circle');
+        icon.style.color = "#0050B6";
+        $("#notification_message")[0].innerHTML = msg;
+        $("div[id='notification']").modal('show');
+        $("#notification").find(".modal-title")[0].innerHTML = "Kennisgeving";
+    }
+    function show_error(msg) {
+        let icon = $("i[id='notification_icon']")[0];
+        icon.className = "";
+        icon.classList.add('fa');
+        icon.classList.add('fa-exclamation-circle');
+        icon.style.color = "#D73A2B";
+        $("#notification_message")[0].innerHTML = msg;
+        $("div[id='notification']").modal('show');
+        $("#notification").find(".modal-title")[0].innerHTML = "Foutmelding";
+    }
     function getCookie(name) {
         var nameEQ = name + "=";
         var ca = document.cookie.split(';');
