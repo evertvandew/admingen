@@ -10,11 +10,13 @@ import logging
 import re
 import codecs
 import bcrypt
+import os.path
 from admingen.util import isoweekno2day
 from yaml import load, dump
 from collections.abc import Mapping
 from typing import Dict
 from dataclasses import is_dataclass, asdict
+from .db_api import db_api
 
 import json
 try:
@@ -146,7 +148,7 @@ def password2str(value):
     if isinstance(value, str):
         value = value.encode('utf-8')
     salt = bcrypt.gensalt()
-    hash = bcrypt.hashpw(value, salt).decode('utf-8')
+    hash = bcrypt.hashpw(value, salt)
     return hash
 
 def checkpasswd(clear, hashed):
@@ -530,3 +532,75 @@ def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defin
         result = script(**data)
 
     dump(result, outstream)
+
+
+class CsvDb(db_api):
+    def __init__(self, fname, delimiter=','):
+        self.filename = fname
+        self.delimiter = delimiter
+        with open(fname) as inp:
+            self.data = CsvReader(inp, delimiter)
+
+    def __del__(self):
+        """ Save the database """
+        self.save()
+
+    def get(self, table, index):
+        return table[index]
+
+    def add(self, table, record=None):
+        if not record:
+            record = table
+            table = type(table).__name__
+        current = max(self.data[table].keys())
+        record.id = current+1
+        self.data[table][record.id] = record
+        return record
+
+    def set(self, record):
+        table = type(record).__name__
+        self.data[table][record.id] = record
+
+    def update(self, record):
+        table = type(record).__name__
+        current = self.get(table, record.id)
+        for k, v in record.items():
+            setattr(current, k, v)
+        self.set(current)
+
+    def delete(self, table, index):
+        del self.data[table][index]
+
+    def save(self):
+        with open(self.filename, 'w') as out:
+            CsvWriter(out, self.data, self.delimiter)
+
+
+class SplitCsvDb(db_api):
+    """ Split databases in separate files. The user supplies a predicate to select
+        the right database file.
+    """
+    def __init__(self, predicate, delimiter=',', directory='data/csv_db'):
+        self.dbs = {}
+        self.predicate = predicate
+        self.directory = directory
+        self.delimiter = delimiter
+
+    def get_db(self):
+        fname = self.predicate()
+        if fname not in self.dbs:
+            self.dbs[fname] = CsvDb(os.path.join(self.directory, fname), self.delimiter)
+        return self.dbs[fname]
+
+    def get(self, *args):
+        return self.get_db().get(*args)
+    def add(self, *args):
+        return self.get_db().add(*args)
+    def set(self, *args):
+        return self.get_db().set(*args)
+    def update(self, *args):
+        return self.get_db().update(*args)
+    def delete(self, *args):
+        return self.get_db().delete(*args)
+    def save(self, *args):
+        return self.get_db().save(*args)
