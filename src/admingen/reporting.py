@@ -6,8 +6,6 @@ from subprocess import call
 import typing
 from jinja2 import Environment
 from babel.numbers import format_currency
-from .parsers import fsm_model
-from .dbengine import createDbModel
 import yaml
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
@@ -56,19 +54,6 @@ def render(template, fname, export_type='pdf', **kwargs):
 
         # Use libreoffice to make a PDF version of the text, and store it permanently
         call([soffice, '--convert-to', export_type, fname, '--headless'])
-
-
-def run(db_url, model_url, query, template_url, output_url):
-    """ Generate a report """
-    # Read and parse the model
-    ast = fsm_model.parse(readUrl(model_url))
-    db, db_model = createDbModel(ast['tables'], [])
-
-    # Connect to the database
-    # Perform the query
-    # Read the template
-    # Substitute the query element
-    # Write to the output
 
 def render_stream(instream: typing.TextIO, tmplstream: typing.TextIO, outstream: typing.TextIO):
     data = yaml.load(instream, Loader=yaml.UnsafeLoader)
