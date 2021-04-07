@@ -546,7 +546,13 @@ class CsvDb(db_api):
         self.save()
 
     def get(self, table, index):
-        return table[index]
+        return self.data[table][index]
+
+    def get_many(self, table, indices=None):
+        indices = indices or list(self.data[table.__name__].keys())
+        records = [self.get(table, i) for i in indices]
+        records = [r for r in records if r]
+        return records
 
     def add(self, table, record=None):
         if not record:
@@ -594,6 +600,8 @@ class SplitCsvDb(db_api):
 
     def get(self, *args):
         return self.get_db().get(*args)
+    def get_many(self, *args):
+        return self.get_db().get_many(*args)
     def add(self, *args):
         return self.get_db().add(*args)
     def set(self, *args):

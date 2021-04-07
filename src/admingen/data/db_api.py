@@ -38,10 +38,7 @@ class db_api:
         """ Retrieve a (large) set of records at once. There are returned as a list.
             If indices is not specified, empty or None, ALL records from the table are read.
         """
-        indices = indices or [int(f) for f in os.listdir(f"{self.path}/{table.__name__}") if f.isnumeric()]
-        records = [self.get(table, i) for i in indices]
-        records = [r for r in records if r]
-        return records
+        raise NotImplementedError()
 
     def query(self, table, filter=None, join=None, resolve_fk=None, sort=None, limit=None):
         """ A simple query function that uses in-memory filtering.

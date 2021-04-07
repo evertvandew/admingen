@@ -21,6 +21,10 @@ the_db = None
 logging.getLogger().setLevel(logging.DEBUG)
 
 
+# The name with which the current role of the user is stored in the cookie.
+rolename_name = 'role_name'
+
+
 class NotAuthorized(RuntimeError): pass
 
 
@@ -33,7 +37,7 @@ class auth_results(enum.Enum):
 class ACM:
     secret = b'Mooi test dit maar goed'
 
-    def __init__(self, role_hierarchy='administrator editor user', data_fields='bedrijf klant'):
+    def __init__(self, role_hierarchy='administrator editor user', data_fields='bedrijf klant', testmode=False):
         """ Configure the ACM system with a hierarchy.
             The first role is the administration role, and has unlimited access.
             The other roles only have access to data containing the associated data_fields.
@@ -44,6 +48,10 @@ class ACM:
         token_name = 'token_data'
         rolename_name = 'role_name'
         username_name = 'user_name'
+
+        self.testmode = testmode
+        if testmode:
+            print("RUNNING WITH ACM DISABLED -- not for production!")
 
         self.max_age = 2 * 365 * 24 * 60 * 60  # in seconds
         self.refresh_by = 20  # in seconds
@@ -60,6 +68,10 @@ class ACM:
         self.acm_table = {}                  # path:roles pairs
         self.parameterized_acm_table = {}    # [path parts]: roles pairs
         self.par_acm_matchers = []           # (matcher, roles) pairs
+
+    @staticmethod
+    def get_user_role():
+        return flask.request.cookies.get(rolename_name, '')
 
     def roles(self, route, auth):
         """ Function that marks a specific route as having a specific authorization.
@@ -104,6 +116,9 @@ class ACM:
 
     def check_authentication(self):
         """ Check the authentication details submitted by the user. """
+        if self.testmode:
+            return True
+
         token = flask.request.cookies.get(self.token_name, '')
         if not token:
             # The user has not been authenticated
@@ -136,6 +151,8 @@ class ACM:
 
     def check_acm(self) -> auth_results:
         """ Check if the current user is authorized according to the table. """
+        if self.testmode:
+            return True
         path = flask.request.path.strip('/')
         action = flask.request.method
 
@@ -227,7 +244,7 @@ class ACM:
         for user in read_records('data/User', cls=data_model.User, raw=True):
             if user.login == username:
                 p = user.password.encode('utf8')
-                if checkpasswd(password, p):
+                if self.testmode or checkpasswd(password, p):
                     return user
         return None
 
@@ -316,7 +333,7 @@ class ACM:
                     return []
                 # Now do fine-grained ACM using the company and user ids.
                 # Determine up to which level we need to do this.
-                role_index = parent.roles.index(parent.get_user_role)
+                role_index = parent.role_names.index(parent.get_user_role())
                 for i, field in enumerate(parent.data_fields):
                     # If the user has sufficient authority, we do not need to check the lower levels.
                     if i >= role_index:
@@ -479,21 +496,20 @@ class ACM:
             except NotAuthorized:
                 return "Not authorized", 403
 
-        app.route(roles('/logout', 'any'), methods=['GET'])(logout)
-        app.route(roles('/login', 'any'), methods=['PUT', 'POST'])(login_put)
-        app.route(roles('/update_password', 'administrator,editor,user'), methods=['PUT', 'POST'])(update_password)
+        app.route(self.roles('/logout', 'any'), methods=['GET'])(self.logout)
+        app.route(self.roles('/login', 'any'), methods=['PUT', 'POST'])(self.login_put)
+        app.route(self.roles('/update_password', 'administrator,editor,user'), methods=['PUT', 'POST'])(update_password)
         # We need a custom writer for the User record, to properly hash the password.
         app.route('/data/User', methods=['PUT', 'POST'])(add_user)
         app.route('/data/User/<int:index>', methods=['PUT', 'POST'])(update_user)
-        app.before_request(authorize)
+        app.before_request(self.authorize)
 
         # Ensure there is a user, if need be create a default administrator user
         # This is necessary to ensure the password is known and formatted correctly
         # In future, perhaps replace this with a script that is run during reployment.
-        ensure_login()
+        self.ensure_login()
 
         # Load the ACM table for the other elements
-        global acm_table, parameterized_acm_table
         with open('acm_table') as f:
             for line in f:
                 path, r = line.strip().split(':')
@@ -502,18 +518,17 @@ class ACM:
 
                 # For paths with wildcards, create a regular expression that matches it.
                 if '*' in path:
-                    parameterized_acm_table[path] = r
+                    self.parameterized_acm_table[path] = r
                 else:
-                    acm_table[path] = r
+                    self.acm_table[path] = r
                     # If there are keys that end in 'index.html', also add the '' alias.
                     if path.endswith('index.html'):
-                        acm_table[path[:-10]] = r
+                        self.acm_table[path[:-10]] = r
 
 
         # User the parameterized acm table to generate a set of regular expression matchers.
-        global par_acm_matchers
-        par_acm_matchers = [(re.compile(p.replace('*', '[^/]*')), r)
-            for p, r in parameterized_acm_table.items()
+        self.par_acm_matchers = [(re.compile(p.replace('*', '[^/]*')), r)
+            for p, r in self.parameterized_acm_table.items()
         ]
 
         the_db = context['the_db']

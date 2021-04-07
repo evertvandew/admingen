@@ -230,3 +230,9 @@ class FileDatabase(db_api):
                 raise(UnknownRecord())
         data = open(fullpath).read()
         return deserialiseDataclass(table, data)
+
+    def get_many(self, table, indices=None):
+        indices = indices or [int(f) for f in os.listdir(f"{self.path}/{table.__name__}") if f.isnumeric()]
+        records = [self.get(table, i) for i in indices]
+        records = [r for r in records if r]
+        return records

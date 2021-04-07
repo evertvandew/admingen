@@ -609,6 +609,14 @@ def handle_Template(args, template_lines):
             kwargsdef[parts[0]] = eval(parts[1])
         else:
             kwargsdef[parts[0]] = ''
+
+    argdetails = args.get('args', '')
+    argline = ''
+    if not "'" in argdetails:
+        argline = f"<%page args='{argdetails}' />"
+    elif not '"' in argdetails:
+        argline = f'<%page args="{argdetails}" />'
+
     
     # Find any slots and replace them with Mako references
     # Slots are expanded only during template expansion, not during template definition.
@@ -630,8 +638,15 @@ def handle_Template(args, template_lines):
         else:
             template_lines_2.append(line)
 
+    template_lines_2.insert(0, argline)
     template_lines_2 = '\n'.join(template_lines_2)
-    template = Template(template_lines_2)
+    try:
+        template = Template(template_lines_2)
+    except exceptions.SyntaxException as e:
+        print("Syntax error in template:", file=sys.stderr)
+        print(template_lines_2, file=sys.stderr)
+        raise
+
 
     def expand_template(args, lines):
         expand_self = None
