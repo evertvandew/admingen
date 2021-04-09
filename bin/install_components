@@ -38,7 +38,11 @@ def handle_Component(args, lines):
         shutil.rmtree(dirname)
     else:
         # The downloaded component is not an archive, store it directly.
-        shutil.copy(archive, target)
+        # Check that the user has not installed a simlink between the two files.
+        tf = op.join(target, op.basename(archive))
+        if not (op.exists(tf) and op.samefile(archive, tf)):
+            print("SAMEFILE CHECK:", archive, tf)
+            shutil.copy(archive, target)
     return ''
 
 

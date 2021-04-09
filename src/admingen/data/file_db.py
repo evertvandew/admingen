@@ -11,6 +11,7 @@ This module defines a simple class that is the API to this database.
 """
 
 import os, os.path
+import enum
 import shutil
 import functools
 from urllib.parse import unquote
@@ -83,12 +84,14 @@ def do_leftjoin(tabl1, tabl2, data1, data2, condition):
 
 
 class FileDatabase(db_api):
+    actions = enum.Enum('actions', 'add update delete')
     def __init__(self, path, tables):
         self.archive_dir = 'archived'
         self.path = path
         self.tables = tables
         self.create()
         self.hooks = {}
+        self.active_hooks = set()
 
     def data_hook(self, table):
         """ Decorator that defines a hook for updates on data of a specific type.
@@ -100,8 +103,14 @@ class FileDatabase(db_api):
         return add_hook
 
     def call_hooks(self, table, action, record):
+        # Call the hooks, but make sure there is no recursion.
         for hook in self.hooks.get(table.__name__, []):
-            hook(action, record)
+            if hook not in self.active_hooks:
+                self.active_hooks.add(hook)
+                try:
+                    hook(action, record)
+                finally:
+                    self.active_hooks.remove(hook)
 
     def create(self):
         path = self.path
@@ -146,7 +155,7 @@ class FileDatabase(db_api):
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
-        self.call_hooks(type(record), 'add', record)
+        self.call_hooks(type(record), self.actions.add, record)
         return record
     
     def set(self, record: Record) -> Record:
@@ -154,7 +163,7 @@ class FileDatabase(db_api):
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
-        self.call_hooks(type(record), 'update', record)
+        self.call_hooks(type(record), self.actions.update, record)
         return record
 
     def update(self, table: Union[Type[Record], dict], record: dict=None, checker: Callable[[Record, dict],bool]=None) -> None:
@@ -197,7 +206,7 @@ class FileDatabase(db_api):
         data_str = serialiseDataclass(data)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
-        self.call_hooks(table, 'update', data)
+        self.call_hooks(table, self.actions.update, data)
         return data
             
     def delete(self, table:Type[Record], index:int) -> None:
@@ -212,7 +221,7 @@ class FileDatabase(db_api):
             os.mkdir(ad)
         newpath = f"{ad}/index"
         os.rename(fullpath, newpath)
-        self.call_hooks(table, 'delete', index)
+        self.call_hooks(table, self.actions.delete, index)
 
 
     def get(self, table: Type[Record], index: int) -> Record:
@@ -233,6 +242,9 @@ class FileDatabase(db_api):
         return deserialiseDataclass(table, data)
 
     def get_many(self, table:Type[Record], indices:List[int]=None) -> List[Record]:
+        """ Retrieve a (large) set of records at once. There are returned as a list.
+            If indices is not specified, empty or None, ALL records from the table are read.
+        """
         indices = indices or [int(f) for f in os.listdir(f"{self.path}/{table.__name__}") if f.isnumeric()]
         records = [self.get(table, i) for i in indices]
         records = [r for r in records if r]

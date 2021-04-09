@@ -309,7 +309,7 @@ class password(str): pass
 class phone(str): pass
 class url(str): pass
 class path(str): pass
-
+class Order(int): pass
 
 # The actual data model.
 {model_lines}
