@@ -1,6 +1,7 @@
 
 
 import operator
+from typing import List, Type, Union, Callable
 
 
 # Define the operators that can be used in filter and join conditions
@@ -17,30 +18,39 @@ filter_context = {
     'ge': operator.ge
 }
 
+# A base class to be used in typeing.
+class Record: pass
+
 
 
 class db_api:
-    """ A simple API for a data base """
+    """ A simple API for a data base.
+        Also defines some algorithms that make use of the low-level functions,
+        but can be overwritten by classes that use e.g. SQL to implement these algorithms.
+    """
+    def get(self, table: Type[Record], index: int) -> Record:
+        raise NotImplementedError()
+    def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:
+        raise NotImplementedError()
+    def set(self, record: Record) -> Record:
+        raise NotImplementedError()
+    def update(self, table: Union[Type[Record], dict], record: dict=None, checker: Callable[[Record, dict],bool]=None) -> Record:
+        """ Update a record. Has an optional checker argument;
+            the checker is for checking if the user is allowed to update a specific record.
+        """
+        raise NotImplementedError()
+    def delete(self, table:Type[Record], index:int) -> None:
+        raise NotImplementedError()
 
-    def get(self, table, index):
-        raise NotImplementedError()
-    def add(self, table, record=None):
-        raise NotImplementedError()
-    def set(self, record):
-        raise NotImplementedError()
-    def update(self, record):
-        raise NotImplementedError()
-    def delete(self, table, index):
-        raise NotImplementedError()
 
-
-    def get_many(self, table, indices=None):
+    def get_many(self, table:Type[Record], indices:List[int]=None) -> List[Record]:
         """ Retrieve a (large) set of records at once. There are returned as a list.
             If indices is not specified, empty or None, ALL records from the table are read.
         """
         raise NotImplementedError()
 
-    def query(self, table, filter=None, join=None, resolve_fk=None, sort=None, limit=None):
+    def query(self, table:Type[Record], filter=None, join=None, resolve_fk=None,
+              sort=None, limit=None) -> List[Record]:
         """ A simple query function that uses in-memory filtering.
             A join can be defined by supplying a tuple with a Table name and
             a lambda function expecting two arguments that returns True if they match.

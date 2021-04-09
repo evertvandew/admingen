@@ -426,8 +426,8 @@ class ACM:
     def add_handlers(self, app, context):
         """ Call this function to insert the ACM functions into a flask application. """
         # Wrap the original database in a system that checks authorization
-        db = self.filtered_db(context['the_db'])
-        context['the_db'] = db
+        db = self.filtered_db(context['databases']['uurtjes'])
+        context['databases']['uurtjes'] = db
 
         def update_password():
             """ Update the password for the current user. After checking the details, of course. """
@@ -530,5 +530,3 @@ class ACM:
         self.par_acm_matchers = [(re.compile(p.replace('*', '[^/]*')), r)
             for p, r in self.parameterized_acm_table.items()
         ]
-
-        the_db = context['the_db']

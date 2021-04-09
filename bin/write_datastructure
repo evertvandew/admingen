@@ -3,7 +3,7 @@
 import sys
 import time
 import datetime
-from admingen.xml_template import processor, data_models
+from admingen.xml_template import processor, data_models, source_2_url_prefix
 import enum
 
 from argparse import ArgumentParser
@@ -18,8 +18,77 @@ args = parser.parse_args()
 _ = processor(istream=args.input, ostream=open('/dev/null', 'w'))
 
 # Now write the python model file.
-file_template = '''""" Generated model file for the project data structures.
-This file was generated on {date}. DO NOT CHANGE!
+
+class_template = '''@mydataclass
+class {name}(Record):
+    {class_lines}
+'''
+
+enum_template = """{name} = enum_type('{name}', '{options}')
+"""
+
+lines = []
+the_tables = {}
+
+for database, tables in data_models.items():
+    enum_defs = {k: v for k, v in tables.items() if type(v) == enum.EnumMeta}
+    class_defs = {k: v for k, v in tables.items() if not type(v) == enum.EnumMeta}
+    
+    for k, enum_def in enum_defs.items():
+        l = enum_template.format(name=k, options=' '.join(t.name for t in enum_def))
+        lines.append(l)
+    
+    my_tables = []
+    for k, cls_def in class_defs.items():
+        my_tables.append(k)
+        cls = []
+        for name, details in cls_def.items():
+            # Skip any private or protected items.
+            if name.startswith('_'):
+                continue
+            t = details[0]
+            if t == k:
+                t = '"self"'
+            elif t == 'datetime':
+                t = "formatted_date('%d-%m-%Y %H:%M:%S')"
+            elif t == 'date':
+                t = "formatted_date('%Y-%m-%d')"
+            elif t == 'time':
+                t = 'time.fromisoformat'
+            elif t == 'longstr':
+                t = 'str'
+            elif t in my_tables:
+                t = t
+            elif t == 'Color':
+                t = 'str'
+            elif t in enum_defs:
+                t = t
+            elif t[0].isupper():
+                # This is a forward reference to an unknown entity...
+                t = f'"{t}"'
+            else:
+                pass
+
+            if len(details) > 1:
+                options = ', '.join(details[1:])
+                cld = f'mkColumnDetails({t}, "{options}")'
+            else:
+                if t[0] == '"':
+                    cld = f'mkColumnDetails({t})'
+                else:
+                    cld = t
+
+            cls.append(f'{name}: {cld}')
+        c = class_template.format(name=k, class_lines='\n    '.join(cls))
+        lines.append(c)
+
+    the_tables[database] = my_tables
+
+model_lines = '\n'.join(lines)
+the_tables_str = '{' + ', '.join("'"+k+"'"+': [' + ', '.join(v) + ']' for k, v in the_tables.items()) + '}'
+
+file_template = f'''""" Generated model file for the project data structures.
+This file was generated on {time.ctime()}. DO NOT CHANGE!
 """
 
 from mimetypes import guess_type
@@ -29,7 +98,7 @@ from datetime import datetime, date, time
 from decimal import Decimal
 import copy
 import base64
-from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
+from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique, Record
 
 class fileblob:
     """ A data structure that lets random binary data be stored in the database.
@@ -111,7 +180,7 @@ def formatted_date(fmt):
             if not self.dt:
                 return 'None'
             return self.dt.strftime(self.fmt)
-        
+
         def __add__(self, other):
             # TODO: Add appropriate converters for 'other'
             return self.dt + other
@@ -126,12 +195,12 @@ def formatted_date(fmt):
         def forward_func(cls, f):
             dt_func = getattr(datetime, f)
             setattr(cls, f, lambda self, *args: dt_func(self.dt, *[cls.cast_argument(a) for a in args]))
-            
+
         def __cmp__(self, other):
             if isinstance(other, str):
                 other = datetime.strptime(other, fmt)
             return self.dt == other
-            
+
     for f in MyDate.forward_funcs:
         MyDate.forward_func(f)
     return MyDate
@@ -168,7 +237,7 @@ def mydataclass(cls):
         t = cls.__annotations__[k]
         if isinstance(t, str) and t == 'self':
             cls.__annotations__[k] = cls
-    
+
     original_annotations = copy.copy(cls.__annotations__)
     cls.__original_annotations = original_annotations
 
@@ -192,7 +261,7 @@ def mydataclass(cls):
                 v = int(v)
             else:
                 print('Converting:', k, v, cls)
-                if v == 'None':
+                if v == 'None' or not v:
                     v = None
                 else:
                     v = t(v)
@@ -204,26 +273,26 @@ def mydataclass(cls):
         constructor = cls.__annotations__[attr]
         v = constructor(value)
         self.__dict__[attr] = v
-    
+
     def get_fks(cls):
         fks = [k for k, t in original_annotations.items() if is_dataclass(t)]
         fkts = [original_annotations[k] for k in fks]
         return dict(zip(fks, fkts))
-    
+
     def get_referrers(cls):
         """ Find all table:item pairs that refer to this table """
         referrers = [(t, k) for t in all_tables for k, fkt in t.get_fks().items() if fkt is cls]
         return referrers
-            
+
 
     cls.__init__ = __init__
     cls.__json__ = __json__
     cls.set_attr = my_setattr
     cls.get_fks = classmethod(get_fks)
     cls.get_referrers = classmethod(get_referrers)
-    
+
     wrapped = dataclass(cls)
-    
+
     # Replace any references to other data classes with integers
     references = [k for k, t in cls.__annotations__.items() if is_dataclass(t)]
     for k in references:
@@ -245,71 +314,9 @@ class path(str): pass
 {model_lines}
 
 # Create a list with all data tables defined here.
-all_tables = [{the_tables}]
+all_tables = {the_tables_str}
+database_urls = {repr(source_2_url_prefix)}
 '''
 
-class_template = '''@mydataclass
-class {name}:
-    {class_lines}
-'''
 
-enum_template = """{name} = enum_type('{name}', '{options}')
-"""
-
-lines = []
-for database, tables in data_models.items():
-    enum_defs = {k: v for k, v in tables.items() if type(v) == enum.EnumMeta}
-    class_defs = {k: v for k, v in tables.items() if not type(v) == enum.EnumMeta}
-    
-    for k, enum_def in enum_defs.items():
-        l = enum_template.format(name=k, options=' '.join(t.name for t in enum_def))
-        lines.append(l)
-    
-    the_tables = []
-    for k, cls_def in class_defs.items():
-        the_tables.append(k)
-        cls = []
-        for name, details in cls_def.items():
-            # Skip any private or protected items.
-            if name.startswith('_'):
-                continue
-            t = details[0]
-            if t == k:
-                t = '"self"'
-            elif t == 'datetime':
-                t = "formatted_date('%d-%m-%Y %H:%M:%S')"
-            elif t == 'date':
-                t = "formatted_date('%Y-%m-%d')"
-            elif t == 'time':
-                t = 'time.fromisoformat'
-            elif t == 'longstr':
-                t = 'str'
-            elif t in the_tables:
-                t = t
-            elif t == 'Color':
-                t = 'str'
-            elif t in enum_defs:
-                t = t
-            elif t[0].isupper():
-                # This is a forward reference to an unknown entity...
-                t = f'"{t}"'
-            else:
-                pass
-
-            if len(details) > 1:
-                options = ', '.join(details[1:])
-                cld = f'mkColumnDetails({t}, "{options}")'
-            else:
-                if t[0] == '"':
-                    cld = f'mkColumnDetails({t})'
-                else:
-                    cld = t
-
-            cls.append(f'{name}: {cld}')
-        c = class_template.format(name=k, class_lines='\n    '.join(cls))
-        lines.append(c)
-
-model_lines = '\n'.join(lines)
-args.output.write(file_template.format(model_lines=model_lines,
-                                       date=time.ctime(),
-                                       the_tables=', '.join(the_tables)))
+args.output.write(file_template)

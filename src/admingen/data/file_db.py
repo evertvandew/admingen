@@ -11,15 +11,13 @@ This module defines a simple class that is the API to this database.
 """
 
 import os, os.path
-import json
-import operator
 import shutil
 import functools
 from urllib.parse import unquote
 from dataclasses import is_dataclass, asdict
-
-from admingen.data import serialiseDataclass, deserialiseDataclass, serialiseDataclasses
-from .db_api import db_api, filter_context
+from typing import Union, Type, Callable, List
+from admingen.data import serialiseDataclass, deserialiseDataclass
+from .db_api import db_api, filter_context, Record
 
 
 class UnknownRecord(RuntimeError): pass
@@ -124,11 +122,14 @@ class FileDatabase(db_api):
         self.create()
         
     
-    def add(self, record):
+    def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:
         """ Add a record to the database. The name of the type of the record must be the name of
             the table. The record is assumed to have the dictionary interface.
         """
-        fullpath = os.path.join(self.path, type(record).__name__)
+        if record is None:
+            record = table
+            table = type(table)
+        fullpath = os.path.join(self.path, table.__name__)
         print('FULLPATH:', fullpath)
         if not getattr(record, 'id', None):
             # We need to know the highest current ID in the database
@@ -148,7 +149,7 @@ class FileDatabase(db_api):
         self.call_hooks(type(record), 'add', record)
         return record
     
-    def set(self, record):
+    def set(self, record: Record) -> Record:
         fullpath = f"{self.path}/{type(record).__name__}/{record.id}"
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
@@ -156,7 +157,7 @@ class FileDatabase(db_api):
         self.call_hooks(type(record), 'update', record)
         return record
 
-    def update(self, table, record=None, checker=None):
+    def update(self, table: Union[Type[Record], dict], record: dict=None, checker: Callable[[Record, dict],bool]=None) -> None:
         """ Update the values in an existing record.
             The record is identified by id, which can not be changed.
             Only the values in the record are updated (apart from id).
@@ -199,7 +200,7 @@ class FileDatabase(db_api):
         self.call_hooks(table, 'update', data)
         return data
             
-    def delete(self, table, index):
+    def delete(self, table:Type[Record], index:int) -> None:
         """ Delete an existing record. """
         fullpath = f"{self.path}/{table.__name__}/{index}"
         if not os.path.exists(fullpath):
@@ -214,7 +215,7 @@ class FileDatabase(db_api):
         self.call_hooks(table, 'delete', index)
 
 
-    def get(self, table, index):
+    def get(self, table: Type[Record], index: int) -> Record:
         """ Retrieve a record identified by table name and index.
             The table is a dataclass with a name that is initialised with list of named
             arguments.
@@ -231,7 +232,7 @@ class FileDatabase(db_api):
         data = open(fullpath).read()
         return deserialiseDataclass(table, data)
 
-    def get_many(self, table, indices=None):
+    def get_many(self, table:Type[Record], indices:List[int]=None) -> List[Record]:
         indices = indices or [int(f) for f in os.listdir(f"{self.path}/{table.__name__}") if f.isnumeric()]
         records = [self.get(table, i) for i in indices]
         records = [r for r in records if r]

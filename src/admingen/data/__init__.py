@@ -14,9 +14,9 @@ import os.path
 from admingen.util import isoweekno2day
 from yaml import load, dump
 from collections.abc import Mapping
-from typing import Dict
+from typing import Dict, List, Union, Type
 from dataclasses import is_dataclass, asdict
-from .db_api import db_api
+from .db_api import db_api, Record
 
 import json
 try:
@@ -51,7 +51,6 @@ def id_type(s):
 
 def json_loads(s):
     return json.loads(s)
-
 
 class dataset:
     def __init__(self, iterator, index=None):
@@ -535,6 +534,10 @@ def filter(instream: typing.TextIO, script: str, outstream: typing.TextIO, defin
 
 
 class CsvDb(db_api):
+    """ A wrapper that makes CSV database usable from the generated applications.
+        The biggest issue is that the CSV db stores stuff as dicts, while the
+        API works in dataclass records.
+    """
     def __init__(self, fname, delimiter=','):
         self.filename = fname
         self.delimiter = delimiter
@@ -545,36 +548,51 @@ class CsvDb(db_api):
         """ Save the database """
         self.save()
 
-    def get(self, table, index):
-        return self.data[table][index]
+    def get(self, table: Type[Record], index: int) -> Record:
+        if not isinstance(table, str):
+            tablename = table.__name__
+            data = self.data[tablename][index]
+            return table(**data)
+        raise RuntimeError("We need to know the type of the data")
 
-    def get_many(self, table, indices=None):
+    def get_many(self, table: Type[Record], indices: List[int]=None) -> List[Record]:
         indices = indices or list(self.data[table.__name__].keys())
         records = [self.get(table, i) for i in indices]
         records = [r for r in records if r]
         return records
 
-    def add(self, table, record=None):
+    def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:
         if not record:
             record = table
             table = type(table).__name__
+        elif not isinstance(table, str):
+            table = table.__name__
         current = max(self.data[table].keys())
         record.id = current+1
-        self.data[table][record.id] = record
+        self.data[table][record.id] = asdict(record)
+        self.save()
         return record
 
-    def set(self, record):
+    def set(self, record: Record) -> None:
         table = type(record).__name__
-        self.data[table][record.id] = record
+        self.data[table][record.id] = asdict(record)
+        return record
 
-    def update(self, record):
-        table = type(record).__name__
-        current = self.get(table, record.id)
+    def update(self, table: Union[Type[Record], dict], record: dict=None) -> None:
+        if not record:
+            record = table
+            table = type(table).__name__
+        elif not isinstance(table, str):
+            table = table.__name__
+        current = self.data[table][int(record['id'])]
         for k, v in record.items():
-            setattr(current, k, v)
-        self.set(current)
+            current[k] = v
+        self.save()
+        return table(**current)
 
-    def delete(self, table, index):
+    def delete(self, table:Type[Record], index: int) -> None:
+        if not isinstance(table, str):
+            table = table.__name__
         del self.data[table][index]
 
     def save(self):

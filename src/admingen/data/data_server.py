@@ -10,8 +10,8 @@ import functools
 import logging
 from dataclasses import is_dataclass, asdict
 from werkzeug.exceptions import BadRequest, NotFound
-from admingen.data.file_db import (FileDatabase, serialiseDataclass, deserialiseDataclass, the_db,
-                                   serialiseDataclasses, filter_context, multi_sort, do_leftjoin)
+from admingen.data import serialiseDataclasses, serialiseDataclass, deserialiseDataclass
+from admingen.data.file_db import FileDatabase, filter_context, multi_sort, do_leftjoin
 
 # Define the key for the data element that is added to indicate limited queries have reached the end
 IS_FINAL_KEY = '__is_last_record'
@@ -120,14 +120,12 @@ def add_record(table, tablecls, data, mk_response=True):
     return data_str
 
 
-def add_handlers(app, context):
-    """ This function creates and installs a number of flask handlers. """
-    db = context['the_db']
-    table_classes = {t.__name__: t for t in context['tables']}
+def register_db_handlers(db_name, app, prefix, db, table_classes):
+    # We need to use a custom "Blueprint" to register multiple handlers
+    # that use the same function name.
+    bp = flask.Blueprint(db_name, 'db_api')
 
-    # First define some helper functions.
-
-    @app.route('/data/<path:table>', methods=['GET'])
+    @bp.route('/<path:table>', methods=['GET'])
     def get_table(table):
         if not table:
             return
@@ -145,7 +143,7 @@ def add_handlers(app, context):
             other_table, condition = flask.request.args['join'].split(',', maxsplit=1)
             data_other = read_records(mk_fullpath(other_table))
             data = do_leftjoin(table, other_table, data, data_other, condition)
-    
+
         # Apply the filter
         if 'filter' in flask.request.args:
             def func(item, condition):
@@ -155,21 +153,21 @@ def add_handlers(app, context):
                 except:
                     logging.exception(f"Error in evaluating {condition} with variables {d}")
                     raise
-        
+
             condition = flask.request.args['filter']
             data = [item for item in data if func(item, condition)]
-        
+
         # Sort the results
         if 'sort' in flask.request.args:
             data = multi_sort(flask.request.args['sort'], data)
-        
+
         # Apply limit and offset
         is_final = True
         if 'limit' in flask.request.args:
             offset = int(flask.request.args.get('offset', 0))
             limit = int(flask.request.args['limit'])
-            is_final = len(data) < offset+limit
-            data = data[offset:offset+limit]
+            is_final = len(data) < offset + limit
+            data = data[offset:offset + limit]
 
         # Check for the single argument
         if flask.request.args.get('single', False):
@@ -180,11 +178,11 @@ def add_handlers(app, context):
         else:
             # Prepare the response
             res = flask.make_response(serialiseDataclasses(data))
-    
+
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
         return res
 
-    @app.route('/data/<path:table>/<int:index>', methods=['GET'])
+    @bp.route('/<path:table>/<int:index>', methods=['GET'])
     def get_item(table, index):
         data = db.get(table_classes[table], index)
         # For the User records, set the password to asterixes
@@ -194,24 +192,45 @@ def add_handlers(app, context):
         res.headers['Content-Type'] = 'application/json; charset=utf-8'
         return res
 
-    @app.route('/data/<path:table>/<int:index>', methods=['POST', 'PUT'])
+    @bp.route('/<path:table>/<int:index>', methods=['POST', 'PUT'])
     def put_item(table, index):
         """ Flask handler for put requests """
         tablecls = table_classes[table]
         data = get_request_data()
         return update_record(tablecls, index, db, data, flask.request.method == 'POST')
 
-    @app.route('/data/<path:table>/<int:index>', methods=['DELETE'])
+    @bp.route('/<path:table>/<int:index>', methods=['DELETE'])
     def delete_item(table, index):
         tablecls = table_classes[table]
         db.delete(tablecls, index)
         return flask.make_response('', 204)
 
-    @app.route('/data/<path:table>', methods=['POST', 'PUT'])
+    @bp.route('/<path:table>', methods=['POST', 'PUT'])
     def add(table):
         tablecls = table_classes[table]
         data = get_request_data()
-        return add_record(table, tablecls, data)
+        record = db.add(tablecls(**data))
+        return flask.make_response(serialiseDataclass(record), 201)
+
+    app.register_blueprint(bp, url_prefix='/'+prefix)
+
+
+def add_handlers(app, context):
+    """ This function creates and installs a number of flask handlers. """
+    dbs = context['databases']
+    prefixes = context['data_model'].database_urls
+
+    # Handle each database
+    for db_name, db in dbs.items():
+        # Ensure the prefix does not start or end on a slash.
+        prefix = prefixes[db_name].strip('/')
+
+        table_classes = {t.__name__: t for t in context['data_model'].all_tables[db_name]}
+
+        # Call a function to install the handlers.
+        # If we were to do that inside the loop, the handlers will all use the last db
+        # due to late binding when the handler is called.
+        register_db_handlers(db_name, app, prefix, db, table_classes)
 
     print('Loaded data server')
 

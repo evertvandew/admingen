@@ -53,6 +53,7 @@ TAG_CLOSE_MSG = '__TAG_CLOSE__'
 
 data_models = {}
 url_prefixes = {}
+source_2_url_prefix = {}
 table_acm = {}
 id_counter = 0
 
@@ -94,6 +95,7 @@ def handle_Datamodel(args, lines):
     data_models[name] = {}
     data_model = data_models[name]
     url_prefixes[url_prefix] = name
+    source_2_url_prefix[name] = url_prefix
     line_it = iter(lines.splitlines())
     l = next(line_it)
     acm_default = args.get('ACM_default', '')
@@ -393,6 +395,11 @@ class DataContext:
         global id_counter
         id_counter += 1
         return f'unique{id_counter}'
+
+    @staticmethod
+    def get_urlprefix(datasource):
+        source, _ = datasource.split('.', maxsplit=1)
+        return '/' + source_2_url_prefix[source].strip('/')
     
 
 def read_argument_lines(line, istream):
