@@ -98,7 +98,8 @@ from datetime import datetime, date, time
 from decimal import Decimal
 import copy
 import base64
-from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique, Record
+from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
+from admingen.data.db_api import Record
 
 class fileblob:
     """ A data structure that lets random binary data be stored in the database.
