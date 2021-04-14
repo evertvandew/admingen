@@ -63,7 +63,7 @@ for database, tables in data_models.items():
                 t = 'str'
             elif t in enum_defs:
                 t = t
-            elif t[0].isupper():
+            elif t != 'Decimal' and t[0].isupper():
                 # This is a forward reference to an unknown entity...
                 t = f'"{t}"'
             else:
