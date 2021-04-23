@@ -599,6 +599,28 @@ def template_module_writer(source, outputpath):
 
 slot_matcher = re.compile(r'<TemplateSlot\s+name="(\w*)"\s*/?>')
 slot_close_matcher = re.compile(r'</TemplateSlot>')
+
+
+def debug_render(template, lines=None, render_context=None):
+    lines = lines or []
+    render_context = render_context or {}
+    try:
+        return template.render(**render_context)
+    except:
+        # Try to re-create the error using a proper file template
+        # This will give a clearer error message.
+        with open('failed_template.py', 'w') as out:
+            out.write(template._code)
+        import failed_template
+        data = dict(callable=failed_template.render_body,
+                    lines=lines,
+                    **render_context)
+        _render(DefTemplate(template, failed_template.render_body),
+                failed_template.render_body,
+                [],
+                data)
+
+
 def handle_Template(args, template_lines):
     tag = args['tag']
     kwargsdef = {}
@@ -704,26 +726,12 @@ def handle_Template(args, template_lines):
             if gather_all:
                 render_context[gather_all] = catch_all_args
             expand_self = io.StringIO(
-                template.render(**render_context))
+                debug_render(template, lines, render_context))
         except:
-            # Try to re-create the error using a proper file template
-            # This will give a clearer error message.
-            with open('failed_template.py', 'w') as out:
-                out.write(template._code)
-            import failed_template
-            data = dict(callable=failed_template.render_body,
-                        lines=lines,
-                        **render_context)
-            try:
-                _render(DefTemplate(template, failed_template.render_body),
-                        failed_template.render_body,
-                        [],
-                        data)
-            except:
-                msg = '<An error occurred when rendering template for %s>\n'%tag
-                msg += exceptions.text_error_template().render()
-                print(msg, file=sys.stderr)
-                raise
+            msg = '<An error occurred when rendering template for %s>\n'%tag
+            msg += exceptions.text_error_template().render()
+            print(msg, file=sys.stderr)
+            raise
 
         # Process the resulting text, so as to expand any inner templates.
         expand_others = io.StringIO()

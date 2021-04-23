@@ -52,6 +52,41 @@ def id_type(s):
 def json_loads(s):
     return json.loads(s)
 
+
+def enrich(values, func=None, **kwargs):
+    for r in values:
+        if callable(func):
+            update = func(r)
+            r.__dict__.update(update)
+        else:
+            for key, getter in kwargs.items():
+                if callable(getter):
+                    value = getter(r)
+                else:
+                    value = getter
+                setattr(r, key, value)
+    return values
+
+def enrich_condition(values, condition, true=None, false=None):
+    if isinstance(condition, str):
+        condition = lambda r: eval(condition, None, r.__dict__)
+    for r in values:
+        update = {}
+        if condition(r):
+            if callable(true):
+                update = true(r)
+            elif isinstance(true, dict):
+                update = true
+        else:
+            if callable(false):
+                update = false(r)
+            elif isinstance(false, dict):
+                update = false
+        for key, value in update.items():
+            if callable(value):
+                value = value(r)
+            setattr(r, key, value)
+
 class dataset:
     def __init__(self, iterator, index=None):
         if index:
@@ -81,38 +116,11 @@ class dataset:
         return self.data.keys()
 
     def enrich(self, func=None, **kwargs):
-        for r in self.data.values():
-            if callable(func):
-                update = func(r)
-                r.__dict__.update(update)
-            else:
-                for key, getter in kwargs.items():
-                    if callable(getter):
-                        value = getter(r)
-                    else:
-                        value = getter
-                    setattr(r, key, value)
+        enrich(self.data.values(), func, kwargs)
         return self
 
     def enrich_condition(self, condition, true=None, false=None):
-        if isinstance(condition, str):
-            condition = lambda r: eval(condition, None, r.__dict__)
-        for r in self.data.values():
-            update = {}
-            if condition(r):
-                if callable(true):
-                    update = true(r)
-                elif isinstance(true, dict):
-                    update = true
-            else:
-                if callable(false):
-                    update = false(r)
-                elif isinstance(false, dict):
-                    update = false
-            for key, value in update.items():
-                if callable(value):
-                    value = value(r)
-                setattr(r, key, value)
+        enrich_condition(self.data.values(), condition, true, false)
 
     def join(self, getter, getupdate, defaults):
         for r in self.data.values():

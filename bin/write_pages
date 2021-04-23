@@ -4,8 +4,8 @@ Take a XML-server definition, and take out the Page tags, add some HTML overhead
 write them to the file system as static pages.
 """
 
-
-from admingen.xml_template import processor, Tag, Template
+import argparse
+from admingen.xml_template import processor, Tag, debug_render, Template
 import os, os.path
 import sys
 import json
@@ -131,7 +131,6 @@ created_pages = []
 current_page_context = dict(headers='', title='admingen', heading='', footer='', acm='user,editor,administrator',
                             stylesheets='')
 
-
 def handle_Page(args, lines):
     """ Handle a page definition by writing the HTML inside it to file. """
     url = args['url']
@@ -143,7 +142,7 @@ def handle_Page(args, lines):
 
     # Expand any Mako templates inside the page.
     t = Template(text)
-    text = t.render()
+    text = debug_render(t)
 
     # Write the result to file
     print ('Writing:', dirname, fname)
@@ -176,9 +175,13 @@ if False:
                },
               open('page_definitions.xml'))
 else:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--file', '-f', default=None)
+    args = parser.parse_args()
+    stream = open(args.file) if args.file else sys.stdin
     processor({'Page': Tag('Page', handle_Page),
                'PageContextValue': Tag('PageContextValue', handle_PageContextValue),
                'MarkDown': Tag('MarkDown', handle_Markdown)
                },
-              sys.stdin)
+              stream)
 
