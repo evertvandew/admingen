@@ -281,9 +281,10 @@ class DataContext:
         if query[0] == '/':
             # First determine which columns to draw
             path = urllib.parse.urlparse(query).path
-            table = path.split('/')[-1]
-            if (path[0] or path[1]) in url_prefixes:
-                source = url_prefixes[path[0] or path[1]]
+            pathparts = path.split('/')
+            table = pathparts[-1]
+            if (pathparts[0] or pathparts[1]) in url_prefixes:
+                source = url_prefixes[pathparts[0] or pathparts[1]]
                 specs = data_models[source][table]
             else:
                 # This is an unknown data source. Only process parameters
@@ -728,7 +729,8 @@ def handle_Template(args, template_lines):
             expand_self = io.StringIO(
                 debug_render(template, lines, render_context))
         except:
-            msg = '<An error occurred when rendering template for %s>\n'%tag
+            msg = '<An error occurred when rendering template for %s>\n'%(tag, args)
+            msg += '\n'.join(lines)
             msg += exceptions.text_error_template().render()
             print(msg, file=sys.stderr)
             raise
