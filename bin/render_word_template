@@ -34,7 +34,11 @@ parser.add_argument('--details', '-d', help="File containing details to be fille
 def open_template(template):
     local = uno.getComponentContext()
     resolver = local.ServiceManager.createInstanceWithContext("com.sun.star.bridge.UnoUrlResolver", local)
-    context = resolver.resolve("uno:socket,host=localhost,port=8100;urp;StarOffice.ComponentContext")
+    try:
+        context = resolver.resolve("uno:socket,host=localhost,port=8100;urp;StarOffice.ComponentContext")
+    except:
+        raise RuntimeError("Coult not connect to soffice. Please start with e.g.:"
+                           "\n/usr/bin/soffice --accept='socket,host=localhost,port=8100;urp;StarOffice.Service' --headless")
     desktop = context.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", context)
 
     # Load document template

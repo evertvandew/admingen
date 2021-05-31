@@ -498,14 +498,21 @@ def CsvWriter(stream: typing.TextIO, collection: Dict[str, Union[List[Any], Dict
             names = [k for k, v in columns[0].__dict__.items() if not callable(v)]
             annotations = [(k, type(v).__name__) for k, v in columns[0].__dict__.items() if not callable(v)]
             columns = [{k: getattr(c, k) for k in names} for c in columns]
-        else:
+        elif isinstance(columns[0], dict):
             annotations = [(k, type(v).__name__) for k, v in columns[0].items()]
+        else:
+            annotations = [(str(v), 'str') for i, v in enumerate(columns[0])]
         parts = ['%s:%s'%(n, t) for n, t in annotations]
         stream.write('%s\n'%delimiter.join(parts))
 
         # Write the table data
         for line in (columns if isinstance(columns, list) else columns.values()):
-            stream.write('%s\n'%delimiter.join([str(v).replace(delimiter, r'\d') for v in line.values()]))
+            values = line.values() if isinstance(line, dict) else line
+            if values:
+                stream.write('%s\n'%delimiter.join([str(v).replace(delimiter, r'\d').replace('\n', r'\n') for v in values]))
+            else:
+                # Lines can not be empty: simply write a single delimiter.
+                stream.write(delimiter+'\n')
 
         # Write an empty line to signal the end of the table
         stream.write('\n')
