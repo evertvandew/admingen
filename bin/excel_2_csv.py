@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """ Convert a multi-tab Excel file to a CSV file in my database form.
+
+Currently, empty lines are always removed. If this is unwanted in the future, add a switch.
 """
 import os.path
 import sys
@@ -58,16 +60,16 @@ for sheet in ss:
             if empty_cols > 10:
                 break
         # Prune empty cells
-        first_nonempty = 0
+        first_nonempty = -1
         for i, v in reversed(list(enumerate(row_data))):
             if v:
                 first_nonempty = i
                 break
-        row_data = row_data[:first_nonempty]
-        sheet_data.append(row_data)
+        row_data = row_data[:first_nonempty+1]
         if not row_data:
             empty_lines += 1
         else:
+            sheet_data.append(row_data)
             empty_lines = 0
         if empty_lines > 10:
             break
