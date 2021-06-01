@@ -232,7 +232,10 @@ class dataline(Mapping):
 
     # Implement the Mapping protocol
     def __getitem__(self, key):
-        return getattr(self, key)
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(f'{key} not found in dataitem')
     def __setitem__(self, key, value):
         setattr(self, key, value)
     def __iter__(self):
@@ -313,7 +316,7 @@ class AnnotatedDict(dict):
 
 
 
-def CsvReader(stream: typing.TextIO, delimiter=','):
+def CsvReader(stream: typing.TextIO, delimiter=';'):
     if isinstance(stream, str):
         stream = open(stream)
     collection = AnnotatedDict()
@@ -501,7 +504,7 @@ def CsvWriter(stream: typing.TextIO, collection: Dict[str, Union[List[Any], Dict
         elif isinstance(columns[0], dict):
             annotations = [(k, type(v).__name__) for k, v in columns[0].items()]
         else:
-            annotations = [(str(v), 'str') for i, v in enumerate(columns[0])]
+            annotations = [(i+1, 'str') for i, v in enumerate(columns[0])]
         parts = ['%s:%s'%(n, t) for n, t in annotations]
         stream.write('%s\n'%delimiter.join(parts))
 

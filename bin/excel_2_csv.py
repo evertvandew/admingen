@@ -13,11 +13,6 @@ except:
 
 from admingen.data import CsvWriter
 
-from com.sun.star.awt import Size
-from pythonscript import ScriptContext
-
-
-#CsvWriter(sys.stdout, {'A': [[1,2,3,4,5], [43,56,32,6,3]]})
 
 def open_template(fname):
     local = uno.getComponentContext()

@@ -138,6 +138,8 @@ class FileDatabase(db_api):
         if record is None:
             record = table
             table = type(table)
+        elif isinstance(record, dict):
+            record = table(**record)
         fullpath = os.path.join(self.path, table.__name__)
         print('FULLPATH:', fullpath)
         if not getattr(record, 'id', None):
