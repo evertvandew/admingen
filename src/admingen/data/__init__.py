@@ -504,7 +504,8 @@ def CsvWriter(stream: typing.TextIO, collection: Dict[str, Union[List[Any], Dict
         elif isinstance(columns[0], dict):
             annotations = [(k, type(v).__name__) for k, v in columns[0].items()]
         else:
-            annotations = [(i+1, 'str') for i, v in enumerate(columns[0])]
+            max_cols = max([len(r) for r in columns])
+            annotations = [(i+1, 'str') for i in range(max_cols)]
         parts = ['%s:%s'%(n, t) for n, t in annotations]
         stream.write('%s\n'%delimiter.join(parts))
 

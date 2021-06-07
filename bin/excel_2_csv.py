@@ -5,6 +5,7 @@ Currently, empty lines are always removed. If this is unwanted in the future, ad
 """
 import os.path
 import sys
+import argparse
 
 try:
     import uno
@@ -20,7 +21,7 @@ def open_template(fname):
     try:
         context = resolver.resolve("uno:socket,host=localhost,port=8100;urp;StarOffice.ComponentContext")
     except:
-        raise RuntimeError("Coult not connect to soffice. Please start with e.g.:"
+        raise RuntimeError("Could not connect to soffice. Please start with e.g.:"
                            "\n/usr/bin/soffice --accept='socket,host=localhost,port=8100;urp;StarOffice.Service' --headless")
     desktop = context.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", context)
     # Load document template
@@ -29,15 +30,23 @@ def open_template(fname):
     return document
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument('input', help='Input file (ODS spreadsheet)')
+parser.add_argument('--sparse', '-s', nargs='*', help='Sheets that contain sparse matrices')
+parser.add_argument('--max_cols', '-m', default=1000, help='Maximum columns in any sheet')
+args = parser.parse_args()
+
+
 doc = open_template('details.ods')
 ss = doc.getSheets()
 
-max_cols = 100
+max_cols = 1000
 
 
 all_sheets = {}
 for sheet in ss:
     name = sheet.Name
+    is_sparse = sheet.Name in args.sparse
     print("Reading sheet", name, file=sys.stderr)
     row = 0
     sheet_data = []
@@ -52,7 +61,7 @@ for sheet in ss:
                 empty_cols += 1
             else:
                 empty_cols = 0
-            if empty_cols > 10:
+            if empty_cols > 10 and not is_sparse:
                 break
         # Prune empty cells
         first_nonempty = -1
