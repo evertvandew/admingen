@@ -160,6 +160,8 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
         # Sort the results
         if 'sort' in flask.request.args:
             data = multi_sort(flask.request.args['sort'], data)
+        else:
+            data = sorted(data, key=lambda d: d.id)
 
         # Apply limit and offset
         is_final = True

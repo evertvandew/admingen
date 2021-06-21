@@ -256,7 +256,7 @@ class DataContext:
     
     
     @staticmethod
-    def GetQueryDetails(query, columns):
+    def GetQueryDetails(query, columns=None):
         """ Pre-parse a query string, as used in the template system.
         The query contains a lot of information that
         needs to be processed to be able to draw the table.
