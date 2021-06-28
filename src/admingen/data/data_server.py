@@ -207,10 +207,38 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
         db.delete(tablecls, index)
         return flask.make_response('', 204)
 
+    @bp.route('/<path:table>', methods=['DELETE'])
+    def delete_item_compound_key(table):
+        tablecls = table_classes[table]
+        if not 'compound_key' in flask.request.args:
+            return flask.make_response('Please define which object to delete.', 400)
+
+        # Find which exact record is affected.
+        data = get_request_data()
+        key = {k:data[k] for k in flask.request.args['compound_key'].split(',')}
+        # Ensure they key values have the correct type.
+        key = {k: tablecls.convert_field(k, v) for k, v in key.items()}
+        originals = db.query(tablecls, filter=lambda r: all(getattr(r, k)==v for k, v in key.items()))
+
+        if originals:
+            index = originals[0].id
+            db.delete(tablecls, index)
+
+        return flask.make_response('', 204)
+
     @bp.route('/<path:table>', methods=['POST', 'PUT'])
     def add(table):
         tablecls = table_classes[table]
         data = get_request_data()
+        if 'compound_key' in flask.request.args:
+            # This can be either an add or an update.
+            # First test if the compound key already exists.
+            key = {k:data[k] for k in flask.request.args['compound_key'].split(',')}
+            # Ensure they key values have the correct type.
+            key = {k: tablecls.convert_field(k, v) for k, v in key.items()}
+            originals = db.query(tablecls, filter=lambda r: all(getattr(r, k)==v for k, v in key.items()))
+            if originals:
+                return put_item(table, originals[0].id)
         record = db.add(tablecls(**data))
         return flask.make_response(serialiseDataclass(record), 201)
 
