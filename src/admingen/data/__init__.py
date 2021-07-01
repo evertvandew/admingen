@@ -116,7 +116,7 @@ class dataset:
         return self.data.keys()
 
     def enrich(self, func=None, **kwargs):
-        enrich(self.data.values(), func, kwargs)
+        enrich(self.data.values(), func, **kwargs)
         return self
 
     def enrich_condition(self, condition, true=None, false=None):
