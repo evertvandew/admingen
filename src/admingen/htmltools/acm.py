@@ -45,9 +45,9 @@ class ACM:
 
             All the data_fields should be elements of the User data structure.
         """
-        token_name = 'token_data'
-        rolename_name = 'role_name'
-        username_name = 'user_name'
+        self.token_name = 'token_data'
+        self.rolename_name = 'role_name'
+        self.username_name = 'user_name'
 
         self.testmode = testmode
         if testmode:
@@ -56,9 +56,9 @@ class ACM:
         self.max_age = 2 * 365 * 24 * 60 * 60  # in seconds
         self.refresh_by = 20  # in seconds
 
-        self.token_name_b = token_name.encode('utf8')
-        self.rolename_name_b = rolename_name.encode('utf8')
-        self.username_name_b = username_name.encode('utf8')
+        self.token_name_b = self.token_name.encode('utf8')
+        self.rolename_name_b = self.rolename_name.encode('utf8')
+        self.username_name_b = self.username_name.encode('utf8')
 
         self.data_fields = data_fields.split()
         self.data_fields_b = [t.encode('utf8') for t in self.data_fields]
@@ -232,8 +232,8 @@ class ACM:
         res = res or flask.make_response("See Other", 303)
         # Set the cookies on the response
         # We store the token, the user id, the role of the user, company id, and the user name.
-        res.set_cookie(self.token_name_b, token, max_age=max_age)
-        res.set_cookie(self.rolename_name_b, role, max_age=max_age)
+        res.set_cookie(self.token_name_b, token, max_age=self.max_age)
+        res.set_cookie(self.rolename_name_b, role, max_age=self.max_age)
         res.set_cookie(self.username_name_b, user.login.encode('utf-8'))
         for field, field_b in zip(self.data_fields, self.data_fields_b):
             res.set_cookie(field_b, b'%i'%(details[field]))
@@ -426,8 +426,10 @@ class ACM:
     def add_handlers(self, app, context):
         """ Call this function to insert the ACM functions into a flask application. """
         # Wrap the original database in a system that checks authorization
-        db = self.filtered_db(context['databases']['qualsys'])
-        context['databases']['qualsys'] = db
+        names = list(context['databases'].keys())
+        for db_name in names:
+            db = self.filtered_db(context['databases'][db_name])
+            context['databases'][db_name] = db
 
         def update_password():
             """ Update the password for the current user. After checking the details, of course. """
