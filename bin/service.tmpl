@@ -1,0 +1,14 @@
+[Unit]
+Description=Start server voor {{project}} service
+
+[Service]
+Type=simple
+User={{user}}
+Group=www-data
+ExecStart=/usr/bin/make deploy
+WorkingDirectory=/home/{{user}}/{{project}}
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
