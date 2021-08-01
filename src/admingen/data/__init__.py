@@ -517,7 +517,7 @@ def CsvWriter(stream: typing.TextIO, collection: Dict[str, Union[List[Any], Dict
 
         # Write the table data
         for line in (columns if isinstance(columns, list) else columns.values()):
-            values = line.values() if isinstance(line, dict) else line
+            values = line.values() if isinstance(line, Mapping) else line
             if values:
                 stream.write('%s\n'%delimiter.join([str(v).replace(delimiter, r'\d').replace('\n', r'\n') for v in values]))
             else:
