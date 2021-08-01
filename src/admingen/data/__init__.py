@@ -321,7 +321,10 @@ def CsvReader(stream: typing.TextIO, delimiter=';'):
         stream = open(stream)
     collection = AnnotatedDict()
     for table in read_tablename(stream):
-        names, types = read_header(stream, delimiter)
+        h = read_header(stream, delimiter)
+        if not h:
+            return []
+        names, types = h
         collection.__annotations__[table] = [names, types]
         if 'id' in names or 'id' in types:
             collection[table] = read_lines_id(stream, names, types, delimiter)
@@ -434,7 +437,10 @@ def date_or_dash(fmt):
 
 def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None, header=True):
     if header:
-        names, types = read_header(stream, delimiter)
+        h = read_header(stream, delimiter)
+        if not h:
+            return
+        names, types = h
     constr = mk_object_constructor(targettype)
     for line in stream:
         line = line.strip()
