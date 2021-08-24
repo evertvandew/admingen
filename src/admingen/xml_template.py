@@ -729,7 +729,7 @@ def handle_Template(args, template_lines):
             expand_self = io.StringIO(
                 debug_render(template, lines, render_context))
         except:
-            msg = '<An error occurred when rendering template for %s>\n'%(tag, args)
+            msg = '<An error occurred when rendering template for %s(%s)>\n'%(tag, args)
             msg += '\n'.join(lines)
             msg += exceptions.text_error_template().render()
             print(msg, file=sys.stderr)

@@ -361,7 +361,7 @@ class ACM:
                     Currently, the ACM table is not checked.
                 """
                 r = super().get(table, index)
-                role_index = parent.roles.index(parent.get_user_role)
+                role_index = parent.role_names.index(parent.get_user_role)
                 for i, field in enumerate(parent.data_fields):
                     # If the user has sufficient authority, we do not need to check the lower levels.
                     if i >= role_index:
@@ -374,7 +374,7 @@ class ACM:
                 super().delete(table, index)
             def add(self, record, is_add=True):
                 """ Only let a user add records that have the field associated with their role. """
-                role_index = parent.roles.index(parent.get_user_role)
+                role_index = parent.role_names.index(parent.get_user_role)
                 for i, field in enumerate(parent.data_fields):
                     # If the user has sufficient authority, we do not need to check the lower levels.
                     if i >= role_index:
@@ -389,7 +389,7 @@ class ACM:
                 return super().set(record)
             def set(self, record):
                 # Ensure that the original values of the record allow the user to modify them.
-                role_index = parent.roles.index(parent.get_user_role())
+                role_index = parent.role_names.index(parent.get_user_role())
                 for i, field in enumerate(parent.data_fields):
                     # If the user has sufficient authority, we do not need to check the lower levels.
                     if i >= role_index:
@@ -402,7 +402,7 @@ class ACM:
                 return self.add(record, is_add=False)
             def update_checker(self, update, orig):
                 """ Ensure that the user is authorized to make the change proposed here. """
-                role_index = parent.roles.index(parent.get_user_role())
+                role_index = parent.role_names.index(parent.get_user_role())
                 for i, field in enumerate(parent.data_fields):
                     # If the user has sufficient authority, we do not need to check the lower levels.
                     if i >= role_index:
