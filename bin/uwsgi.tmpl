@@ -1,0 +1,12 @@
+[uwsgi]
+socket=/home/qualsys/var/run/qualsys.s
+home=/home/qualsys/qualsys/venv
+chmod-socket=660
+uid=qualsys
+gid=www-data
+
+chdir=/home/qualsys/qualsys
+module=run:app
+manage-script-name=true
+pidfile=/home/qualsys/var/run/qualsys.pid
+
