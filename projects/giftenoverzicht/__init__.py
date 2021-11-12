@@ -504,6 +504,10 @@ class Overzichten:
     @cherrypy.expose
     @check_token
     def process(self, **kwargs):
+        if 'org_id' not in cherrypy.session:
+            # The user has not properly selected a division to use.
+            # Ask him again.
+            return self.select_division()
         org_id = cherrypy.session['org_id']
         with model.sessionScope():
             org = model.Organisation[org_id]
