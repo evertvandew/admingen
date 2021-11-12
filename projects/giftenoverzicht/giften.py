@@ -194,9 +194,11 @@ def parse_accounts(s):
 def generate_overviews(org, users, transactions):
     if not transactions:
         logging.error("NO TRANSACTIONS!")
+        return
     gift_accounts = parse_accounts(org['gift_accounts'])
     if not gift_accounts:
         logging.error("NO GIFT ACCOUNTS!")
+        return
     gifts = [odataDate2Datetime(t) for t in transactions if t['GLAccountCode'] in gift_accounts]
     users_lu = {u['Code']: u for u in users}
     relatienrs = set(g['AccountCode'] for g in gifts if 'AccountCode' in g and g['AccountCode'])
