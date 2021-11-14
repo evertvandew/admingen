@@ -65,7 +65,12 @@ def request(url, token=None, method='GET', params={}, query={}, handle=None, pro
     status = -1
     reason = ''
     part_count = 0
+    start = time.time()
     while True:
+        # Ensure we don't send more than 50 requests per minute (60 seconds)
+        if part_count and ((part_count % 50) == 0):
+            time.sleep(60 - start + time.time())
+            start = time.time()
         part_count += 1
         if progress:
             progress('part %i' % part_count)
