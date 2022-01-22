@@ -188,7 +188,8 @@ def formattedPage(*args, **kwargs):
     texts = ['Stap 1: Periode kiezen',
              'Stap 2: Data ophalen',
              'Stap 3: PDFs genereren',
-             'Stap 4: Emails versturen']
+             'Stap 4: Emails versturen',
+             'Stap 2a: Data Uploaden']
 
     buttons = [Button(txt, style='width:100%',
                       btn_type='primary' if phase == i + 1 else 'info',
@@ -514,19 +515,23 @@ class Overzichten:
         handlers = {SystemStates.Start: self.periode,
                     SystemStates.LoadingData: self.loading,
                     SystemStates.GeneratingPDF: self.generating,
-                    SystemStates.PDFCreated: self.present_overzicht}
+                    SystemStates.PDFCreated: self.present_overzicht,
+                    SystemStates.UploadingData: self.upload_data}
         # Use the state suggested by the database
         state = org.status or 1
         logging.debug('Current status: %i'%state)
+
         # Check if the state of the file system corresponds
-        if not os.path.exists(PDF_DIR.format(config.opsdir, org_id)):
-            state = min(state, SystemStates.GeneratingPDF)
-        if not os.path.exists(USERS_FILE.format(config.opsdir, org_id)) \
-           or not os.path.exists(TRANSACTIONS_FILE.format(config.opsdir, org_id)):
-            state = min(state, SystemStates.LoadingData)
-        if state != self.getState():
-            self.setState(state)
-        self.check_worker(state)
+        # The final state (uploading data) is always valid.
+        if state != SystemStates.UploadingData:
+            if not os.path.exists(PDF_DIR.format(config.opsdir, org_id)):
+                state = min(state, SystemStates.GeneratingPDF)
+            if not os.path.exists(USERS_FILE.format(config.opsdir, org_id)) \
+               or not os.path.exists(TRANSACTIONS_FILE.format(config.opsdir, org_id)):
+                state = min(state, SystemStates.LoadingData)
+            if state != self.getState():
+                self.setState(state)
+            self.check_worker(state)
         handler = handlers[state]
         return formattedPage(*handler(**kwargs))
 
@@ -580,6 +585,38 @@ class Overzichten:
             org.status = SystemStates.LoadingData
             org.period_end = end
         _ = Worker(org.id)
+
+    def upload_data(self, **kwargs):
+        org_id = cherrypy.session['org_id']
+        form = SimpleForm(Hidden('token'),
+                FileUpload('users', 'Users (givers)'),
+                FileUpload('accounts', 'Accounts'),
+                FileUpload('transaction', 'Transactions'),
+                validator = None,
+                defaults ={},
+                success = self.data_uploaded
+                )
+        return Title('Files uploaden'), form
+
+    def data_uploaded(self, **kwargs):
+        org_id = cherrypy.session['org_id']
+        ufname = USERS_FILE.format(config.opsdir, org_id)
+        tfname = TRANSACTIONS_FILE.format(config.opsdir, org_id)
+        afname = ACCOUNTS_FILE.format(config.opsdir, org_id)
+        targets = {'users': ufname,
+                   'accounts': afname,
+                   'transaction': tfname}
+
+        for arg, fname in targets.items():
+            value = kwargs.get(arg, None)
+            if value:
+                with open(fname, 'wb') as out:
+                    while value.file:
+                        data = value.file.read(8192)
+                        if not data:
+                            break
+                        out.write(data)
+
 
     def loading(self, **kwargs):
         org_id = cherrypy.session['org_id']
