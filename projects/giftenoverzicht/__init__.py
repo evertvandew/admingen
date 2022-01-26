@@ -8,6 +8,7 @@ import threading
 import os.path
 import os
 import urllib
+import io
 from decimal import Decimal
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -21,12 +22,14 @@ import calendar
 
 from admingen.clients.exact_rest import (authenticateExact, getUsers, getTransactions,
                                          checkAuthorization, getAccounts)
+from admingen.clients.exact_xml import processAccounts, processLedgers, processTransactionLines
 from admingen.htmltools import *
 from admingen import config
 from admingen.clients import smtp
 from admingen.keyring import KeyRing
 from .giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
-                    odataDate2Datetime, generate_pdfs, pdfName, pdfUrl2Name, PDF_DIR)
+                    odataDate2Datetime, generate_pdfs, pdfName, pdfUrl2Name, PDF_DIR,
+                     filter_gifts)
 from . import model
 from .model import SystemStates
 from .commands import USERS_FILE, TRANSACTIONS_FILE, ACCOUNTS_FILE
@@ -361,6 +364,7 @@ class Worker(threading.Thread):
                     logging.exception('Exception while loading data from exact')
                     return
             else:
+                logging.info(f"Loading from files: {self.ufname, self.tfname, self.afname}")
                 users = json.load(open(self.ufname))
                 transactions = json.load(open(self.tfname))
                 accounts = json.load(open(self.afname))
@@ -576,8 +580,9 @@ class Overzichten:
             raise cherrypy.HTTPError(400, 'Invalid Request')
         year, first, last = [results[k] for k in ['year', 'from', 'until']]
         start = datetime.datetime(year, first, 1)
-        end = datetime.datetime(year, last, calendar.monthrange(2016, last)[1], 23, 59, 59)
+        end = datetime.datetime(year, last, calendar.monthrange(year, last)[1], 23, 59, 59)
         token = kwargs['token']
+
         # Start a thread to load the actual data from exact
         with model.sessionScope():
             org = model.Organisation[cherrypy.session['org_id']]
@@ -589,9 +594,9 @@ class Overzichten:
     def upload_data(self, **kwargs):
         org_id = cherrypy.session['org_id']
         form = SimpleForm(Hidden('token'),
-                FileUpload('users', 'Users (givers)'),
-                FileUpload('accounts', 'Accounts'),
-                FileUpload('transaction', 'Transactions'),
+                MultiFileUpload('users', 'Users (givers)'),
+                MultiFileUpload('accounts', 'Accounts'),
+                MultiFileUpload('transaction', 'Transactions'),
                 validator = None,
                 defaults ={},
                 success = self.data_uploaded
@@ -606,16 +611,60 @@ class Overzichten:
         targets = {'users': ufname,
                    'accounts': afname,
                    'transaction': tfname}
+        xml_parsers = {'users': processAccounts,
+                       'accounts': processLedgers,
+                       'transaction': processTransactionLines}
 
         for arg, fname in targets.items():
             value = kwargs.get(arg, None)
             if value:
-                with open(fname, 'wb') as out:
-                    while value.file:
-                        data = value.file.read(8192)
+                if not isinstance(value, list):
+                    value = [value]
+                texts = []
+                for v in value:
+                    text = []
+                    while v.file:
+                        data = v.file.read(8192)
                         if not data:
                             break
-                        out.write(data)
+                        text.append(data)
+                    texts.append(b''.join(text))
+
+                # Parse the files and store as json.
+                collection = []
+                for text in texts:
+                    text = text.decode('utf8').strip()
+                    if '<?xml' in text[:10]:
+                        strm = io.StringIO(text)
+                        collection.extend(xml_parsers[arg](strm))
+                    else:
+                        raise RuntimeError("Unsupported file format")
+
+                with open(fname, 'w') as of:
+                    logging.info(f"Writing to file: {fname}, {len(collection)} records")
+                    json.dump(collection, of, indent=2)
+
+                # Determine start and end dates.
+                if arg == 'transaction':
+                    with model.sessionScope():
+                        org = model.Organisation[cherrypy.session['org_id']]
+
+                        gifts = filter_gifts(org.to_dict(with_lazy=True), collection)
+                        dates = [g['Date'].date() for g in gifts]
+                        period_start, period_end = [func(dates) for func in [min, max]]
+                        org.status = SystemStates.GeneratingPDF
+                        org.period_start = datetime.datetime(period_start.year, period_start.month, 1)
+                        org.period_end = datetime.datetime(
+                            period_end.year,
+                            period_end.month,
+                            calendar.monthrange(period_end.year, period_end.month)[1],
+                            23, 59, 59)
+
+
+        # Start a thread to load the actual data from exact
+        _ = Worker(org_id)
+
+
 
 
     def loading(self, **kwargs):

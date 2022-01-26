@@ -75,7 +75,6 @@ class User(db.Entity):
     church = orm.Optional(Organisation)
 
 
-
 def updatequeries(queries):
     def doIt(cursor):
         for q in queries:

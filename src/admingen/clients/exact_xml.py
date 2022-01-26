@@ -359,9 +359,48 @@ def processAccounts(stream):
         code = a_xml.attrib['code']
         name = a_xml.find('Name').text
         email = [e.text for e in a_xml.findall('Email') if e.text]
-        accounts.append(Account(code, name, email))
+        accounts.append(dict(Code=code, Name=name, Email=email))
+    print(f'Got {len(accounts)} givers')
     return accounts
 
+
+def processLedgers(stream):
+    root = ET.fromstring(stream.read())
+    ledgers = []
+    for a_xml in root.iter('GLAccount'):
+        code = a_xml.attrib['code']
+        description = a_xml.find('Description').text
+        ledgers.append(dict(Code=code, Description=description))
+    print(f'Got {len(ledgers)} GLAccounts')
+    return ledgers
+
+
+def processTransactionLines(stream):
+    root = ET.fromstring(stream.read())
+    lines = []
+    for t_xml in root.iter('GLTransaction'):
+        for l_xml in t_xml.iter('GLTransactionLine'):
+            a = l_xml.find('Account')
+            gla = l_xml.find('GLAccount')
+            v = l_xml.find('Amount')
+
+            dt = l_xml.find('Date').text
+            if dt.count('-') == 2:
+                d = datetime.datetime.strptime(dt, '%Y-%m-%d')
+                dt = f'/Date({int(d.timestamp() * 1000)})/'
+
+            lines.append(dict(
+                AccountCode=a.attrib['code'],
+                AccountName=a.find('Name').text,
+                AmountDC=float(v.find('Value').text),
+                Date=dt,
+                Description=l_xml.find('Description').text,
+                EntryNumber=int(t_xml.attrib['entry']),
+                GLAccountCode=gla.attrib['code'].strip()
+            ))
+
+    print(f'Got {len(lines)} transaction lines')
+    return lines
 
 
 if __name__ == '__main__':
