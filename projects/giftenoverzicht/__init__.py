@@ -329,36 +329,37 @@ class Worker(threading.Thread):
 
             if self.getState(self.org_id) == SystemStates.LoadingData:
                 try:
-                    # Load the users
-                    if config.testmode():
-                        time.sleep(5)
-                        with open(self.ufname) as f:
-                            users = json.load(f)
-                        with open(self.tfname) as f:
-                            transactions = json.load(f)
-                        with open(self.afname) as f:
-                            accounts = json.load(f)
-                        time.sleep(30)
-                    else:
-                        logging.info('Reading data from exact')
-                        users = getUsers(exact_division, self.access_token,
-                                         setProgress)
-                        with open(self.ufname, 'w') as out:
-                            out.write(json.dumps(users))
-                        logging.info('Read user data')
-                        # Load the transactions
-                        transactions = getTransactions(exact_division, self.access_token,
-                                                       self.period_start, self.period_end,
-                                                       setProgress)
-                        with open(self.tfname, 'w') as out:
-                            out.write(json.dumps(transactions))
-                        accounts = getAccounts(exact_division, self.access_token,
-                                               setProgress)
-                        with open(self.afname, 'w') as out:
-                            out.write(json.dumps(accounts))
-                        logging.info('Read transaction data for organisation %s' % self.org_id)
-                        logging.info('There are %s transactions and %s users' % (
-                        len(transactions), len(users)))
+                    if False:
+                        # Load the users
+                        if config.testmode():
+                            time.sleep(5)
+                            with open(self.ufname) as f:
+                                users = json.load(f)
+                            with open(self.tfname) as f:
+                                transactions = json.load(f)
+                            with open(self.afname) as f:
+                                accounts = json.load(f)
+                            time.sleep(30)
+                        else:
+                            logging.info('Reading data from exact')
+                            users = getUsers(exact_division, self.access_token,
+                                             setProgress)
+                            with open(self.ufname, 'w') as out:
+                                out.write(json.dumps(users))
+                            logging.info('Read user data')
+                            # Load the transactions
+                            transactions = getTransactions(exact_division, self.access_token,
+                                                           self.period_start, self.period_end,
+                                                           setProgress)
+                            with open(self.tfname, 'w') as out:
+                                out.write(json.dumps(transactions))
+                            accounts = getAccounts(exact_division, self.access_token,
+                                                   setProgress)
+                            with open(self.afname, 'w') as out:
+                                out.write(json.dumps(accounts))
+                            logging.info('Read transaction data for organisation %s' % self.org_id)
+                            logging.info('There are %s transactions and %s users' % (
+                            len(transactions), len(users)))
                     self.setState(self.org_id, SystemStates.GeneratingPDF)
                 except:
                     logging.exception('Exception while loading data from exact')
