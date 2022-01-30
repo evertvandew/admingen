@@ -353,15 +353,23 @@ def testLogin(oauth_details: OAuth2):
 
 
 def processAccounts(stream):
+    # Exact will for some account, yield multiple records. These need to be merged here.
     root = ET.fromstring(stream.read())
-    accounts = []
+    accounts = {}
     for a_xml in root.iter('Account'):
         code = a_xml.attrib['code']
         name = a_xml.find('Name').text
         email = [e.text for e in a_xml.findall('Email') if e.text]
-        accounts.append(dict(Code=code, Name=name, Email=email))
+
+        record = accounts.setdefault(code, {})
+        if record:
+            if email:
+                record['Email'].append(email)
+        else:
+            accounts.append(dict(Code=code, Name=name, Email=email))
+
     print(f'Got {len(accounts)} givers')
-    return accounts
+    return list(accounts.values())
 
 
 def processLedgers(stream):
