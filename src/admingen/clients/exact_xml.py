@@ -360,13 +360,15 @@ def processAccounts(stream):
         code = a_xml.attrib['code']
         name = a_xml.find('Name').text
         email = [e.text for e in a_xml.findall('Email') if e.text]
+        if email:
+            email = email[0]
 
         record = accounts.setdefault(code, {})
         if record:
             if email:
-                record['Email'].append(email)
+                record['Email'] = email
         else:
-            accounts.append(dict(Code=code, Name=name, Email=email))
+            record.update(Code=code, Name=name, Email=email)
 
     print(f'Got {len(accounts)} givers')
     return list(accounts.values())
