@@ -384,19 +384,22 @@ def processTransactionLines(stream):
             gla = l_xml.find('GLAccount')
             v = l_xml.find('Amount')
 
+            if not a or not gla:
+                continue
+
             dt = l_xml.find('Date').text
             if dt.count('-') == 2:
                 d = datetime.datetime.strptime(dt, '%Y-%m-%d')
                 dt = f'/Date({int(d.timestamp() * 1000)})/'
 
             lines.append(dict(
-                AccountCode=a.attrib['code'],
-                AccountName=a.find('Name').text,
+                AccountCode=a.attrib['code'] if a else '',
+                AccountName=a.find('Name').text if a else '',
                 AmountDC=float(v.find('Value').text),
                 Date=dt,
                 Description=l_xml.find('Description').text,
                 EntryNumber=int(t_xml.attrib['entry']),
-                GLAccountCode=gla.attrib['code'].strip()
+                GLAccountCode=gla.attrib['code'].strip() if gla else ''
             ))
 
     print(f'Got {len(lines)} transaction lines')

@@ -595,9 +595,9 @@ class Overzichten:
     def upload_data(self, **kwargs):
         org_id = cherrypy.session['org_id']
         form = SimpleForm(Hidden('token'),
-                MultiFileUpload('users', 'Users (givers)'),
-                MultiFileUpload('accounts', 'Accounts'),
-                MultiFileUpload('transaction', 'Transactions'),
+                MultiFileUpload('users', 'Relaties (Accounts)'),
+                MultiFileUpload('accounts', 'Grootboeken (GLAccounts)'),
+                MultiFileUpload('transaction', 'Transacties'),
                 validator = None,
                 defaults ={},
                 success = self.data_uploaded
