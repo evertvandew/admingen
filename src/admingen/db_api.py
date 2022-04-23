@@ -125,6 +125,7 @@ def openDb(url, version=1, update=None, create=True):
     parts = urlparse(url)
     if parts.scheme == 'sqlite':
         path = parts.netloc or parts.path
+        print (path, os.path.exists(path))
         if create and update and os.path.exists(path):
             update(path)
         the_db.bind(provider=parts.scheme, filename=path, create_db=create)

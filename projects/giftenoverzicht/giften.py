@@ -213,6 +213,8 @@ def generate_overviews(org, users, transactions):
     relatienrs = set(g['AccountCode'] for g in gifts if 'AccountCode' in g and g['AccountCode'])
 
     for r in relatienrs:
+        if r not in users_lu:
+            continue
         user = users_lu[r]
         filtered, total, rst = generate_overview(org, r, user, gifts)
         if total:
