@@ -242,31 +242,38 @@ def mydataclass(cls):
     original_annotations = copy.copy(cls.__annotations__)
     cls.__original_annotations = original_annotations
 
+    def convert_field(cls, key, v):
+        """ Return the value in the correct type for field key. """
+        assert (k in cls.__annotations__)
+        t = cls.__annotations__[key]
+        if type(v) == t or v is None:
+            pass
+        elif v == 'null':
+            v = None
+        elif t == time.fromisoformat and type(v) == time:
+            # Don't convert time fields that are already in the correct type.
+            pass
+        elif isinstance(v, Enum):
+            pass
+        elif is_dataclass(t):
+            v = int(v)
+        else:
+            print('Converting:', k, v, cls)
+            if v == 'None' or not v:
+                v = None
+            else:
+                v = t(v)
+        return v
+
     def __init__(self, *args, **kwargs):
         data = dict(zip(cls.__annotations__, args))
         data.update(kwargs)
-        for k, t in cls.__annotations__.items():
+        for k in cls.__annotations__.keys():
             if k == 'id' and k not in data:
                 continue
-            v = data.get(k, None)
-            if type(v) == t or v is None:
-                pass
-            elif v == 'null':
-                v = None
-            elif t == time.fromisoformat and type(v) == time:
-                # Don't convert time fields that are already in the correct type.
-                pass
-            elif isinstance(v, Enum):
-                pass
-            elif is_dataclass(t):
-                v = int(v)
-            else:
-                print('Converting:', k, v, cls)
-                if v == 'None' or not v:
-                    v = None
-                else:
-                    v = t(v)
+            v = convert_field(cls, k, data.get(k, None))
             setattr(self, k, v)
+
     def __json__(self):
         return asdict(self)
 
@@ -291,6 +298,7 @@ def mydataclass(cls):
     cls.set_attr = my_setattr
     cls.get_fks = classmethod(get_fks)
     cls.get_referrers = classmethod(get_referrers)
+    cls.convert_field = classmethod(convert_field)
 
     wrapped = dataclass(cls)
 

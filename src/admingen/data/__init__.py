@@ -116,7 +116,7 @@ class dataset:
         return self.data.keys()
 
     def enrich(self, func=None, **kwargs):
-        enrich(self.data.values(), func, kwargs)
+        enrich(self.data.values(), func, **kwargs)
         return self
 
     def enrich_condition(self, condition, true=None, false=None):
@@ -232,7 +232,10 @@ class dataline(Mapping):
 
     # Implement the Mapping protocol
     def __getitem__(self, key):
-        return getattr(self, key)
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(f'{key} not found in dataitem')
     def __setitem__(self, key, value):
         setattr(self, key, value)
     def __iter__(self):
@@ -313,12 +316,15 @@ class AnnotatedDict(dict):
 
 
 
-def CsvReader(stream: typing.TextIO, delimiter=','):
+def CsvReader(stream: typing.TextIO, delimiter=';'):
     if isinstance(stream, str):
         stream = open(stream)
     collection = AnnotatedDict()
     for table in read_tablename(stream):
-        names, types = read_header(stream, delimiter)
+        h = read_header(stream, delimiter)
+        if not h:
+            return []
+        names, types = h
         collection.__annotations__[table] = [names, types]
         if 'id' in names or 'id' in types:
             collection[table] = read_lines_id(stream, names, types, delimiter)
@@ -431,7 +437,10 @@ def date_or_dash(fmt):
 
 def CsvTableReader(stream: typing.TextIO, targettype, delimiter=',', types=None, header=True):
     if header:
-        names, types = read_header(stream, delimiter)
+        h = read_header(stream, delimiter)
+        if not h:
+            return
+        names, types = h
     constr = mk_object_constructor(targettype)
     for line in stream:
         line = line.strip()
@@ -498,14 +507,22 @@ def CsvWriter(stream: typing.TextIO, collection: Dict[str, Union[List[Any], Dict
             names = [k for k, v in columns[0].__dict__.items() if not callable(v)]
             annotations = [(k, type(v).__name__) for k, v in columns[0].__dict__.items() if not callable(v)]
             columns = [{k: getattr(c, k) for k in names} for c in columns]
-        else:
+        elif isinstance(columns[0], dict):
             annotations = [(k, type(v).__name__) for k, v in columns[0].items()]
+        else:
+            max_cols = max([len(r) for r in columns])
+            annotations = [(i+1, 'str') for i in range(max_cols)]
         parts = ['%s:%s'%(n, t) for n, t in annotations]
         stream.write('%s\n'%delimiter.join(parts))
 
         # Write the table data
         for line in (columns if isinstance(columns, list) else columns.values()):
-            stream.write('%s\n'%delimiter.join([str(v).replace(delimiter, r'\d') for v in line.values()]))
+            values = line.values() if isinstance(line, Mapping) else line
+            if values:
+                stream.write('%s\n'%delimiter.join([str(v).replace(delimiter, r'\d').replace('\n', r'\n') for v in values]))
+            else:
+                # Lines can not be empty: simply write a single delimiter.
+                stream.write(delimiter+'\n')
 
         # Write an empty line to signal the end of the table
         stream.write('\n')

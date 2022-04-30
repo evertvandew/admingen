@@ -15,7 +15,7 @@ import enum
 import shutil
 import functools
 from urllib.parse import unquote
-from dataclasses import is_dataclass, asdict
+from dataclasses import is_dataclass, asdict, fields
 from typing import Union, Type, Callable, List
 from admingen.data import serialiseDataclass, deserialiseDataclass
 from .db_api import db_api, filter_context, Record
@@ -138,6 +138,8 @@ class FileDatabase(db_api):
         if record is None:
             record = table
             table = type(table)
+        elif isinstance(record, dict):
+            record = table(**record)
         fullpath = os.path.join(self.path, table.__name__)
         print('FULLPATH:', fullpath)
         if not getattr(record, 'id', None):
@@ -190,6 +192,10 @@ class FileDatabase(db_api):
 
         # Update with the new data
         for k, v in record.items():
+            if k not in table.__annotations__.keys():
+                # This is not an actual attribute of this table.
+                # This is not an error: clients are free to enrich their objects.
+                continue
             if k == 'id':
                 # The ID attribute can not be changed.
                 continue
