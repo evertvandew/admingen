@@ -117,8 +117,8 @@ class FileDatabase(db_api):
         if not os.path.exists(path):
             os.mkdir(path)
         
-        for table in self.tables:
-            tp = os.path.join(path, table.__name__)
+        for name, table in self.tables.items():
+            tp = os.path.join(path, name)
             if not os.path.exists(tp):
                 os.mkdir(tp)
             ad = os.path.join(tp, self.archive_dir)
