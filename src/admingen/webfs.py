@@ -24,7 +24,7 @@
 
 import flask
 
-import os
+import os, os.path
 import filecache
 import admingen.magick as magic
 import re
@@ -50,7 +50,7 @@ def my_get_mime(path):
     if path.endswith('.css'):
         return 'text/css'
 
-    if os.exists(path):
+    if os.path.exists(path):
         mime = magic.from_file(path, mime=True)
     else:
         logging.error(f"Trying to look up mime for file {path} failed: NOT FOUND")
