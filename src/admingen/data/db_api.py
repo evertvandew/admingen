@@ -2,7 +2,7 @@
 
 import operator
 from typing import List, Type, Union, Callable
-
+from dataclasses import asdict
 
 # Define the operators that can be used in filter and join conditions
 filter_context = {
@@ -21,6 +21,15 @@ filter_context = {
 # A base class to be used in typeing.
 class Record: pass
 
+
+
+def getJsonJoined(a_cls, b_cls):
+    """ Return an function that returns something that is jsonified """
+    def jsonify(self):
+        result = asdict(self)
+        result[b_cls.__name__] = asdict(getattr(self, b_cls.__name__))
+        return result
+    return jsonify
 
 
 class db_api:
@@ -79,6 +88,7 @@ class db_api:
                 for b in b_records:
                     if join[1](rec, b):
                         setattr(rec, tname, b)
+                        rec.__json__ = getJsonJoined(table, join[0]).__get__(rec, rec.__class__)
                         break
 
         if filter:
