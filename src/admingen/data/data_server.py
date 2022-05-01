@@ -149,7 +149,7 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
             def func(item, condition):
                 d = asdict(item) if is_dataclass(item) else item
                 try:
-                    return bool(eval(condition, filter_context, d))
+                    return bool(eval(condition, filter_context, item))
                 except:
                     logging.exception(f"Error in evaluating {condition} with variables {d}")
                     raise
@@ -161,7 +161,10 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
         if 'sort' in flask.request.args:
             data = multi_sort(flask.request.args['sort'], data)
         else:
-            data = sorted(data, key=lambda d: d.id)
+            if isinstance(data[0], dict):
+                data = sorted(data, key=lambda d: d['id'])
+            else:
+                data = sorted(data, key=lambda d: d.id)
 
         # Apply limit and offset
         is_final = True
