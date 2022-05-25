@@ -34,7 +34,7 @@ def multi_sort(descriptor, data):
     """
     sorts = descriptor.split(',')
 
-    def sort_predicate(it1, it2):
+    def sort_predicate_dict(it1: dict, it2: dict):
         for key in sorts:
             sort_desc = False
             sort_desc = key.endswith(':desc')
@@ -53,7 +53,28 @@ def multi_sort(descriptor, data):
         # There was no difference in any of the keys, return 0.
         return 0
 
-    return sorted(data, key=functools.cmp_to_key(sort_predicate))
+    def sort_predicate_cls(it1, it2):
+        for key in sorts:
+            sort_desc = False
+            sort_desc = key.endswith(':desc')
+            if sort_desc:
+                key = key.split(':')[0]
+            # Retrieve the values to be sorted on now.
+            v1, v2 = [getattr(i, key) for i in [it1, it2]]
+            # Do the actual comparison
+            if sort_desc:
+                result = (v2 > v1) - (v2 < v1)
+            else:
+                result = (v1 > v2) - (v1 < v2)
+            # If there is a difference based on the current key, return the value
+            if result != 0:
+                return result
+        # There was no difference in any of the keys, return 0.
+        return 0
+
+    if data and isinstance(data[0], dict):
+        return sorted(data, key=functools.cmp_to_key(sort_predicate_dict))
+    return sorted(data, key=functools.cmp_to_key(sort_predicate_cls))
 
 
 def do_leftjoin(tabl1, tabl2, data1, data2, condition):
@@ -117,7 +138,8 @@ class FileDatabase(db_api):
         if not os.path.exists(path):
             os.mkdir(path)
         
-        for name, table in self.tables.items():
+        for table in self.tables:
+            name = table.__name__
             tp = os.path.join(path, name)
             if not os.path.exists(tp):
                 os.mkdir(tp)

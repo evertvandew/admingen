@@ -164,7 +164,7 @@ def formatted_date(fmt):
     """ Custom converter class for dates."""
     class MyDate:
         annotation = 'formatted_date("%s")' % fmt
-        forward_funcs = ['__lt__', '__gt__', '__le__', '__ge__', '__eq__', '__ne__', '__add__']
+        forward_funcs = ['__add__']
         def __init__(self, x):
             if type(x).__name__ == 'MyDate':
                 self.dt = x.dt
@@ -201,6 +201,30 @@ def formatted_date(fmt):
             if isinstance(other, str):
                 other = datetime.strptime(other, fmt)
             return self.dt == other
+
+        def __lt__(self, other):
+            if isinstance(other, str):
+                other = datetime.strptime(other, fmt)
+            return self.dt < other
+
+        def __gt__(self, other):
+            if isinstance(other, str):
+                other = datetime.strptime(other, fmt)
+            return self.dt > other
+
+        def __ge__(self, other):
+            return not (self < other)
+
+        def __le__(self, other):
+            return not (self > other)
+
+        def __ne__(self, other):
+            if isinstance(other, str):
+                other = datetime.strptime(other, fmt)
+            return self.dt != other
+
+        def __eq__(self, other):
+            return not (self != other)
 
     for f in MyDate.forward_funcs:
         MyDate.forward_func(f)
