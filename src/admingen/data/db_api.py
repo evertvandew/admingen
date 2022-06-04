@@ -1,5 +1,5 @@
 
-
+import enum
 import operator
 from typing import List, Type, Union, Callable
 from dataclasses import asdict
@@ -37,6 +37,7 @@ class db_api:
         Also defines some algorithms that make use of the low-level functions,
         but can be overwritten by classes that use e.g. SQL to implement these algorithms.
     """
+    actions = enum.Enum('actions', 'add update delete')
     def get(self, table: Type[Record], index: int) -> Record:
         raise NotImplementedError()
     def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:
@@ -51,6 +52,25 @@ class db_api:
     def delete(self, table:Type[Record], index:int) -> None:
         raise NotImplementedError()
 
+
+    def data_hook(self, table):
+        """ Decorator that defines a hook for updates on data of a specific type.
+        """
+        def add_hook(hook):
+            hooks = self.hooks.setdefault(table.__name__, [])
+            hooks.append(hook)
+            return hook
+        return add_hook
+
+    def call_hooks(self, table, action, record):
+        # Call the hooks, but make sure there is no recursion.
+        for hook in self.hooks.get(table.__name__, []):
+            if hook not in self.active_hooks:
+                self.active_hooks.add(hook)
+                try:
+                    hook(action, record)
+                finally:
+                    self.active_hooks.remove(hook)
 
     def get_many(self, table:Type[Record], indices:List[int]=None) -> List[Record]:
         """ Retrieve a (large) set of records at once. There are returned as a list.

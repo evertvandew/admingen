@@ -114,25 +114,6 @@ class FileDatabase(db_api):
         self.hooks = {}
         self.active_hooks = set()
 
-    def data_hook(self, table):
-        """ Decorator that defines a hook for updates on data of a specific type.
-        """
-        def add_hook(hook):
-            hooks = self.hooks.setdefault(table.__name__, [])
-            hooks.append(hook)
-            return hook
-        return add_hook
-
-    def call_hooks(self, table, action, record):
-        # Call the hooks, but make sure there is no recursion.
-        for hook in self.hooks.get(table.__name__, []):
-            if hook not in self.active_hooks:
-                self.active_hooks.add(hook)
-                try:
-                    hook(action, record)
-                finally:
-                    self.active_hooks.remove(hook)
-
     def create(self):
         path = self.path
         if not os.path.exists(path):
