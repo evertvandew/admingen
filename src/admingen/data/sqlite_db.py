@@ -11,11 +11,14 @@ from sqlalchemy.orm import registry
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
 from typing import List, Type, Union, Callable
 from dataclasses import asdict
 
 from .db_api import db_api, filter_context, Record
+
+
+class UnknownRecord(RuntimeError): pass
 
 
 class SqliteDatabase(db_api):
@@ -26,12 +29,18 @@ class SqliteDatabase(db_api):
 
         # Instantiate the database
         self.engine = create_engine(f"sqlite:///{self.path}", echo=True, future=True)
+        self.Session = sessionmaker(bind = self.engine, expire_on_commit=False)
         meta.create_all(self.engine)
 
 
     def get(self, table: Type[Record], index: int) -> Record:
-        with Session(self.engine) as session:
-            return session.query(table).filter(table.id == index).one()
+        try:
+            with self.Session() as session:
+                result = session.query(table).filter(table.id == index).one()
+                if result:
+                    return result
+        except sq.exc.NoResultFound:
+            raise UnknownRecord()
 
     def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:
         if record:
@@ -40,7 +49,7 @@ class SqliteDatabase(db_api):
         else:
             record = table
 
-        with Session(self.engine) as session:
+        with self.Session() as session:
             session.add(record)
             session.commit()
             return record
@@ -50,7 +59,7 @@ class SqliteDatabase(db_api):
         # The record was updated outside a session, so it won't commit automatically.
         update = record.asdict()
         T = type(record)
-        with Session(self.engine) as session:
+        with self.Session() as session:
             session.query(type(record)).filter(T.id == update['id']).update(update, synchronize_session = False)
             return session.commit()
 
@@ -58,8 +67,25 @@ class SqliteDatabase(db_api):
         """ Update a record. Has an optional checker argument;
             the checker is for checking if the user is allowed to update a specific record.
         """
-        raise NotImplementedError()
+        if record is None:
+            record = table.asdict()
+            table = type(table)
+        if checker:
+            # We need the current values to check if the update is valid
+            data = self.get(table, record['id'])
+            if not checker(record, data):
+                return
+
+        # Perform the update
+        rid = record['id']
+        del record['id']
+        with self.Session() as session:
+            result = session.query(table).filter(table.id == rid).update(record)
+            session.commit()
+            return table(id = rid, **record)
 
     def delete(self, table:Type[Record], index:int) -> None:
-        raise NotImplementedError()
+        with self.Session() as session:
+            session.query(table).filter(table.id == index).delete()
+            session.commit()
 
