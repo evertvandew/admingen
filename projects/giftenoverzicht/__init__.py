@@ -634,7 +634,11 @@ class Overzichten:
                 # Parse the files and store as json.
                 collection = []
                 for text in texts:
-                    text = text.decode('utf8').strip()
+                    # Allow UTF-16 files: identify them through their magic number header.
+                    if text[:2] == b'\xff\xfe':
+                        text = text.decode('utf16').strip()
+                    else:
+                        text = text.decode('utf8').strip()
                     if '<?xml' in text[:10]:
                         strm = io.StringIO(text)
                         collection.extend(xml_parsers[arg](strm))
