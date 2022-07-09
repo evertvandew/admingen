@@ -23,6 +23,7 @@ class UnknownRecord(RuntimeError): pass
 
 class SqliteDatabase(db_api):
     def __init__(self, path, tables, meta):
+        db_api.__init__(self)
         self.tables = tables
         self.path = path
         self.meta = meta
@@ -41,6 +42,14 @@ class SqliteDatabase(db_api):
                     return result
         except sq.exc.NoResultFound:
             raise UnknownRecord()
+
+    def get_many(self, table:Type[Record], indices:List[int]=None) -> List[Record]:
+        """ Retrieve a (large) set of records at once. There are returned as a list.
+            If indices is not specified, empty or None, ALL records from the table are read.
+        """
+        with self.Session() as session:
+            result = session.query(table).all()
+            return result
 
     def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:
         if record:

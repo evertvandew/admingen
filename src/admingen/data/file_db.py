@@ -107,12 +107,11 @@ def do_leftjoin(tabl1, tabl2, data1, data2, condition):
 class FileDatabase(db_api):
     actions = enum.Enum('actions', 'add update delete')
     def __init__(self, path, tables):
+        db_api.__init__(self)
         self.archive_dir = 'archived'
         self.path = path
         self.tables = tables
         self.create()
-        self.hooks = {}
-        self.active_hooks = set()
 
     def create(self):
         path = self.path

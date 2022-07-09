@@ -38,6 +38,9 @@ class db_api:
         but can be overwritten by classes that use e.g. SQL to implement these algorithms.
     """
     actions = enum.Enum('actions', 'add update delete')
+    def __init__(self):
+        self.hooks = {}
+        self.active_hooks = set()
     def get(self, table: Type[Record], index: int) -> Record:
         raise NotImplementedError()
     def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:
