@@ -25,7 +25,7 @@
 import flask
 
 import os, os.path
-import filecache
+from admingen.data import filecache
 import admingen.magick as magic
 import re
 import json

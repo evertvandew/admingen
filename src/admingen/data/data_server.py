@@ -11,7 +11,7 @@ import logging
 from dataclasses import is_dataclass, asdict
 from werkzeug.exceptions import BadRequest, NotFound
 from admingen.data import serialiseDataclasses, serialiseDataclass, deserialiseDataclass
-from admingen.data.file_db import FileDatabase, filter_context, multi_sort, do_leftjoin
+from admingen.data.file_db import filter_context, multi_sort, do_leftjoin
 
 # Define the key for the data element that is added to indicate limited queries have reached the end
 IS_FINAL_KEY = '__is_last_record'
@@ -123,7 +123,7 @@ def add_record(table, tablecls, data, mk_response=True):
 def register_db_handlers(db_name, app, prefix, db, table_classes):
     # We need to use a custom "Blueprint" to register multiple handlers
     # that use the same function name.
-    bp = flask.Blueprint(db_name, 'db_api')
+    bp = flask.Blueprint(prefix, 'db_api')
 
     @bp.route('/<path:table>', methods=['GET'])
     def get_table(table):
@@ -147,7 +147,7 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
         # Apply the filter
         if 'filter' in flask.request.args:
             def func(item, condition):
-                d = asdict(item) if is_dataclass(item) else item
+                d = item.asdict() if hasattr(item, 'asdict') else asdict(item) if is_dataclass(item) else item
                 try:
                     return bool(eval(condition, filter_context, d))
                 except:

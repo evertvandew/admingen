@@ -25,7 +25,7 @@ class SqliteDatabase(db_api):
     def __init__(self, path, tables, meta):
         db_api.__init__(self)
         self.tables = tables
-        self.path = path
+        self.path = path + '.sqlite3'
         self.meta = meta
 
         # Instantiate the database
@@ -57,6 +57,7 @@ class SqliteDatabase(db_api):
             record = table(record)
         else:
             record = table
+        record.id = None
 
         with self.Session() as session:
             session.add(record)
