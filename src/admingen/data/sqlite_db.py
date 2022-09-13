@@ -74,7 +74,7 @@ class SqliteDatabase(db_api):
     def set(self, record: Record) -> Record:
         # Assume the record already exists, and we just need to update it.
         # The record was updated outside a session, so it won't commit automatically.
-        update = record.asdict()
+        update = asdict(record)
         T = type(record)
         with self.Session() as session:
             session.query(type(record)).filter(T.id == update['id']).update(update, synchronize_session = False)
@@ -85,7 +85,7 @@ class SqliteDatabase(db_api):
             the checker is for checking if the user is allowed to update a specific record.
         """
         if record is None:
-            record = table.asdict()
+            record = asdict(table)
             table = type(table)
         if checker:
             # We need the current values to check if the update is valid
