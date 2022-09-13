@@ -242,6 +242,8 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
             originals = db.query(tablecls, filter=lambda r: all(getattr(r, k)==v for k, v in key.items()))
             if originals:
                 return put_item(table, originals[0].id)
+        if 'id' in data:
+            del data['id']
         record = db.add(tablecls(**data))
         return flask.make_response(serialiseDataclass(record), 201)
 

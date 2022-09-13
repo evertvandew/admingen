@@ -22,16 +22,23 @@ class UnknownRecord(RuntimeError): pass
 
 
 class SqliteDatabase(db_api):
-    def __init__(self, path, tables, meta):
+    def __init__(self, path, tables, registry):
         db_api.__init__(self)
         self.tables = tables
         self.path = path + '.sqlite3'
-        self.meta = meta
+        self.meta = registry.metadata
 
         # Instantiate the database
         self.engine = create_engine(f"sqlite:///{self.path}", echo=True, future=True)
         self.Session = sessionmaker(bind = self.engine, expire_on_commit=False)
-        meta.create_all(self.engine)
+        self.meta.create_all(self.engine)
+
+        # Populate the reverse-lookup table
+        rl = {}
+        tables_lu = {t.__name__: t for t in tables}
+        for m in self.meta.tables:
+            rl[m.lower()] = tables_lu[m]
+        registry.reverse_lookup = rl
 
 
     def get(self, table: Type[Record], index: int) -> Record:
@@ -89,10 +96,17 @@ class SqliteDatabase(db_api):
         # Perform the update
         rid = record['id']
         del record['id']
+
+        # Ensure all attributes have the correct type
+        for k, v in record.items():
+            record[k] = table.convert_field(k, v)
+
         with self.Session() as session:
-            result = session.query(table).filter(table.id == rid).update(record)
+            session.query(table).filter(table.id == rid).update(record)
             session.commit()
-            return table(id = rid, **record)
+            result = table(**record)
+            result.id = int(rid)
+            return result
 
     def delete(self, table:Type[Record], index:int) -> None:
         with self.Session() as session:
