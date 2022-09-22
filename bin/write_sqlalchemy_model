@@ -37,7 +37,7 @@ enum_template = """{name} = enum_type('{name}', '{options}')
 
 enum_line_template = """{name}: {py_type} = field(default={default}, metadata={{"sa": Column(sq.Enum({py_type}._my_enum))}})"""
 regular_line_template = """{name}: {py_type} = field(default={default}, metadata={{"sa": Column({sa_type} {options})}})"""
-pk_line_template = """{name}: int = field(init=False, metadata={{"sa": Column(Integer, primary_key=True)}})"""
+pk_line_template = """{name}: {py_type} = field(init=False, metadata={{"sa": Column({sa_type}, primary_key=True)}})"""
 fk_line_template = """{name}: int = field(default = None, metadata={{"sa": Column(Integer, ForeignKey({ft}.id) {options})}})"""
 
 lines = []
@@ -125,7 +125,9 @@ for database, tables in data_models.items():
             if raw_t == k:
                 py_type = '"self"'
             elif name == 'id':
-                cls.append(pk_line_template.format(name=name, default=None))
+                py_type = dmtype_2_pytype[raw_t]
+                sa_type = dmtype_2_satype[raw_t]
+                cls.append(pk_line_template.format(name=name, py_type=py_type, sa_type=sa_type, default=None))
             elif raw_t in dmtype_2_pytype:
                 py_type = dmtype_2_pytype[raw_t]
                 sa_type = dmtype_2_satype[raw_t]
@@ -371,7 +373,8 @@ def mydataclass(cls):
         # JSON does not support bytes.
         byte_keys = [k for k, t in self.__annotations__.items() if t == fileblob]
         for k in byte_keys:
-            d[k] = d[k].decode('ascii')
+            if d[k]:
+                d[k] = d[k].decode('ascii')
         return d
 
     def my_setattr(self, attr, value):
