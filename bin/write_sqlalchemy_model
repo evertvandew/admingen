@@ -390,18 +390,22 @@ def mydataclass(cls):
         """ Return the value in the correct type for field key. """
         assert (k in cls.__annotations__)
         t = cls.__annotations__[key]
+        if t == bool and v is None:
+            v = False
         if type(v) == t or v is None:
             pass
-        elif v == 'null':
+        elif isinstance(v, str) and v == 'null':
             v = None
         elif t == time.fromisoformat and type(v) == time:
             # Don't convert time fields that are already in the correct type.
             pass
         elif isinstance(v, Enum):
-            pass
+            v = t(str(v))
         elif is_dataclass(t):
             v = int(v)
         elif t == fileblob:
+            if type(v) not in [str, bytes]:
+                v = str(v)
             if isinstance(v, str):
                 v = v.encode('ascii')
             v = t(v)
