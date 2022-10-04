@@ -38,7 +38,7 @@ enum_template = """{name} = enum_type('{name}', '{options}')
 enum_line_template = """{name}: {py_type} = field(default={default}, metadata={{"sa": Column(sq.Enum({py_type}._my_enum))}})"""
 regular_line_template = """{name}: {py_type} = field(default={default}, metadata={{"sa": Column({sa_type}{options})}})"""
 pk_line_template = """{name}: {py_type} = field(init=False, metadata={{"sa": Column({sa_type}, primary_key=True)}})"""
-fk_line_template = """{name}: int = field(default=None, metadata={{"sa": Column(Integer, ForeignKey({ft}){options})}})"""
+fk_line_template = """{name}: int = field(default=None, metadata={{"sa": Column(Integer, ForeignKey({ft}, ondelete="{on_delete}"){options})}})"""
 
 lines = []
 the_tables = {}
@@ -175,7 +175,7 @@ for database, tables in data_models.items():
                 options = ''
 
             if raw_t == k:
-                cls.append(fk_line_template.format(name=name, ft=f'"{raw_t}.id"', options=options))
+                cls.append(fk_line_template.format(name=name, ft=f'"{raw_t}.id"', options=options, on_delete="SET NULL"))
             elif name == 'id':
                 py_type = dmtype_2_pytype[raw_t]
                 sa_type = dmtype_2_satype[raw_t]
@@ -185,7 +185,8 @@ for database, tables in data_models.items():
                 sa_type = dmtype_2_satype[raw_t]
                 cls.append(regular_line_template.format(name=name, py_type=py_type, sa_type=sa_type, default=default, options=options))
             elif raw_t in my_tables:
-                cls.append(fk_line_template.format(name=name, ft=f'"{raw_t}.id"', options=options))
+                on_delete = "SET NULL" if Flags.Optional in flags else "CASCADE"
+                cls.append(fk_line_template.format(name=name, ft=f'"{raw_t}.id"', options=options, on_delete=on_delete))
             elif raw_t in enum_defs:
                 default = f'{first(enum_defs[raw_t])}'
                 cls.append(enum_line_template.format(name=name, py_type=raw_t, default=default))
