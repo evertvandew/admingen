@@ -64,7 +64,6 @@ class SqliteDatabase(db_api):
             record = table(record)
         else:
             record = table
-        record.id = None
 
         with self.Session() as session:
             session.add(record)

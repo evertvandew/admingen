@@ -3,6 +3,7 @@ import os
 from dataclasses import is_dataclass
 from admingen.data.sqlite_db import SqliteDatabase, sessionmaker
 from admingen.data import serialiseDataclass, deserialiseDataclass
+import traceback
 
 
 
@@ -31,7 +32,7 @@ def ensure_prerequisites(records):
                 for record in records:
                     # Add the offset to the relevant items in the records.
                     for key, t in record.get_fks().items():
-                        value = getattr(record, key)
+                        value = getattr(record, key, None)
                         if isinstance(value, int) and value < ID_OFFSET:
                             setattr(record, key, value+ID_OFFSET)
                     if isinstance(record.id, int) and record.id < ID_OFFSET:
@@ -44,6 +45,9 @@ def ensure_prerequisites(records):
             # The pre-requisites have been created. Run the test function.
             try:
                  func(self)
+            except:
+                traceback.print_exc()
+                raise
             finally:
                 # Now delete the objects that were created.
                 self.db_restore(db_state)
@@ -102,5 +106,8 @@ def SqlitedbPlugin(dbname):
                 if k not in indexed_state or indexed_state[k] != v:
                     delta.append(v)
             return delta
+
+        def get_underlying(self):
+            return db
 
     return PluginCls

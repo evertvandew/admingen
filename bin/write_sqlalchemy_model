@@ -36,13 +36,54 @@ enum_template = """{name} = enum_type('{name}', '{options}')
 """
 
 enum_line_template = """{name}: {py_type} = field(default={default}, metadata={{"sa": Column(sq.Enum({py_type}._my_enum))}})"""
-regular_line_template = """{name}: {py_type} = field(default={default}, metadata={{"sa": Column({sa_type} {options})}})"""
+regular_line_template = """{name}: {py_type} = field(default={default}, metadata={{"sa": Column({sa_type}{options})}})"""
 pk_line_template = """{name}: {py_type} = field(init=False, metadata={{"sa": Column({sa_type}, primary_key=True)}})"""
-fk_line_template = """{name}: int = field(default = None, metadata={{"sa": Column(Integer, ForeignKey({ft}.id) {options})}})"""
+fk_line_template = """{name}: int = field(default=None, metadata={{"sa": Column(Integer, ForeignKey({ft}){options})}})"""
 
 lines = []
 the_tables = {}
 
+
+from_str_conversions = {'datetime': 'datetime.strptime({s}, "%d-%m-%Y %H:%M:%S")',
+                   'date': 'date.strptime({s}, "%Y-%m-%d")',
+                   'time': 'time.fromisoformat({s})',
+                   'longstr': "str({s})",
+                   'Color': 'str({s})',
+                   'image': 'image({s})',
+                   'password': 'str({s})',
+                   'fileblob': 'fileblob({s})'
+}
+
+def generate_from_str(cls):
+    lines = []
+    for key, details in cls.items():
+        value_type = details[0]
+        if conversion_base := from_str_conversions.get(value_type, None):
+            conversion = conversion_base.format(s=f'ddict["{key}"]')
+            lines.append(f'''        ddict["{key}"] = {conversion} if ddict["{key}"] else None''')
+
+    txt = '\n'.join(lines)
+    result = f'''
+    @classmethod
+    def from_string(cls, string):
+        # Convert a string to an instance of cls.
+        # The first step is parsing the string as Json.
+        ddict = json.loads(string)
+        # Apply custom conversions
+{txt}
+        # Instantiate the cls.
+        return cls(**ddict)
+'''
+    return result
+
+
+def generate_get_fks(cls, fks):
+    txt = '{' + ', '.join(f"'{k}': {v}" for k, v in fks.items()) + '}'
+    return f'''
+    @classmethod
+    def get_fks(cls):
+        return {txt}
+'''
 
 dmtype_2_satype = {'int': "Integer",
                    'str': "Unicode",
@@ -56,8 +97,8 @@ dmtype_2_satype = {'int': "Integer",
                    'datetime': 'DateTime'
 }
 
-dmtype_2_pytype = {'datetime': "formatted_date('%d-%m-%Y %H:%M:%S')",
-                   'date': "formatted_date('%Y-%m-%d')",
+dmtype_2_pytype = {'datetime': "datetime",
+                   'date': "date",
                    'time': 'time.fromisoformat',
                    'longstr': "str",
                    'Color': 'str',
@@ -75,6 +116,17 @@ dmtype_2_default = {'str': "''", 'longstr': "''", 'float': "0.0", 'int': "0"}
 
 # A default value can either be a literal (without spaces) or a quoted string
 default_matcher = re.compile(r'''default=([^'"\s]+|(?P<quote>['"])[^'"]*(?P=quote))''')
+
+
+# Find all foreign keys for all tables
+all_fks = {}
+for database, tables in data_models.items():
+    class_defs = {k: v for k, v in tables.items() if not type(v) == enum.EnumMeta}
+    table_fks = {}
+    for table_name, cls_def in class_defs.items():
+        fks = {k: v[0] for k, v in cls_def.items() if v[0] in class_defs}
+        table_fks[table_name] = fks
+    all_fks[database] = table_fks
 
 
 Flags = enum.Enum('Flags', 'Optional')
@@ -123,7 +175,7 @@ for database, tables in data_models.items():
                 options = ''
 
             if raw_t == k:
-                py_type = '"self"'
+                cls.append(fk_line_template.format(name=name, ft=f'"{raw_t}.id"', options=options))
             elif name == 'id':
                 py_type = dmtype_2_pytype[raw_t]
                 sa_type = dmtype_2_satype[raw_t]
@@ -133,7 +185,7 @@ for database, tables in data_models.items():
                 sa_type = dmtype_2_satype[raw_t]
                 cls.append(regular_line_template.format(name=name, py_type=py_type, sa_type=sa_type, default=default, options=options))
             elif raw_t in my_tables:
-                cls.append(fk_line_template.format(name=name, ft=raw_t, options=options))
+                cls.append(fk_line_template.format(name=name, ft=f'"{raw_t}.id"', options=options))
             elif raw_t in enum_defs:
                 default = f'{first(enum_defs[raw_t])}'
                 cls.append(enum_line_template.format(name=name, py_type=raw_t, default=default))
@@ -142,6 +194,8 @@ for database, tables in data_models.items():
 
         c = class_template.format(name=k, class_lines='\n    '.join(cls))
         lines.append(c)
+        lines.append(generate_from_str(cls_def))
+        lines.append(generate_get_fks(cls_def, all_fks[database][k]))
 
     the_tables[database] = my_tables
 
@@ -151,7 +205,7 @@ the_tables_str = '{' + ', '.join("'" + k + "'" + ': [' + ', '.join(v) + ']' for 
 file_template = f'''""" Generated model file for the project data structures.
 This file was generated on {time.ctime()}. DO NOT CHANGE!
 """
-
+import json
 from mimetypes import guess_type
 from dataclasses import dataclass, is_dataclass, asdict, field
 from enum import Enum
@@ -382,7 +436,7 @@ def mydataclass(cls):
         v = constructor(value)
         self.__dict__[attr] = v
 
-    def get_fks(cls):
+    def get_fks_old(cls):
         fks = [k for k, t in original_annotations.items() if is_dataclass(t)]
         fkts = [original_annotations[k] for k in fks]
         return dict(zip(fks, fkts))
@@ -396,7 +450,7 @@ def mydataclass(cls):
     cls.__init__ = __init__
     cls.__json__ = __json__
     cls.set_attr = my_setattr
-    cls.get_fks = classmethod(get_fks)
+    cls.get_fks_old = classmethod(get_fks_old)
     cls.get_referrers = classmethod(get_referrers)
     cls.convert_field = classmethod(convert_field)
     cls.__tablename__ = cls.__name__

@@ -38,6 +38,7 @@ class db_api:
         but can be overwritten by classes that use e.g. SQL to implement these algorithms.
     """
     actions = enum.Enum('actions', 'add update delete')
+    has_acm = False
     def __init__(self):
         self.hooks = {}
         self.active_hooks = set()
