@@ -55,7 +55,11 @@ class SqliteDatabase(db_api):
             If indices is not specified, empty or None, ALL records from the table are read.
         """
         with self.Session() as session:
-            result = session.query(table).all()
+            if indices:
+                result = session.query(table).filter(table.id.in_(indices)).all()
+            else:
+                result = session.query(table).all()
+
             return result
 
     def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:

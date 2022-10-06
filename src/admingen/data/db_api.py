@@ -98,9 +98,9 @@ class db_api:
             for member, ftable in table.get_fks().items():
                 ids = [getattr(r, member) for r in records]
                 ids_set = list(set(ids))
-                foreigns = {(r and r.id): r for i, r in zip(ids_set, self.get_many(ftable, ids_set))}
-                for r, i in zip(records, ids):
-                    setattr(r, member, foreigns.get(i, None))
+                foreigns = {(r and r.id): r for r in self.get_many(ftable, ids_set)}
+                for r in records:
+                    setattr(r, member, foreigns.get(getattr(r, member), None))
 
         if join:
             b_records = self.query(join[0])
