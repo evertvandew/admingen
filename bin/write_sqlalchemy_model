@@ -90,9 +90,9 @@ dmtype_2_satype = {'int': "Integer",
                    'bool': "Boolean",
                    'float': "Float",
                    'password': "String(30)",
-                   'image': "sq.LargeBinary",
+                   'image': "FILEBLOB",
                    'longstr': "Unicode",
-                   'fileblob': "sq.LargeBinary",
+                   'fileblob': "FILEBLOB",
                    'decimal': "DECIMAL",
                    'datetime': 'DateTime'
 }
@@ -214,6 +214,7 @@ from datetime import datetime, date, time
 from decimal import Decimal
 import copy
 import base64
+import sqlalchemy.types as types
 from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
 from admingen.data.db_api import Record
 
@@ -258,6 +259,18 @@ class fileblob(bytes):
         return blob
 
 image = fileblob
+
+class FILEBLOB(types.TypeDecorator):
+    impl = types.LargeBinary
+    cache_ok = True
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return value.__bytes__()
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return fileblob(value)
 
 class enum_type:
     def __init__(self, name, options):
