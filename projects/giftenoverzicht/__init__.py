@@ -329,7 +329,7 @@ class Worker(threading.Thread):
 
             if self.getState(self.org_id) == SystemStates.LoadingData:
                 try:
-                    if False:
+                    if True:
                         # Load the users
                         if config.testmode():
                             time.sleep(5)
