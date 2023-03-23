@@ -245,7 +245,7 @@ class FileDatabase(db_api):
             # See if that object was archived.
             fullpath = f"{self.path}/{table.__name__}/{self.archive_dir}/{index}"
             if not os.path.exists(fullpath):
-                raise(UnknownRecord())
+                raise(UnknownRecord(fullpath))
         data = open(fullpath).read()
         return deserialiseDataclass(table, data)
 
