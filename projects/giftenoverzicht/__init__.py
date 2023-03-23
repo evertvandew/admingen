@@ -8,6 +8,7 @@ import threading
 import os.path
 import os
 import urllib
+import io
 from decimal import Decimal
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -21,12 +22,14 @@ import calendar
 
 from admingen.clients.exact_rest import (authenticateExact, getUsers, getTransactions,
                                          checkAuthorization, getAccounts)
+from admingen.clients.exact_xml import processAccounts, processLedgers, processTransactionLines
 from admingen.htmltools import *
 from admingen import config
 from admingen.clients import smtp
 from admingen.keyring import KeyRing
 from .giften import (generate_overviews, generate_overview, amount2Str, pdfUrl,
-                    odataDate2Datetime, generate_pdfs, pdfName, pdfUrl2Name, PDF_DIR)
+                    odataDate2Datetime, generate_pdfs, pdfName, pdfUrl2Name, PDF_DIR,
+                     filter_gifts)
 from . import model
 from .model import SystemStates
 from .commands import USERS_FILE, TRANSACTIONS_FILE, ACCOUNTS_FILE
@@ -188,7 +191,8 @@ def formattedPage(*args, **kwargs):
     texts = ['Stap 1: Periode kiezen',
              'Stap 2: Data ophalen',
              'Stap 3: PDFs genereren',
-             'Stap 4: Emails versturen']
+             'Stap 4: Emails versturen',
+             'Stap 2a: Data Uploaden']
 
     buttons = [Button(txt, style='width:100%',
                       btn_type='primary' if phase == i + 1 else 'info',
@@ -325,41 +329,43 @@ class Worker(threading.Thread):
 
             if self.getState(self.org_id) == SystemStates.LoadingData:
                 try:
-                    # Load the users
-                    if config.testmode():
-                        time.sleep(5)
-                        with open(self.ufname) as f:
-                            users = json.load(f)
-                        with open(self.tfname) as f:
-                            transactions = json.load(f)
-                        with open(self.afname) as f:
-                            accounts = json.load(f)
-                        time.sleep(30)
-                    else:
-                        logging.info('Reading data from exact')
-                        users = getUsers(exact_division, self.access_token,
-                                         setProgress)
-                        with open(self.ufname, 'w') as out:
-                            out.write(json.dumps(users))
-                        logging.info('Read user data')
-                        # Load the transactions
-                        transactions = getTransactions(exact_division, self.access_token,
-                                                       self.period_start, self.period_end,
-                                                       setProgress)
-                        with open(self.tfname, 'w') as out:
-                            out.write(json.dumps(transactions))
-                        accounts = getAccounts(exact_division, self.access_token,
-                                               setProgress)
-                        with open(self.afname, 'w') as out:
-                            out.write(json.dumps(accounts))
-                        logging.info('Read transaction data for organisation %s' % self.org_id)
-                        logging.info('There are %s transactions and %s users' % (
-                        len(transactions), len(users)))
+                    if True:
+                        # Load the users
+                        if config.testmode():
+                            time.sleep(5)
+                            with open(self.ufname) as f:
+                                users = json.load(f)
+                            with open(self.tfname) as f:
+                                transactions = json.load(f)
+                            with open(self.afname) as f:
+                                accounts = json.load(f)
+                            time.sleep(30)
+                        else:
+                            logging.info('Reading data from exact')
+                            users = getUsers(exact_division, self.access_token,
+                                             setProgress)
+                            with open(self.ufname, 'w') as out:
+                                out.write(json.dumps(users))
+                            logging.info('Read user data')
+                            # Load the transactions
+                            transactions = getTransactions(exact_division, self.access_token,
+                                                           self.period_start, self.period_end,
+                                                           setProgress)
+                            with open(self.tfname, 'w') as out:
+                                out.write(json.dumps(transactions))
+                            accounts = getAccounts(exact_division, self.access_token,
+                                                   setProgress)
+                            with open(self.afname, 'w') as out:
+                                out.write(json.dumps(accounts))
+                            logging.info('Read transaction data for organisation %s' % self.org_id)
+                            logging.info('There are %s transactions and %s users' % (
+                            len(transactions), len(users)))
                     self.setState(self.org_id, SystemStates.GeneratingPDF)
                 except:
                     logging.exception('Exception while loading data from exact')
                     return
             else:
+                logging.info(f"Loading from files: {self.ufname, self.tfname, self.afname}")
                 users = json.load(open(self.ufname))
                 transactions = json.load(open(self.tfname))
                 accounts = json.load(open(self.afname))
@@ -417,8 +423,8 @@ class SmtpDetailsData:
     def query(self, rid=None):
         if rid:
             details = self.keychain.get(smtp_key % rid, None)
-            details = {k: v for k, v in details.items() if k in SmtpDetails.__annotations__}
             if details:
+                details = {k: v for k, v in details.items() if k in SmtpDetails.__annotations__}
                 return SmtpDetails(**details)
             return None
         return [SmtpDetails(**v) for k, v in self.keychain.items() if k.startswith('smtp_')]
@@ -504,25 +510,33 @@ class Overzichten:
     @cherrypy.expose
     @check_token
     def process(self, **kwargs):
+        if 'org_id' not in cherrypy.session:
+            # The user has not properly selected a division to use.
+            # Ask him again.
+            return self.select_division()
         org_id = cherrypy.session['org_id']
         with model.sessionScope():
             org = model.Organisation[org_id]
         handlers = {SystemStates.Start: self.periode,
                     SystemStates.LoadingData: self.loading,
                     SystemStates.GeneratingPDF: self.generating,
-                    SystemStates.PDFCreated: self.present_overzicht}
+                    SystemStates.PDFCreated: self.present_overzicht,
+                    SystemStates.UploadingData: self.upload_data}
         # Use the state suggested by the database
         state = org.status or 1
         logging.debug('Current status: %i'%state)
+
         # Check if the state of the file system corresponds
-        if not os.path.exists(PDF_DIR.format(config.opsdir, org_id)):
-            state = min(state, SystemStates.GeneratingPDF)
-        if not os.path.exists(USERS_FILE.format(config.opsdir, org_id)) \
-           or not os.path.exists(TRANSACTIONS_FILE.format(config.opsdir, org_id)):
-            state = min(state, SystemStates.LoadingData)
-        if state != self.getState():
-            self.setState(state)
-        self.check_worker(state)
+        # The final state (uploading data) is always valid.
+        if state != SystemStates.UploadingData:
+            if not os.path.exists(PDF_DIR.format(config.opsdir, org_id)):
+                state = min(state, SystemStates.GeneratingPDF)
+            if not os.path.exists(USERS_FILE.format(config.opsdir, org_id)) \
+               or not os.path.exists(TRANSACTIONS_FILE.format(config.opsdir, org_id)):
+                state = min(state, SystemStates.LoadingData)
+            if state != self.getState():
+                self.setState(state)
+            self.check_worker(state)
         handler = handlers[state]
         return formattedPage(*handler(**kwargs))
 
@@ -567,8 +581,9 @@ class Overzichten:
             raise cherrypy.HTTPError(400, 'Invalid Request')
         year, first, last = [results[k] for k in ['year', 'from', 'until']]
         start = datetime.datetime(year, first, 1)
-        end = datetime.datetime(year, last, calendar.monthrange(2016, last)[1], 23, 59, 59)
+        end = datetime.datetime(year, last, calendar.monthrange(year, last)[1], 23, 59, 59)
         token = kwargs['token']
+
         # Start a thread to load the actual data from exact
         with model.sessionScope():
             org = model.Organisation[cherrypy.session['org_id']]
@@ -576,6 +591,86 @@ class Overzichten:
             org.status = SystemStates.LoadingData
             org.period_end = end
         _ = Worker(org.id)
+
+    def upload_data(self, **kwargs):
+        org_id = cherrypy.session['org_id']
+        form = SimpleForm(Hidden('token'),
+                MultiFileUpload('users', 'Relaties (Accounts)'),
+                MultiFileUpload('accounts', 'Grootboeken (GLAccounts)'),
+                MultiFileUpload('transaction', 'Transacties'),
+                validator = None,
+                defaults ={},
+                success = self.data_uploaded
+                )
+        return Title('Files uploaden'), form
+
+    def data_uploaded(self, **kwargs):
+        org_id = cherrypy.session['org_id']
+        ufname = USERS_FILE.format(config.opsdir, org_id)
+        tfname = TRANSACTIONS_FILE.format(config.opsdir, org_id)
+        afname = ACCOUNTS_FILE.format(config.opsdir, org_id)
+        targets = {'users': ufname,
+                   'accounts': afname,
+                   'transaction': tfname}
+        xml_parsers = {'users': processAccounts,
+                       'accounts': processLedgers,
+                       'transaction': processTransactionLines}
+
+        for arg, fname in targets.items():
+            value = kwargs.get(arg, None)
+            if value:
+                if not isinstance(value, list):
+                    value = [value]
+                texts = []
+                for v in value:
+                    text = []
+                    while v.file:
+                        data = v.file.read(8192)
+                        if not data:
+                            break
+                        text.append(data)
+                    texts.append(b''.join(text))
+
+                # Parse the files and store as json.
+                collection = []
+                for text in texts:
+                    # Allow UTF-16 files: identify them through their magic number header.
+                    if text[:2] == b'\xff\xfe':
+                        text = text.decode('utf16').strip()
+                    else:
+                        text = text.decode('utf8').strip()
+                    if '<?xml' in text[:10]:
+                        strm = io.StringIO(text)
+                        collection.extend(xml_parsers[arg](strm))
+                    else:
+                        raise RuntimeError("Unsupported file format")
+
+                with open(fname, 'w') as of:
+                    logging.info(f"Writing to file: {fname}, {len(collection)} records")
+                    json.dump(collection, of, indent=2)
+
+                # Determine start and end dates.
+                if arg == 'transaction':
+                    with model.sessionScope():
+                        org = model.Organisation[cherrypy.session['org_id']]
+
+                        gifts = filter_gifts(org.to_dict(with_lazy=True), collection)
+                        dates = [g['Date'].date() for g in gifts]
+                        period_start, period_end = [func(dates) for func in [min, max]]
+                        org.status = SystemStates.GeneratingPDF
+                        org.period_start = datetime.datetime(period_start.year, period_start.month, 1)
+                        org.period_end = datetime.datetime(
+                            period_end.year,
+                            period_end.month,
+                            calendar.monthrange(period_end.year, period_end.month)[1],
+                            23, 59, 59)
+
+
+        # Start a thread to load the actual data from exact
+        _ = Worker(org_id)
+
+
+
 
     def loading(self, **kwargs):
         org_id = cherrypy.session['org_id']

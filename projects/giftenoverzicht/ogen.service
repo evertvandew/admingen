@@ -6,7 +6,7 @@ Type=simple
 User=ogen
 Group=ogen
 Environment="REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
-ExecStart=/home/ogen/.virtualenv/bin/python3.6 /home/ogen/giftenoverzicht/run giftenoverzicht
+ExecStart=/home/ogen/venv/bin/python3 /home/ogen/giftenoverzicht/run giftenoverzicht
 WorkingDirectory=/home/ogen/giftenoverzicht
 Restart=always
 RestartSec=3

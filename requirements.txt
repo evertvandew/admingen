@@ -21,3 +21,4 @@ oauth2client
 croniter
 pillow
 pytest
+xmltodict

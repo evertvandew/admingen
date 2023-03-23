@@ -27,6 +27,8 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+*.zip
+*.tgz
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -114,6 +116,12 @@ venv.bak/
 *.enc
 *.bak
 *.sock    # UNIX domain sockets
+
+# Data files
+*.pdf
+*.json
+*.csv
+*.xml
 
 # tmp directories, e.g. used to store test results
 tmp/

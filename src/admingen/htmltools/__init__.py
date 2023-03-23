@@ -1,13 +1,18 @@
-from .http_framework import request_method, request_params, request_path, session_get, result_type
-import admingen.htmltools.http_framework
+import cherrypy
+import jwt
+import time
+import datetime
+import base64
 import logging
+import json
 import re
 import os.path
 from contextlib import contextmanager
 from urllib.parse import urlparse
 from typing import Dict, Callable, Any, Iterable
 import bcrypt
-
+from ..db_api import sessionScope, commit, getHmiDetails, TableDetails, ColumnDetails
+from pony.orm.core import EntityMeta
 
 UNAME_FIELD_NAME = 'username'
 PWD_FIELD_NAME = 'password'
@@ -238,13 +243,19 @@ def Collapsibles(bodies, headers=None):
 
 
 def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
-               submit='Opslaan', enctype="multipart/form-data", readonly=False, cancel=None,
-               post_handler=None):
-    def handle_simple_post(values, errors):
-        # Handle the POST
+               submit='Opslaan', enctype="multipart/form-data", readonly=False, cancel=None):
+    # Handle the POST
+    errors = {}
+    values = cherrypy.request.params.copy()
+    
+    # If we are expecting input, validate it.
+    if cherrypy.request.method in ['POST', 'PUT'] and action.upper() != 'DELETE':
         # Check the suplied parameters for validity.
 
         # First call the validators linked to the individual inputs
+        errors = {}
+        values = cherrypy.request.params.copy()
+
         for a in args:
             if hasattr(a, 'validator'):
                 values, errors = a.validator(values, errors)
@@ -255,7 +266,7 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
             # change the values in request.params.
             values, errors2 = validator(values)
         else:
-            values, errors2 = request_params(), {}
+            values, errors2 = cherrypy.request.params, {}
 
         errors.update(errors2)
 
@@ -265,29 +276,15 @@ def SimpleForm(*args, validator=None, defaults={}, success=None, action='POST',
             for a in args:
                 if hasattr(a, 'success'):
                     a.success(values)
-        return values, errors
-
-
-    post_handler = post_handler or handle_simple_post
-
-    errors = {}
-    values = request_params().copy()
-    
-    # If we are expecting input, validate it.
-
-    if request_method() in ['POST', 'PUT'] and action.upper() != 'DELETE':
-        result = post_handler(values, errors)
-        if isinstance(result, result_type):
-            return result
 
     # In all cases where the form is submitted, perform the 'success' action.
-    if request_method().upper() != 'GET' and not errors:
+    if cherrypy.request.method.upper() != 'GET' and not errors:
         result = success(**values)
         if result:
             return result
         defaults.update(values)
 
-    path = request_path()
+    path = cherrypy.request.path_info
 
     # Determine which buttons to show
     if not success:
@@ -353,6 +350,11 @@ def FileUpload(name, text=None):
     return {'label': text,
             'input': '<input type="file" name="{}" />'.format(name)}
 
+
+def MultiFileUpload(name, text=None):
+    text = text or name
+    return {'label': text,
+            'input': '<input type="file" name="{}" multiple />'.format(name)}
 
 def form_input(name, text, input_type, tmpl=None):
     base = tmpl or '<input type="{input_type}" class="form-control" name="{name}" {options} value="{default}"/>'
@@ -535,7 +537,7 @@ def CheckOrCross(value):
 def local_login(loginfunc):
     def decorator(func):
         def doIt(*args, **kwargs):
-            if session_get('user_id', False):
+            if cherrypy.session.get('user_id', False):
                 return func(*args, **kwargs)
             else:
                 return loginfunc(**kwargs)
@@ -618,24 +620,294 @@ def ACM(permissions, login_func):
         acm = permissions.get(func.__name__, False)
 
         def doit(*args, **kwargs):
-            if not session_get('user_id', False):
+            if not cherrypy.session.get('user_id', False):
                 result = login_func(**kwargs)
-                if not session_get('user_id', False):
+                if not cherrypy.session.get('user_id', False):
                     # The user is NOT logged in.
                     return result
                 # The user logged-in, we need to move to a fresh 'GET' request
-                http_framework.cherrypy.request.method = 'GET'
+                cherrypy.request.method = 'GET'
                 # Eval the arguments to allow Python-syntax arguments,
                 # but do not allow access to local or global variables.
                 kwargs = eval(kwargs['org_arg'], {}, {})
-            role = session_get('role')
+            role = cherrypy.session['role']
             if not acm or role in acm:
                 return func(*args, **kwargs)
-            raise http_framework.cherrypy.HTTPError(403, 'Action not allowed')
+            raise cherrypy.HTTPError(403, 'Action not allowed')
 
         return doit
 
     return decorate
+
+
+def makeGetter(details):
+    """ Generate a function that retrieves possible values for a field """
+
+    def options_getter():
+        with sessionScope:
+            cols = details.related_columns.entity._columns_
+            result = [o for o in details.type.select()]
+            result = [(getattr(o, cols[0]), getattr(o, cols[1])) for o in result]
+            if not result and details.required:
+                raise cherrypy.HTTPError(424,
+                                         "Please define an {} first".format(details.type.__name__))
+            return result
+
+    return options_getter
+
+
+def generateFields(columns: Dict[str, ColumnDetails], hidden=None):
+    hidden = hidden or []
+    for name, details in columns.items():
+        if details.primarykey or details.name in hidden:
+            yield Hidden(details.name)
+        else:
+            if details.type.__name__ == 'ImagePath':
+                yield ImgPathField(name, name)
+            elif details.options:
+                yield Selection(name, details.options(), name)
+            elif details.related_columns is not None:
+                yield Selection(name, makeGetter(details), name)
+            elif details.type.__name__ == 'LongStr':
+                yield Text(details.name, details.name)
+            elif details.type.__name__ == 'Password':
+                # Passwords are edited in duplicates
+                elements = SetPassword(name, name)
+                yield elements[0]
+                yield elements[1]
+            elif details.type == bool:
+                yield Tickbox(name, name)
+            else:
+                yield String(name, name)
+
+
+
+class DataInterface:
+    def __init__(self, table):
+        self.table = table
+        self.name = table.__name__
+
+    def column_details(self) -> Dict[str, ColumnDetails]:
+        colum_names = [a.name for a in self.table._attrs_ if not a.is_collection]
+
+        columndetails = {}
+        for name in colum_names:
+            a = getattr(self.table, name)
+            default = a.default if a.default is not None else ''
+            d = ColumnDetails(name=name,
+                              primarykey=a.is_pk,
+                              type=a.py_type,
+                              # For now, relations are known by cols 0 and 1 (id and name)
+                              related_columns=(a.py_type._attrs_[0]) if a.is_relation else None,
+                              nullable=a.is_required,
+                              collection=a.is_collection,
+                              options=getattr(a.py_type, 'options', None),
+                              required=a.is_required,
+                              default=default)
+            columndetails[name] = d
+        return columndetails
+
+    @contextmanager
+    def scope(self):
+        with sessionScope:
+            yield
+
+    def query(self, rid=None, query=''):
+        if rid:
+            return self.table[rid]
+        if query:
+            if ';' in query:
+                raise cherrypy.HTTPError(400, 'Illegal query %s' % query)
+            # TODO: Check this is safe! Is it possible to change data from within the select?
+            q = 'select * from %s where %s' % (self.table.name, query)
+            return self.table._database_.select(query)
+        return self.table.select()
+
+    def add(self, **kwargs):
+        with sessionScope:
+            self.table(**kwargs)
+
+    def delete(self, rid):
+        with sessionScope:
+            self.table[rid].delete()
+            commit()
+
+    def update(self, rid, details):
+        if isinstance(details, dict):
+            raise RuntimeError('Not supported yet')
+        commit()
+
+
+
+def generateCrudCls(interface: DataInterface, Page=Page, hidden=None, acm=dummyacm,
+                    index_show=None):
+    """ Generate a CRUD server on a database table. """
+
+    column_details = interface.column_details()
+
+    columns = list(generateFields(column_details, hidden))
+    column_names = column_details.keys()
+    index_show = index_show or column_names
+    defaults = {n: c.default for n, c in column_details.items()}
+
+    def validate(kwargs):
+        """ Validate the values submitted for storage in the database """
+        result = {}
+        errors = {}
+        for n, c in column_details.items():
+            # Check if a specific column has a value
+            v = kwargs.get(n, '')
+            if v:
+                # Convert the value to the correct type
+                try:
+                    if c.type == bool:
+                        # Accept strings like Yes, true, ja, 1 as True
+                        converted = v.lower()[0] in 'tyj1'
+                    elif c.type.__name__ == 'ImagePath':
+                        # No conversion for this bit of Cherrypy magic.
+                        converted = v
+                    elif c.related_columns:
+                        converted = c.related_columns.py_type(v)
+                    else:
+                        converted = c.type(v)
+                except:
+                    if not column_details[n].required:
+                        result[n] = None
+                        continue
+                    result[n] = v
+                    errors[n] = 'Not a valid value for a %s' % c.type.__name__
+                    continue
+                result[n] = converted
+                if c.options:
+                    options = c.options
+                    if callable(options):
+                        options = options()
+                    if converted not in options:
+                        errors[n] = 'Not a valid option: %s' % converted
+            else:
+                if c.required and not c.primarykey:
+                    errors[n] = 'Please supply a value for %s' % n
+        return result, errors
+
+    class Crud:
+        @cherrypy.expose
+        @acm
+        def index(self, *, add=True, **kwargs):
+            def row_data(data):
+                d = [getattr(data, k) for k in column_names if k in index_show]
+                return d
+
+            def row_select_url(data):
+                return 'view?id={}'.format(data.id)
+
+            with interface.scope():
+                if 'query' in kwargs:
+                    data = interface.query(query=kwargs['query'])
+                else:
+                    data = interface.query()
+                parts = [Title('{} overzicht'.format(interface.name)),
+                         PaginatedTable(row_data, data, row_select_url=row_select_url)]
+                if add:
+                    parts.append(Button('Toevoegen <i class="fa fa-plus"></i>', target='add'))
+                return Page(*parts)
+
+        @cherrypy.expose
+        @acm
+        def view(self, **kwargs):
+            rid = kwargs.get('id', None)
+            with interface.scope():
+                details = {k: getattr(interface.query(rid), k) for k in column_names}
+                return Page(Title('{} details'.format(interface.name)),
+                        SimpleForm(*columns,
+                                   defaults=details,
+                                   readonly=True),
+                        ButtonBar(
+                            Button('Verwijderen <i class="fa fa-times"></i>', btn_type=['danger'],
+                                   target='delete?id={}'.format(rid)),
+                            Button('Aanpassen <i class="fa fa-pencil"></i>',
+                                   target='edit?id={}'.format(rid)),
+                            Button('Sluiten', target='index')
+                        ))
+
+        @cherrypy.expose
+        @acm
+        def edit(self, **kwargs):
+            rid = kwargs.get('id', None)
+            with interface.scope():
+                details = interface.query(rid)
+
+                def success(**kwargs):
+                    for k in column_names:
+                        if k not in kwargs:
+                            continue
+                        v = kwargs[k]
+                        if getattr(details, k) != v:
+                            setattr(details, k, v)
+                    interface.update(rid, details)
+                    raise cherrypy.HTTPRedirect('view?id={}'.format(kwargs['id']))
+
+                return Page(Title('{} aanpassen'.format(interface.name)),
+                            SimpleForm(*columns,
+                                       validator=validate,
+                                       defaults={k: getattr(details, k) for k in column_names},
+                                       success=success,
+                                       cancel='view?id={}'.format(rid)))
+
+        @cherrypy.expose
+        @acm
+        def add(self, **kwargs):
+            def success(**details):
+                # Ensure there is no id
+                if 'id' in details:
+                    del details['id']
+                print('Adding', details)
+                interface.add(**details)
+                return 'Success!'
+
+            return Page(Title('{} toevoegen'.format(interface.name)),
+                        SimpleForm(*columns,
+                                   validator=validate,
+                                   defaults=defaults,
+                                   success=success))
+
+        @cherrypy.expose
+        @acm
+        def delete(self, **kwargs):
+            print('Entering DELETE', cherrypy.request.method)
+            rid = kwargs.get('id', None)
+            if rid is None:
+                raise cherrypy.HTTPError(400, 'Missing argument "id"')
+            with sessionScope:
+                def do_delete(**_):
+                    print("Doing the delete")
+                    interface.delete(rid)
+                    raise cherrypy.HTTPRedirect('index')
+
+                return Page(Title('Weet u zeker dat u {} wilt verwijderen?'.format(interface.name)),
+                            SimpleForm(*columns,
+                                       action='DELETE',
+                                       defaults={k: getattr(interface.query(rid), k) for k in column_names},
+                                       readonly=True,
+                                       submit='Verwijderen <i class="fa fa-times"></i>',
+                                       success=do_delete,
+                                       cancel='view?id={}'.format(rid)))
+
+    return Crud
+
+
+def generateCrud(*args, **kwargs):
+    return generateCrudCls(*args, **kwargs)()
+
+
+def simpleCrudServer(tables, page):
+    """ Implement a simple CRUD interface for a Server class """
+
+    class Server: pass
+
+    for name, table in tables.items():
+        setattr(Server, name, generateCrud(DataInterface(table)))
+
+    return Server
 
 
 def runServer(server, config={}):
@@ -652,4 +924,4 @@ def runServer(server, config={}):
     # cherrypy.log.access_log.propagate = False
     logging.getLogger('cherrypy_error').setLevel(logging.ERROR)
 
-    http_framework.cherrypy.quickstart(server(), '/', initial_config)
+    cherrypy.quickstart(server(), '/', initial_config)

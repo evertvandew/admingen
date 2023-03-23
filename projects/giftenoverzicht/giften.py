@@ -1,6 +1,7 @@
 import json
 import operator
 import codecs
+import logging
 from decimal import Decimal
 import string
 import subprocess
@@ -190,13 +191,30 @@ def parse_accounts(s):
     return result
 
 
-def generate_overviews(org, users, transactions):
+def filter_gifts(org, transactions):
     gift_accounts = parse_accounts(org['gift_accounts'])
+    if not gift_accounts:
+        logging.error("NO GIFT ACCOUNTS!")
+        return
     gifts = [odataDate2Datetime(t) for t in transactions if t['GLAccountCode'] in gift_accounts]
+    return gifts
+
+
+def generate_overviews(org, users, transactions):
+    if not transactions:
+        logging.error("NO TRANSACTIONS!")
+        return
+
+    gifts = filter_gifts(org, transactions)
+    if not gifts:
+        return
+
     users_lu = {u['Code']: u for u in users}
     relatienrs = set(g['AccountCode'] for g in gifts if 'AccountCode' in g and g['AccountCode'])
 
     for r in relatienrs:
+        if r not in users_lu:
+            continue
         user = users_lu[r]
         filtered, total, rst = generate_overview(org, r, user, gifts)
         if total:
