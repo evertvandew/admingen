@@ -24,12 +24,13 @@
 
 import flask
 
-import os
-import filecache
+import os, os.path
+from admingen.data import filecache
 import admingen.magick as magic
 import re
 import json
 import operator
+import logging
 
 root_path = None
 debug_mode = False
@@ -48,8 +49,11 @@ def my_get_mime(path):
     mime = None
     if path.endswith('.css'):
         return 'text/css'
-    
-    mime = magic.from_file(path, mime=True)
+
+    if os.path.exists(path):
+        mime = magic.from_file(path, mime=True)
+    else:
+        logging.error(f"Trying to look up mime for file {path} failed: NOT FOUND")
     
     if mime is None:
         mime = 'application/octet-stream'

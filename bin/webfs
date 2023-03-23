@@ -46,8 +46,12 @@ if args.datamodel:
     spec = importlib.util.spec_from_file_location(mod_name, args.datamodel)
     new_mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(new_mod)
-    context['the_db'] = file_db.FileDatabase('data', new_mod.all_tables)
-    context['tables'] = new_mod.all_tables
+
+    databases = {k: file_db.FileDatabase(new_mod.database_urls[k], tables)
+                 for k, tables in new_mod.all_tables.items()}
+
+    context['databases'] = databases
+    context['data_model'] = new_mod
 
 for m in args.filename:
     mod_name = os.path.basename(m).split('.')[0]

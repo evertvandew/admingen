@@ -1,8 +1,8 @@
 
-
+import enum
 import operator
 from typing import List, Type, Union, Callable
-
+from dataclasses import asdict
 
 # Define the operators that can be used in filter and join conditions
 filter_context = {
@@ -23,11 +23,25 @@ class Record: pass
 
 
 
+def getJsonJoined(a_cls, b_cls):
+    """ Return an function that returns something that is jsonified """
+    def jsonify(self):
+        result = asdict(self)
+        result[b_cls.__name__] = asdict(getattr(self, b_cls.__name__))
+        return result
+    return jsonify
+
+
 class db_api:
     """ A simple API for a data base.
         Also defines some algorithms that make use of the low-level functions,
         but can be overwritten by classes that use e.g. SQL to implement these algorithms.
     """
+    actions = enum.Enum('actions', 'add update delete')
+    has_acm = False
+    def __init__(self):
+        self.hooks = {}
+        self.active_hooks = set()
     def get(self, table: Type[Record], index: int) -> Record:
         raise NotImplementedError()
     def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:
@@ -42,6 +56,25 @@ class db_api:
     def delete(self, table:Type[Record], index:int) -> None:
         raise NotImplementedError()
 
+
+    def data_hook(self, table):
+        """ Decorator that defines a hook for updates on data of a specific type.
+        """
+        def add_hook(hook):
+            hooks = self.hooks.setdefault(table.__name__, [])
+            hooks.append(hook)
+            return hook
+        return add_hook
+
+    def call_hooks(self, table, action, record):
+        # Call the hooks, but make sure there is no recursion.
+        for hook in self.hooks.get(table.__name__, []):
+            if hook not in self.active_hooks:
+                self.active_hooks.add(hook)
+                try:
+                    hook(action, record)
+                finally:
+                    self.active_hooks.remove(hook)
 
     def get_many(self, table:Type[Record], indices:List[int]=None) -> List[Record]:
         """ Retrieve a (large) set of records at once. There are returned as a list.
@@ -65,9 +98,9 @@ class db_api:
             for member, ftable in table.get_fks().items():
                 ids = [getattr(r, member) for r in records]
                 ids_set = list(set(ids))
-                foreigns = {(r and r.id): r for i, r in zip(ids_set, self.get_many(ftable, ids_set))}
-                for r, i in zip(records, ids):
-                    setattr(r, member, foreigns.get(i, None))
+                foreigns = {(r and r.id): r for r in self.get_many(ftable, ids_set)}
+                for r in records:
+                    setattr(r, member, foreigns.get(getattr(r, member), None))
 
         if join:
             b_records = self.query(join[0])
@@ -79,6 +112,7 @@ class db_api:
                 for b in b_records:
                     if join[1](rec, b):
                         setattr(rec, tname, b)
+                        rec.__json__ = getJsonJoined(table, join[0]).__get__(rec, rec.__class__)
                         break
 
         if filter:
