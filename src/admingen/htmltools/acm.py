@@ -37,7 +37,8 @@ class auth_results(enum.Enum):
 class ACM:
     secret = b'Mooi test dit maar goed'
 
-    def __init__(self, role_hierarchy='administrator editor user', data_fields='bedrijf klant', testmode=False):
+    def __init__(self, role_hierarchy='administrator editor user', data_fields='bedrijf klant', testmode=False,
+                 project_name='admingen'):
         """ Configure the ACM system with a hierarchy.
             The first role is the administration role, and has unlimited access.
             The other roles only have access to data containing the associated data_fields.
@@ -45,7 +46,7 @@ class ACM:
 
             All the data_fields should be elements of the User data structure.
         """
-        self.token_name = 'token_data'
+        self.token_name = f'token_data_{project_name}'
         self.rolename_name = 'role_name'
         self.username_name = 'user_name'
 
@@ -313,6 +314,9 @@ class ACM:
             Also, we do not check on CRUD rights here. That is supposed to be done by the server using
             the database. Here we only check if the user has access to a specific record, not if
             he/she is authorized to perform a specific action on a table.
+
+            @param: parent An ACM class instance.
+            @param: db The database being wrapped.
         """
         class wrapper(type(db)):
             def __new__(cls):

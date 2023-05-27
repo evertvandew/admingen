@@ -115,6 +115,10 @@ page_template = Template("""<!DOCTYPE html>
         return today;
     }
     $(document).ready(function(){
+        $.ajaxSetup({
+            cache: false,
+        });
+
         $("#div_current_user").each(function(i){
             this.innerHTML = getCookie("user_name");
         });
