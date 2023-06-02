@@ -20,12 +20,8 @@ page_template = Template("""<!DOCTYPE html>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
         <title>${title}</title>
-    <link rel="stylesheet" type="text/css" href="/batic/css/bootstrap.min.css" />
-    <link rel="stylesheet" type="text/css" href="/batic/css/fontawesome.min.css" />
-    <link rel="stylesheet" type="text/css" href="/batic/css/solid.min.css" />
-    ${stylesheets}
-    <script src="/batic/js/jquery-3.5.1.min.js"></script>
-    <script src="/batic/js/bootstrap.min.js"></script>
+
+    ${dependencies}
 
 
 </head>
@@ -132,8 +128,14 @@ ${footer}
 
 
 created_pages = []
-current_page_context = dict(headers='', title='admingen', heading='', footer='', acm='user,editor,administrator',
-                            stylesheets='')
+current_page_context = dict(
+    headers='',
+    title='admingen',
+    heading='',
+    footer='',
+    acm='user,editor,administrator',
+    dependencies=''
+)
 
 def handle_Page(args, lines):
     """ Handle a page definition by writing the HTML inside it to file. """
@@ -162,7 +164,11 @@ def handle_PageContextValue(args, lines):
         This value is used for all subsequent pages.
     """
     assert 'name' in args
-    current_page_context[args['name']] = lines
+    name = args['name']
+    if name in current_page_context and args.get('action', '') == 'append':
+        current_page_context[name] += lines
+    else:
+        current_page_context[name] = lines
     return ''
 
 
@@ -172,7 +178,6 @@ def handle_Markdown(args, lines):
 
 
 if False:
-    os.chdir('/home/ehwaal/projects/sab')
     processor({'Page': Tag('Page', handle_Page),
                'PageContextValue': Tag('PageContextValue', handle_PageContextValue),
                'MarkDown': Tag('MarkDown', handle_Markdown)
