@@ -176,7 +176,7 @@ class DataContext:
             return False
         if isinstance(coltype, list):
             coltype = coltype[0]
-        if coltype not in data_models[source]:
+        if coltype not in data_models.get(source, []):
             return False
         return isinstance(data_models[source][coltype], enum.EnumMeta)
     
@@ -319,8 +319,14 @@ class DataContext:
                     table2 = a[5:].split(',', maxsplit=1)[0]
                     join_tables.append(table2)
         details.join_tables = join_tables
-    
-        if source:
+
+        if columns and ':' in columns:
+            # The column types are specified with the column specifications.
+            details.column_names = [c.split(':', maxsplit=1)[0] for c in columns.split(',')]
+            details.column_types = [c.split(':', maxsplit=1)[1] for c in columns.split(',')]
+            details.columns = [c.split(':', maxsplit=1) for c in columns.split(',')]
+
+        elif source:
             if columns:
                 details.column_names = columns.split(',')
             elif specs:

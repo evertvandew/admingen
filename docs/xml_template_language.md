@@ -62,7 +62,7 @@ to be slit and treated differently. Template Slots allow this.
 
 If a template contains a single Template Slot, the body given to an instance of the Template is inserted into that slot.
 If a template has multiple slots, each slot is given a different name. 
-The parts can be separated by wrapping them in a `<TemplateSlot_<name> >` tag. Such a definition is scoped, and stays relevant
+The parts can be separated by wrapping them in a `<TemplateSlot name="<name>">` tag. Such a definition is scoped, and stays relevant
 until overwritten. This means that slots can also be given default values.
 
 If any part of the body that is not wrapped in a `<TemplateSlot_<name> >` tag is inserted into the last TemplateSlot 
@@ -86,7 +86,7 @@ An example:
 
 <!-- Use of the new tag -->
 <Page>
-    Dit is de body van de pagina.
+    This is the body of one page.
 </Page>
 ```
 
@@ -109,9 +109,17 @@ A slightly more complicated example:
 <!-- Use of the new tag -->
 
 <Page>
-    Dit is de body van de pagina.
+    <TemplateSlot name="body">
+        This is the body of another page.
+    </TemplateSlot>
+    <TemplateSlot name="head">
+        <link rel="stylesheet" type="text/css" href="/stylesheet.css" />
+    </TemplateSlot>
 </Page>
 ```
+
+A `<TemplateSlot>` inside a `<Template>` defines a new slot. A `<TemplateSlot>` outside a `<Template>` is used as
+the value to insert into the slot.
 
 ## Importing an external template file
 
