@@ -464,8 +464,7 @@ class ACM:
             # Obviously, a user can not promote anybody to a role higher than his own.
             new_role = int(data.get('rol', -1))
             role_index = self.role_names.index(self.get_user_role())
-            new_index = self.role_names.index(new_role)
-            if new_index < role_index:
+            if new_role < role_index:
                 return False
 
             # Ensure that a user does not move outside his own sphere of authority.
@@ -494,7 +493,7 @@ class ACM:
             # Remove the password, if supplied.
             if 'password' in data:
                 del data['password']
-            if not is_authorized_user(data):
+            if not is_authorized_user(self, data):
                 return "Not authorized", 403
             # Always update the existing record, so the password is not modified.
             try:
