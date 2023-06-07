@@ -16,7 +16,7 @@ from admingen.db_api import openDb, the_db
 VERSION = 3
 
 
-SystemStates = IntEnum('SystemStates', 'Start LoadingData GeneratingPDF PDFCreated')
+SystemStates = IntEnum('SystemStates', 'Start LoadingData GeneratingPDF PDFCreated UploadingData')
 
 
 def password2str(value):
@@ -73,7 +73,6 @@ class User(db.Entity):
     role  = orm.Required(Role)
     email = orm.Required(str)
     church = orm.Optional(Organisation)
-
 
 
 def updatequeries(queries):

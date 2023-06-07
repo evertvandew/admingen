@@ -10,10 +10,10 @@ ID_OFFSET = 100000000
 data_model = None
 data_classes = {}
 
-def set_datamodel(dm):
+def set_datamodel(dm, dbname):
     global data_model, data_classes
     data_model = dm
-    data_classes = {t.__name__: t for t in data_model.all_tables}
+    data_classes = {t.__name__: t for t in data_model.all_tables[dbname]}
 
 
 def ensure_prerequisites(records):

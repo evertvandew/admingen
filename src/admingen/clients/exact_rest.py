@@ -1,3 +1,10 @@
+"""
+Implementation of the JSON API of Exact Online.
+
+
+Documentation of the API: https://start.exactonline.nl/docs/HlpRestAPIResources.aspx
+"""
+
 import cherrypy
 import logging
 import urllib
@@ -27,13 +34,16 @@ class ExactClientConfig:
     def token_url(self): return self.base + '/oauth2/token'
 
     @property
-    def transaction_url(self): return self.base + r"/v1/%(division)i/financialtransaction/TransactionLines"
+    def transaction_url(self): return self.base + r"/v1/%(division)i/bulk/Financial/TransactionLines"
+    #def transaction_url(self): return self.base + r"/v1/%(division)i/financialtransaction/TransactionLines"
 
     @property
-    def users_url(self): return self.base + r"/v1/%(division)i/crm/Accounts"
+    def users_url(self): return self.base + r"/v1/%(division)i/bulk/CRM/Accounts"
+    #def users_url(self): return self.base + r"/v1/%(division)i/crm/Accounts"
 
     @property
-    def accounts_url(self): return self.base + r"/v1/%(division)i/financial/GLAccounts"
+    def accounts_url(self): return self.base + r"/v1/%(division)i/bulk/Financial/GLAccounts"
+    #def accounts_url(self): return self.base + r"/v1/%(division)i/financial/GLAccounts"
 
     @property
     def btwcodes_url(self): return self.base + r"/v1/%(division)i/financial/VATs"
@@ -65,9 +75,15 @@ def request(url, token=None, method='GET', params={}, query={}, handle=None, pro
     status = -1
     reason = ''
     part_count = 0
+    start = time.time()
     while True:
+        # Ensure we don't send more than 50 requests per minute (60 seconds)
+        if part_count and ((part_count % 50) == 0):
+            time.sleep(60 - start + time.time())
+            start = time.time()
         part_count += 1
-        progress('part %i' % part_count)
+        if progress:
+            progress('part %i' % part_count)
         logging.info('Sending request %s, %s, %s', url, method, data)
         r = urllib.request.Request(url=url, method=method, data=data, headers=headers)
         try:
@@ -102,7 +118,8 @@ def getTransactions(exact_division, token, start: datetime, end: datetime, progr
     start = start.strftime('%Y-%m-%dT%H:%M:%S')  # '2016-01-01T00:00:00'
     end = end.strftime('%Y-%m-%dT%H:%M:%S')
     # url = transaction_url%{'division': LC_division, 'start':start}
-    url = "https://start.exactonline.nl/api/v1/%s/financialtransaction/TransactionLines" % exact_division
+    #url = "https://start.exactonline.nl/api/v1/%s/financialtransaction/TransactionLines" % exact_division
+    url = eoconfig.users_url % {'division': exact_division}
     options = {'$filter': "Date ge DateTime'%s' and Date le DateTime'%s'" % (start, end),
                '$select': 'AccountCode,AccountName,Date,AmountDC,EntryNumber,GLAccountCode,Description',
                '$inlinecount': 'allpages'}

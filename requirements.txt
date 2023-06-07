@@ -4,7 +4,7 @@ cherrypy
 pyJWT==1.3.0
 py-bcrypt==0.4
 requests
-pycrypto
+cryptography==37
 configobj
 jinja2
 mako
@@ -21,3 +21,4 @@ oauth2client
 croniter
 pillow
 pytest
+xmltodict

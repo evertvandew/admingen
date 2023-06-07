@@ -151,12 +151,12 @@ class dataset:
         return dataset(r for r in self.data.values() if condition(r))
 
 
-def password2str(value):
+def password2str(value) -> str:
     if isinstance(value, str):
         value = value.encode('utf-8')
     salt = bcrypt.gensalt()
     hash = bcrypt.hashpw(value, salt)
-    return hash
+    return hash.decode('utf-8')
 
 def checkpasswd(clear, hashed):
     if isinstance(clear, str):
@@ -257,11 +257,11 @@ class ExtendibleJsonEncoder(json.JSONEncoder):
             * For objects that define a __json__ method, that method is called for serialisation.
             * For other objects, the str() protocol is used, i.e. the __str__ method is called.
         """
+        if hasattr(o, '__json__'):
+            return o.__json__()
         if is_dataclass(o):
             result = asdict(o)
             return result
-        if hasattr(o, '__json__'):
-            return o.__json__()
         return str(o)
 
 def serialiseDataclass(data):
@@ -276,6 +276,8 @@ def serialiseDataclass_old(data):
 
 def deserialiseDataclass(cls, s):
     """ Read the dataclass from a JSON string """
+    if hasattr(cls, 'from_string'):
+        return cls.from_string(s)
     ddict = json.loads(s)
     result = cls(**{k: (None if ddict[k] in [None, 'None', ''] else t(ddict[k])) for k, t in cls.__annotations__.items()
                     if k in ddict})

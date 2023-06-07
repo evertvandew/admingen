@@ -8,10 +8,11 @@ import json
 import flask
 import functools
 import logging
+import operator
 from dataclasses import is_dataclass, asdict
 from werkzeug.exceptions import BadRequest, NotFound
 from admingen.data import serialiseDataclasses, serialiseDataclass, deserialiseDataclass
-from admingen.data.file_db import FileDatabase, filter_context, multi_sort, do_leftjoin
+from admingen.data.file_db import filter_context, multi_sort, do_leftjoin
 
 # Define the key for the data element that is added to indicate limited queries have reached the end
 IS_FINAL_KEY = '__is_last_record'
@@ -120,10 +121,23 @@ def add_record(table, tablecls, data, mk_response=True):
     return data_str
 
 
+filter_context = {
+    'isIn': operator.contains,
+    'isTrue': lambda x: x.lower()=='true',
+    'isFalse': lambda x: x.lower()!='true',
+    'and_': operator.and_,
+    'eq': operator.eq,
+    'neq': operator.ne,
+    'lt': operator.lt,
+    'gt': operator.gt,
+    'le': operator.le,
+    'ge': operator.ge
+}
+
 def register_db_handlers(db_name, app, prefix, db, table_classes):
     # We need to use a custom "Blueprint" to register multiple handlers
     # that use the same function name.
-    bp = flask.Blueprint(db_name, 'db_api')
+    bp = flask.Blueprint(prefix, 'db_api')
 
     @bp.route('/<path:table>', methods=['GET'])
     def get_table(table):
@@ -133,21 +147,30 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
         details = {
             'resolve_fk': 'resolve_fk' in flask.request.args
         }
+
+        if 'join' in flask.request.args:
+            b_table, condition = flask.request.args['join'].split(',', maxsplit=1)
+            def condition_func(rec_a, rec_b):
+                """ Function returns true if d2 is to be joined to d1 """
+                a_dict = asdict(rec_a)
+                b_dict = asdict(rec_b)
+                local_context = {table: a_dict, b_table: b_dict}
+                local_context.update(b_dict)
+                local_context.update(a_dict)
+                return bool(eval(condition, filter_context, local_context))
+            details['join'] = (table_classes[b_table], condition_func)
+
         data = db.query(tablecls, **details)
         # For the User class, replace the password with asterixes.
         if table == 'User':
             for d in data:
                 d.password = '****'
         # First perform any joins
-        if 'join' in flask.request.args:
-            other_table, condition = flask.request.args['join'].split(',', maxsplit=1)
-            data_other = read_records(mk_fullpath(other_table))
-            data = do_leftjoin(table, other_table, data, data_other, condition)
 
         # Apply the filter
         if 'filter' in flask.request.args:
             def func(item, condition):
-                d = asdict(item) if is_dataclass(item) else item
+                d = item.asdict() if hasattr(item, 'asdict') else asdict(item) if is_dataclass(item) else item
                 try:
                     return bool(eval(condition, filter_context, d))
                 except:
@@ -160,8 +183,11 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
         # Sort the results
         if 'sort' in flask.request.args:
             data = multi_sort(flask.request.args['sort'], data)
-        else:
-            data = sorted(data, key=lambda d: d.id)
+        elif data:
+            if isinstance(data[0], dict):
+                data = sorted(data, key=lambda d: d['id'])
+            else:
+                data = sorted(data, key=lambda d: d.id)
 
         # Apply limit and offset
         is_final = True
@@ -239,6 +265,8 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
             originals = db.query(tablecls, filter=lambda r: all(getattr(r, k)==v for k, v in key.items()))
             if originals:
                 return put_item(table, originals[0].id)
+        if 'id' in data:
+            del data['id']
         record = db.add(tablecls(**data))
         return flask.make_response(serialiseDataclass(record), 201)
 

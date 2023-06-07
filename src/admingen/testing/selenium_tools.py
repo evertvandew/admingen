@@ -7,8 +7,6 @@ import os
 import os.path
 import time
 
-server = 'http://localhost:5000'
-
 def ensure_login(name, password):
     """ A decorator that checks a specific user is logged in before
         calling the relevant function.
@@ -26,11 +24,12 @@ def ensure_login(name, password):
 
 
 class SeleniumPlugin:
+    server = 'http://localhost:5000'
     def setUpClass(cls) -> None:
         cls.driver = webdriver.Firefox()
         cls.driver.implicitly_wait(2)
         # Ensure there is no login tokens lurking around...
-        cls.driver.get(f"{server}/logout")
+        cls.driver.get(f"{cls.server}/logout")
         cls.to_delete = []
 
     def tearDownClass(cls) -> None:
@@ -79,8 +78,8 @@ class SeleniumPlugin:
 
     def login(self, uname, password):
         if self.driver.get_cookie('token_data'):
-            self.driver.get(f"{server}/logout")
-        self.driver.get(f"{server}")
+            self.driver.get(f"{self.server}/logout")
+        self.driver.get(f"{self.server}")
         self.set([('#uname', uname),
                   ('#psw', password)])
         self.click("//input[@value='inloggen']")
@@ -98,5 +97,5 @@ class SeleniumPlugin:
 
     def get(self, rel_url):
         """ Direct the driver to get a location relative to our test server. """
-        self.driver.get(f'{server}/{rel_url}')
+        self.driver.get(f'{self.server}/{rel_url}')
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.6
+#!/usr/bin/env python3
 """ Run a specific project """
 
 import argparse
@@ -49,7 +49,7 @@ def env_setdefault(envname, default, create_dir, locations=None):
         os.environ[envname] = dirname
 
 
-def set_context(root, project, create_dirs=False):
+def set_context(root, project, create_dirs=False, testmode=False):
     root = os.path.abspath(root)
     logging.getLogger().setLevel(logging.DEBUG)
     # Check the project exists
@@ -68,10 +68,13 @@ def set_context(root, project, create_dirs=False):
     config_locations = ['{home}/etc/{project}', '/etc/{project}']
     env_setdefault('CONFDIR', 'etc', create_dirs, locations=config_locations)
 
+    if testmode:
+        os.environ['TESTMODE'] = '1'
+
     # Load the configuration
     from admingen import config
     config.set_configdir(os.environ['CONFDIR'])
-    
+
 
 def run_project(root, args = sys.argv[1:]):
     root = os.path.abspath(root)
@@ -80,12 +83,13 @@ def run_project(root, args = sys.argv[1:]):
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('project', help='The project to run')
     parser.add_argument('--create-dirs', action='store_true')
+    parser.add_argument('--testmode', '-t', action='store_true')
     #parser.add_argument('--root', help='Root directory for the code', default=root)
 
     args = parser.parse_args(args)
     print (args)
 
-    set_context(root, args.project, args.create_dirs)
+    set_context(root, args.project, args.create_dirs, args.testmode)
 
     print('Using ops and log directories', os.environ['OPSDIR'], os.environ['LOGDIR'])
     # Look for the configuration

@@ -353,15 +353,67 @@ def testLogin(oauth_details: OAuth2):
 
 
 def processAccounts(stream):
+    # Exact will for some account, yield multiple records. These need to be merged here.
     root = ET.fromstring(stream.read())
-    accounts = []
+    accounts = {}
     for a_xml in root.iter('Account'):
         code = a_xml.attrib['code']
         name = a_xml.find('Name').text
         email = [e.text for e in a_xml.findall('Email') if e.text]
-        accounts.append(Account(code, name, email))
-    return accounts
+        if email:
+            email = email[0]
 
+        record = accounts.setdefault(code, {})
+        if record:
+            if email:
+                record['Email'] = email
+        else:
+            record.update(Code=code, Name=name, Email=email)
+
+    print(f'Got {len(accounts)} givers')
+    return list(accounts.values())
+
+
+def processLedgers(stream):
+    root = ET.fromstring(stream.read())
+    ledgers = []
+    for a_xml in root.iter('GLAccount'):
+        code = a_xml.attrib['code']
+        description = a_xml.find('Description').text
+        ledgers.append(dict(Code=code, Description=description))
+    print(f'Got {len(ledgers)} GLAccounts')
+    return ledgers
+
+
+def processTransactionLines(stream):
+    root = ET.fromstring(stream.read())
+    lines = []
+    for t_xml in root.iter('GLTransaction'):
+        for l_xml in t_xml.iter('GLTransactionLine'):
+            a = l_xml.find('Account')
+            gla = l_xml.find('GLAccount')
+            v = l_xml.find('Amount')
+
+            if not a or not gla:
+                continue
+
+            dt = l_xml.find('Date').text
+            if dt.count('-') == 2:
+                d = datetime.datetime.strptime(dt, '%Y-%m-%d')
+                dt = f'/Date({int(d.timestamp() * 1000)})/'
+
+            lines.append(dict(
+                AccountCode=a.attrib['code'] if a else '',
+                AccountName=a.find('Name').text if a else '',
+                AmountDC=float(v.find('Value').text),
+                Date=dt,
+                Description=l_xml.find('Description').text,
+                EntryNumber=int(t_xml.attrib['entry']),
+                GLAccountCode=gla.attrib['code'].strip() if gla else ''
+            ))
+
+    print(f'Got {len(lines)} transaction lines')
+    return lines
 
 
 if __name__ == '__main__':
