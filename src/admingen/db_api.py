@@ -5,15 +5,11 @@ import shutil
 from dataclasses import dataclass, is_dataclass
 from typing import Tuple
 from urllib.parse import urlparse
-from pony import orm
 from typing import Any
 from inspect import getmembers, Signature, Parameter
-from pony.orm import Required, Set, select, Optional, delete, desc, commit
 
 
 
-sessionScope = orm.db_session
-commit = orm.commit
 
 ###############################################################################
 ## Options for fields in a database
@@ -33,8 +29,8 @@ class ColumnDetails:
     options: Any
     required: bool
     related_columns: Any
-    unique: bool = False
-    default: Any = None
+    unique: bool
+    default: Any
 
 def mkColumnDetails(t: Any, *args):
     return t
@@ -66,7 +62,6 @@ def getHmiDetails(table) -> TableDetails:
         columndetails[name] = d
     return TableDetails(name=table.__name__, compoundkey=False, columns=columndetails)
 
-the_db = orm.Database()
 
 
 table_cache = {}
@@ -111,9 +106,10 @@ def url2path(url):
         return path
     return None
 
-class DbaseVersion(the_db.Entity):  # pylint:disable=W0232
-    ''' Stores the version number of the database. '''
-    version = orm.Required(int)
+if False:
+    class DbaseVersion(the_db.Entity):  # pylint:disable=W0232
+        ''' Stores the version number of the database. '''
+        version = orm.Required(int)
 
 
 def openDb(url, version=1, update=None, create=True):
@@ -125,7 +121,6 @@ def openDb(url, version=1, update=None, create=True):
     parts = urlparse(url)
     if parts.scheme == 'sqlite':
         path = parts.netloc or parts.path
-        print (path, os.path.exists(path))
         if create and update and os.path.exists(path):
             update(path)
         the_db.bind(provider=parts.scheme, filename=path, create_db=create)
