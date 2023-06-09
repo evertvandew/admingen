@@ -141,6 +141,7 @@ class fileblob:
 image = fileblob
 
 class enum_type:
+    __is_enum__ = True
     def __init__(self, name, options):
         self._name = name
         self._my_enum = Enum(name, options)
@@ -157,6 +158,8 @@ class enum_type:
         if not key.startswith('_'):
             return self._my_enum[key]
         return object.__getattr(self, key)
+    def __iter__(self):
+        return iter(self._my_enum)
     def __str__(self):
         return self._name
 
@@ -342,6 +345,7 @@ class phone(str): pass
 class url(str): pass
 class path(str): pass
 class Order(int): pass
+class color(str): pass
 
 # The actual data model.
 {model_lines}
