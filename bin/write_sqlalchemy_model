@@ -94,7 +94,11 @@ dmtype_2_satype = {'int': "Integer",
                    'longstr': "Unicode",
                    'fileblob': "FILEBLOB",
                    'decimal': "DECIMAL",
-                   'datetime': 'DateTime'
+                   'datetime': 'DateTime',
+                   'date': 'Date',
+                   'time': 'Time',
+                   'color': 'String(10)',
+                   'url': 'String(2048)'
 }
 
 dmtype_2_pytype = {'datetime': "datetime",
@@ -109,7 +113,9 @@ dmtype_2_pytype = {'datetime': "datetime",
                    'bool': "bool",
                    'image': 'image',
                    'password': 'str',
-                   'fileblob': 'fileblob'
+                   'fileblob': 'fileblob',
+                   'color': 'Color',
+                   'url': 'str'
 }
 
 dmtype_2_default = {'str': "''", 'longstr': "''", 'float': "0.0", 'int': "0"}
@@ -190,6 +196,9 @@ for database, tables in data_models.items():
             elif raw_t in enum_defs:
                 default = f'{first(enum_defs[raw_t])}'
                 cls.append(enum_line_template.format(name=name, py_type=raw_t, default=default))
+            elif '.' in raw_t:
+                # Assume this refers to another entry in some other database. In this database it is represnted by an int.
+                cls.append(regular_line_template.format(name=name, py_type='int', sa_type='Integer', default=None, options=options))
             else:
                 assert False, f"Unknown data type {name}, {raw_t}"
 
@@ -500,6 +509,7 @@ class phone(str): pass
 class url(str): pass
 class path(str): pass
 class Order(int): pass
+class Color(str): pass
 
 mapper_registry = registry()
 
