@@ -75,7 +75,7 @@ class ACM:
         self.par_acm_matchers = []           # (matcher, roles) pairs
 
     def get_user_role(self):
-        return flask.request.cookies.get(self.rolename_name_b, '')
+        return flask.request.cookies.get(self.rolename_name, '')
 
     def roles(self, route, auth):
         """ Function that marks a specific route as having a specific authorization.
@@ -382,6 +382,12 @@ class ACM:
                 super().delete(table, index)
             def add(self, table: Union[Type[Record], Record], record: Record=None, is_add=True) -> Record:
                 """ Only let a user add records that have the field associated with their role. """
+                if record is None:
+                    record = table
+                    table = type(table)
+                if isinstance(record, dict):
+                    record = table(**record)
+
                 role_index = parent.role_names.index(parent.get_user_role())
                 for i, field in enumerate(parent.data_fields):
                     # If the user has sufficient authority, we do not need to check the lower levels.
@@ -392,9 +398,6 @@ class ACM:
                         field_id = int(flask.request.cookies.get(field, 0))
                         if getattr(record, field, -1) != field_id:
                             return
-                if record is None:
-                    record = table
-                    table = type(table)
                 if is_add:
                     return super().add(table, record)
                 return super().set(record)
@@ -482,6 +485,14 @@ class ACM:
                 return False
 
             # Ensure that a user does not move outside his own sphere of authority.
+            # A trick is used where the order of elements in the User record is linked to the Role enumeration.
+            # For each role of the current user, a number of elements are checked corresponding to the numeric value of the role.
+            # So, for 0 (administrator), no values are checked. For role 1, one element is checked. For role 2, two elements.
+            # For the elements that are checked, the value of the current user must be the same as for the new user.
+
+            # So, if these fields are Company and Customer in order, and the roles are admin, editor and user,
+            # then the admin can add users to any Company. An editor only some else from this company, but any Customer.
+            # Users can only add people for the same Customer and the same Company.
             for i, field in enumerate(self.data_fields):
                 # If the user has sufficient authority, we do not need to check the lower levels.
                 if i >= role_index:
@@ -557,15 +568,20 @@ class ACM:
 ## UNIT TESTING
 if running_unittests():
     from admingen.data.dummy_db import DummyDatabase
-    from dataclasses import dataclass
+    from admingen.data.data_type_base import mydataclass
 
-    @dataclass
+    class Rol(enum.IntEnum):
+        administrator = 0
+        editor = 1
+        user = 2
+
+    @mydataclass
     class Bedrijf:
         id: int
         naam: str
         omschrijving: str
 
-    @dataclass
+    @mydataclass
     class User:
         id: int
         login: str
@@ -573,7 +589,8 @@ if running_unittests():
         rol: int
         email: str
         vollenaam: str
-        bedrijf: str
+        bedrijf: int
+        klant: int
 
 
     # First some mocks
@@ -590,6 +607,14 @@ if running_unittests():
             MockRequest.data = data
             MockRequest.form = data
             MockRequest.values = data
+        @staticmethod
+        def set_cookies(data):
+            for c, v in list(data.items()):
+                if not isinstance(c, str):
+                    c = c.decode('utf8')
+                if type(v) not in [str, bytes, bytearray]:
+                    v = str(v)
+                MockRequest.cookies[c] = v
 
     class MockResponse:
         text = ''
@@ -655,11 +680,11 @@ if running_unittests():
     @testcase(mockFlask)
     def accept_loginTest():
         acm = ACM()
-        acm.accept_login(data_model.User(10, 'obb', 'test me', data_model.UserRole.editor, '', '', 15))
+        acm.accept_login(User(10, 'obb', 'test me', data_model.UserRole.editor, '', '', 15,3))
         assert MockResponse.cookies[b'role_name'] == 'editor'
         assert MockResponse.cookies[b'user_name'] == b'obb'
         assert MockResponse.cookies[b'bedrijf'] == b'15'
-        assert MockResponse.cookies[b'klant'] == b'0'
+        assert MockResponse.cookies[b'klant'] == b'3'
 
         # The encoded token that is stored in the cookie can not be checked, as it is different each time.
         assert len(MockResponse.cookies[b'token_data_admingen']) > 100
@@ -668,14 +693,14 @@ if running_unittests():
         assert details['role_name'] == 'editor'
         assert details['ipaddress'] == '127.0.0.1'
         assert details['bedrijf'] == 15
-        assert details['klant'] == 0
+        assert details['klant'] == 3
 
         # We can however check the integrity of the cookie.
         # It uses the token for this: it stores signed duplicates of the other fields.
         # TODO
 
         # Do some simple tests
-        MockRequest.cookies = MockResponse.cookies
+        MockRequest.set_cookies(MockResponse.cookies)
         assert acm.get_user_role() == 'editor'
 
 
@@ -702,12 +727,47 @@ if running_unittests():
         acm = ACM()
         mockApp(acm)
 
-        # Try to add a user as an administrator
-        acm.accept_login(data_model.User(10, 'obb', 'test me', data_model.UserRole.administrator, '', '', 15))
-        data = {'id': None, 'login': 'Tom Poes', 'password': 'test me', 'rol': 2, 'email': '', 'vollenaam': '', 'bedrijf': 15}
-        MockApp.request('/data/User', 'POST', data=data)    # Calls the AddUser function
-        assert len(MockApp.db.data['User']) == 1
-        assert MockApp.db.data['User'][1].login == 'Tom Poes'
-        assert MockApp.db.data['User'][1].password.startswith('$')
-        assert MockApp.db.data['User'][1].rol == 2
-        assert MockApp.db.data['User'][1].bedrijf == 15
+        # Test a number of combinations that should be rejected.
+        # The cases are determined by own role, new role and new company.
+        # Users can only create users with the same or lower role.
+        # Only administrators (role 0) can create users for a different company.
+        # Only editors and admins can create users for a different customer.
+        cases = [
+            (Rol.user, 2, 15, 4),
+            (Rol.user, 1, 15, 3),
+            (Rol.user, 0, 15, 3),
+            (Rol.editor, 0, 15, 3),
+            (Rol.user, 2, 16, 3),
+            (Rol.editor, 2, 16, 3)
+        ]
+        for details in cases:
+            print("Trying case", details)
+            my_role, new_role, new_company, new_customer = details
+
+            acm.accept_login(User(10, 'obb', 'test me', my_role, '', '', 15, 3))
+            MockRequest.set_cookies(MockResponse.cookies)
+            data = {'id': None, 'login': 'Tom Poes', 'password': 'test me', 'rol': new_role, 'email': '', 'vollenaam': '',
+                    'bedrijf': str(new_company), 'klant': str(new_customer)}
+            MockApp.request('/data/User', 'POST', data=data)  # Calls the AddUser function
+            assert len(MockApp.db.data['User']) == 0, f'Failed testcase: {my_role}, {new_role}, {new_company}'
+
+        # Now test a number of combinations that should work
+        cases = [
+            (Rol.administrator, 0, 16, 4),
+            (Rol.administrator, 1, 16, 4),
+            (Rol.administrator, 2, 16, 4),
+            (Rol.editor, 1, 15, 4),
+            (Rol.editor, 2, 15, 4),
+            (Rol.user, 2, 15, 3)
+        ]
+        for details in cases:
+            print("Trying case", details)
+            my_role, new_role, new_company, new_customer = details
+
+            MockApp.db.data['User'] = {}
+            acm.accept_login(User(10, 'obb', 'test me', my_role, '', '', 15, 3))
+            MockRequest.set_cookies(MockResponse.cookies)
+            data = {'id': None, 'login': 'Tom Poes', 'password': 'test me', 'rol': new_role, 'email': '', 'vollenaam': '',
+                    'bedrijf': str(new_company), 'klant': str(new_customer)}
+            MockApp.request('/data/User', 'POST', data=data)  # Calls the AddUser function
+            assert len(MockApp.db.data['User']) == 1, f'Failed testcase: {my_role}, {new_role}, {new_company}'

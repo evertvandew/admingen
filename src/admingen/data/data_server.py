@@ -276,14 +276,14 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
 def add_handlers(app, context):
     """ This function creates and installs a number of flask handlers. """
     dbs = context['databases']
-    prefixes = context['data_model'].database_urls
+    prefixes = context['database_urls']
 
     # Handle each database
     for db_name, db in dbs.items():
         # Ensure the prefix does not start or end on a slash.
         prefix = prefixes[db_name].strip('/')
 
-        table_classes = {t.__name__: t for t in context['data_model'].all_tables[db_name]}
+        table_classes = {t.__name__: t for t in context['datamodel'][db_name]}
 
         # Call a function to install the handlers.
         # If we were to do that inside the loop, the handlers will all use the last db
