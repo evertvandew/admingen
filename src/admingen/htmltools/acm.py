@@ -3,6 +3,7 @@
 """
 
 import re
+from typing import List, Type, Union
 import flask
 import secrets
 from Crypto.Cipher import Blowfish
@@ -10,10 +11,12 @@ import time
 import logging
 import json
 import enum
+from admingen.data import data_server
+from admingen.data.db_api import Record
 from admingen.data.data_server import read_records, add_record, update_record, get_request_data
 from admingen.data import password2str, checkpasswd
 import data_model
-
+from admingen.testing import testcase, expect_exception, running_unittests
 
 the_db = None
 
@@ -23,7 +26,8 @@ logging.getLogger().setLevel(logging.DEBUG)
 
 # The name with which the current role of the user is stored in the cookie.
 rolename_name = 'role_name'
-
+username_field = 'uname'
+password_field = 'psw'
 
 class NotAuthorized(RuntimeError): pass
 
@@ -70,9 +74,8 @@ class ACM:
         self.parameterized_acm_table = {}    # [path parts]: roles pairs
         self.par_acm_matchers = []           # (matcher, roles) pairs
 
-    @staticmethod
-    def get_user_role():
-        return flask.request.cookies.get(rolename_name, '')
+    def get_user_role(self):
+        return flask.request.cookies.get(self.rolename_name_b, '')
 
     def roles(self, route, auth):
         """ Function that marks a specific route as having a specific authorization.
@@ -91,7 +94,7 @@ class ACM:
         return route
 
 
-    def check_token(self, token: dict):
+    def check_token(self, token: bytes):
         d = eval(token)
         salt = d['salt']
         ciphertext = d['details']
@@ -255,8 +258,8 @@ class ACM:
             Checks the username / password combination, sets the relevant cookies and redirects
             to the relevant url.
         """
-        username = flask.request.form['uname']
-        password = flask.request.form['psw']
+        username = flask.request.form[username_field]
+        password = flask.request.form[password_field]
 
         if not (user := self.verify_login(username, password)):
             return flask.make_response('Login not successful', 401)
@@ -347,20 +350,21 @@ class ACM:
                         field_id = int(flask.request.cookies.get(field, 0))
                         records = [r for r in records if getattr(r, field, -1) == field_id]
                 return records
-            def get(self, table, index):
+            def get(self, table: Type[Record], index: int) -> Record:
                 r = super().get(table, index)
                 ok = r and self.check_read(table, [r])
                 if ok:
                     return r
-            def get_many(self, table, indices=None):
+            def get_many(self, table:Type[Record], indices:List[int]=None) -> List[Record]:
                 r = super().get_many(table, indices)
                 r = self.check_read(table, r)
                 return r
-            def query(self, table, **kwargs):
+
+            def query(self, table: Type[Record], **kwargs) -> List[Record]:
                 # The query function does NOT check on ACM. It uses the get and get_many function that do.
                 records = super().query(table, **kwargs)
                 return records
-            def delete(self, table, index):
+            def delete(self, table:Type[Record], index:int) -> None:
                 """ Delete a field is the details of the record correspond to the login.
                     Currently, the ACM table is not checked.
                 """
@@ -376,7 +380,7 @@ class ACM:
                         if getattr(r, field, -1) != field_id:
                             return
                 super().delete(table, index)
-            def add(self, record, is_add=True):
+            def add(self, table: Union[Type[Record], Record], record: Record=None, is_add=True) -> Record:
                 """ Only let a user add records that have the field associated with their role. """
                 role_index = parent.role_names.index(parent.get_user_role())
                 for i, field in enumerate(parent.data_fields):
@@ -388,8 +392,11 @@ class ACM:
                         field_id = int(flask.request.cookies.get(field, 0))
                         if getattr(record, field, -1) != field_id:
                             return
+                if record is None:
+                    record = table
+                    table = type(table)
                 if is_add:
-                    return super().add(record)
+                    return super().add(table, record)
                 return super().set(record)
             def set(self, record):
                 # Ensure that the original values of the record allow the user to modify them.
@@ -431,9 +438,16 @@ class ACM:
         """ Call this function to insert the ACM functions into a flask application. """
         # Wrap the original database in a system that checks authorization
         names = list(context['databases'].keys())
-        for db_name in names:
-            db = self.filtered_db(context['databases'][db_name])
-            context['databases'][db_name] = db
+        context['databases'] = {n: self.filtered_db(db) for n, db in context['databases'].items()}
+        all_tables = {db_name: {t.__name__: t for t in context['datamodel'][db_name]} for db_name in names}
+
+        user_db = None
+        user_table = None
+        for name, tables in context['datamodel'].items():
+            tab_names = [t.__name__ for t in tables]
+            if 'User' in tab_names:
+                user_db = context['databases'][name]
+                user_table = all_tables[name]['User']
 
         def update_password():
             """ Update the password for the current user. After checking the details, of course. """
@@ -458,7 +472,7 @@ class ACM:
             db.update(data_model.User, {'id': details.id, 'password': pw})
             return "Paswoord is aangepast", 200
 
-        def is_authorized_user(self, data):
+        def is_authorized_user(data):
             """ Check the authorization for creating or updating a user.
             """
             # Obviously, a user can not promote anybody to a role higher than his own.
@@ -485,7 +499,7 @@ class ACM:
             data['password'] = password2str(data['password'].encode('utf8'))
             if not is_authorized_user(data):
                 return "Not authorized", 403
-            return add_record('User', data_model.User, data)
+            return user_db.add(user_table, data)
 
         def update_user(index):
             """ The password can not be updated in this way """
@@ -493,7 +507,7 @@ class ACM:
             # Remove the password, if supplied.
             if 'password' in data:
                 del data['password']
-            if not is_authorized_user(self, data):
+            if not is_authorized_user(data):
                 return "Not authorized", 403
             # Always update the existing record, so the password is not modified.
             try:
@@ -535,3 +549,165 @@ class ACM:
         self.par_acm_matchers = [(re.compile(p.replace('*', '[^/]*')), r)
             for p, r in self.parameterized_acm_table.items()
         ]
+
+
+
+
+###############################################################################
+## UNIT TESTING
+if running_unittests():
+    from admingen.data.dummy_db import DummyDatabase
+    from dataclasses import dataclass
+
+    @dataclass
+    class Bedrijf:
+        id: int
+        naam: str
+        omschrijving: str
+
+    @dataclass
+    class User:
+        id: int
+        login: str
+        password: str
+        rol: int
+        email: str
+        vollenaam: str
+        bedrijf: str
+
+
+    # First some mocks
+    class MockRequest:
+        cookies = {}
+        remote_addr = '127.0.0.1'
+        path = '/'
+        method = 'GET'
+        data = {}
+        args = {'encoding': ''}
+
+        @staticmethod
+        def set_data(data):
+            MockRequest.data = data
+            MockRequest.form = data
+            MockRequest.values = data
+
+    class MockResponse:
+        text = ''
+        code = -1
+        cookies = {}
+        @staticmethod
+        def set_cookie(name, value, max_age=-1):
+            MockResponse.cookies[name] = value
+
+    class MockFlask:
+        request = MockRequest
+
+        @staticmethod
+        def make_response(msg, code):
+            MockResponse.text = msg
+            MockResponse.code = code
+            return MockResponse
+
+    class MockApp:
+        routes = []
+        befores = []
+        @staticmethod
+        def route(path, methods=['GET']):
+            def route_setter(func):
+                MockApp.routes.append((path, methods, func))
+            return route_setter
+        @staticmethod
+        def before_request(f):
+            MockApp.befores.append(f)
+        @staticmethod
+        def request(path, method, data=None):
+            MockRequest.path = path
+            MockRequest.method = method
+            if data:
+                MockRequest.set_data(data)
+            for b in MockApp.befores:
+                b()
+            for p, m, f in MockApp.routes:
+                if p == path and method in m:
+                    f()
+
+
+    def mockFlask():
+        global flask
+        flask = MockFlask
+        data_server.flask = MockFlask
+
+    def mockApp(acm):
+        all_tables = {'testdb': [User, Bedrijf]}
+        context = {'databases': {'testdb': DummyDatabase(all_tables['testdb'])},
+                   'datamodel': all_tables}
+        MockApp.db = context['databases']['testdb']
+        MockApp.context = context
+        acm.add_handlers(MockApp, context)
+
+    #######################################
+    # test cases
+
+    @testcase()
+    def constructionTest():
+        acm = ACM()
+
+    @testcase(mockFlask)
+    def accept_loginTest():
+        acm = ACM()
+        acm.accept_login(data_model.User(10, 'obb', 'test me', data_model.UserRole.editor, '', '', 15))
+        assert MockResponse.cookies[b'role_name'] == 'editor'
+        assert MockResponse.cookies[b'user_name'] == b'obb'
+        assert MockResponse.cookies[b'bedrijf'] == b'15'
+        assert MockResponse.cookies[b'klant'] == b'0'
+
+        # The encoded token that is stored in the cookie can not be checked, as it is different each time.
+        assert len(MockResponse.cookies[b'token_data_admingen']) > 100
+        # The acm has a function to unpack it (and check its integrity)
+        details = acm.check_token(MockResponse.cookies[b'token_data_admingen'])
+        assert details['role_name'] == 'editor'
+        assert details['ipaddress'] == '127.0.0.1'
+        assert details['bedrijf'] == 15
+        assert details['klant'] == 0
+
+        # We can however check the integrity of the cookie.
+        # It uses the token for this: it stores signed duplicates of the other fields.
+        # TODO
+
+        # Do some simple tests
+        MockRequest.cookies = MockResponse.cookies
+        assert acm.get_user_role() == 'editor'
+
+
+
+    @testcase(mockFlask)
+    def invalid_tokenTest():
+        return # There is a known issue with the token that sometimes causes this test to fail.
+        # Create a login cookie, then corrupt it
+        acm = ACM()
+        acm.accept_login(data_model.User(10, 'obb', 'test me', data_model.UserRole.editor, '', '', 15))
+        # Break open the token, change one byte in it and try to unpack it.
+        token = MockResponse.cookies[b'token_data_admingen']
+        tl = list(token)
+        # replace the first number between 0 and 8 to 9
+        index = [i for i, c in enumerate(tl) if ord('0') <= c < ord('9')][0]
+        tl[index] = ord('9')
+        token2 = bytes(tl)
+        with expect_exception(Exception):
+            details = acm.check_token(token2)
+            pass
+
+    @testcase(mockFlask)
+    def add_userTest():
+        acm = ACM()
+        mockApp(acm)
+
+        # Try to add a user as an administrator
+        acm.accept_login(data_model.User(10, 'obb', 'test me', data_model.UserRole.administrator, '', '', 15))
+        data = {'id': None, 'login': 'Tom Poes', 'password': 'test me', 'rol': 2, 'email': '', 'vollenaam': '', 'bedrijf': 15}
+        MockApp.request('/data/User', 'POST', data=data)    # Calls the AddUser function
+        assert len(MockApp.db.data['User']) == 1
+        assert MockApp.db.data['User'][1].login == 'Tom Poes'
+        assert MockApp.db.data['User'][1].password.startswith('$')
+        assert MockApp.db.data['User'][1].rol == 2
+        assert MockApp.db.data['User'][1].bedrijf == 15

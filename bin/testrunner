@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+
+import os, os.path
+import subprocess
+import argparse
+import importlib.util
+from admingen import testing
+
+
+admin_home = os.path.normpath(os.path.dirname(__file__) + '/../src')
+
+def find_cases(basedir):
+    """ Find all Python files containing decorated testcases"""
+    basedir = basedir or admin_home
+    result = subprocess.run('find . -name \*.py | xargs egrep -l "^\s*@testcase\("', shell=True, capture_output=True, cwd=basedir)
+    return result.stdout.decode('utf8').split()
+
+
+def run_multiple_cases(files=False):
+    files = files or find_cases(os.getcwd())
+    for file in files:
+        print('Testing', file)
+        result = subprocess.run(f'{__file__} {file}', shell=True)
+
+def run_single_case(filename):
+    testing.set_running_unittests(True)
+    assert os.path.exists(path), f"Path {path} does not exist"
+    mod_name = os.path.relpath(filename, admin_home).replace('/', '.').strip('.py')
+
+    importlib.import_module(mod_name)
+    _new_mod = importlib.import_module(mod_name)
+    testing.runall()
+    testing.set_running_unittests(False)
+
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument('paths', action='append', nargs='*')
+parser.add_argument('-c', '--case')
+args = parser.parse_args()
+
+for path in args.paths:
+    if not path:
+        path = None
+    if isinstance(path, list):
+        path = path[0]
+    if path and os.path.isfile(path):
+        run_single_case(path)
+    else:
+        cases = find_cases(path or False)
+        run_multiple_cases(cases)

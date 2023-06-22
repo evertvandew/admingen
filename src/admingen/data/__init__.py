@@ -156,7 +156,7 @@ def password2str(value) -> str:
         value = value.encode('utf-8')
     salt = bcrypt.gensalt()
     hash = bcrypt.hashpw(value, salt)
-    return hash.decode('utf-8')
+    return hash.decode('utf-8') if isinstance(hash, bytes) else hash
 
 def checkpasswd(clear, hashed):
     if isinstance(clear, str):
