@@ -231,12 +231,10 @@ class FileDatabase(db_api):
         os.rename(fullpath, newpath)
         self.call_hooks(table, self.actions.delete, index)
 
-
-    def get(self, table: Type[Record], index: int) -> Record:
-        """ Retrieve a record identified by table name and index.
-            The table is a dataclass with a name that is initialised with list of named
-            arguments.
-            With this method, you can also retrieve archived records.
+    def ll_get(self, table, index):
+        """ Low-level getter that is used by both `get` and `get_many`.
+            The low-level getter is not overridden by e.g. the ACM wrapper, so this can
+            also be used for raw access to the database. E.g. to check login credentials.
         """
         if not index:
             return None
@@ -249,11 +247,20 @@ class FileDatabase(db_api):
         data = open(fullpath).read()
         return deserialiseDataclass(table, data)
 
+
+    def get(self, table: Type[Record], index: int) -> Record:
+        """ Retrieve a record identified by table name and index.
+            The table is a dataclass with a name that is initialised with list of named
+            arguments.
+            With this method, you can also retrieve archived records.
+        """
+        return self.ll_get(table, index)
+
     def get_many(self, table:Type[Record], indices:List[int]=None) -> List[Record]:
         """ Retrieve a (large) set of records at once. There are returned as a list.
             If indices is not specified, empty or None, ALL records from the table are read.
         """
         indices = indices or [int(f) for f in os.listdir(f"{self.path}/{table.__name__}") if f.isnumeric()]
-        records = [self.get(table, i) for i in indices]
+        records = [self.ll_get(table, i) for i in indices]
         records = [r for r in records if r]
         return records

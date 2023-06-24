@@ -38,7 +38,7 @@ class TestResult:
 
 testcases = []
 
-def testcase(before=None, after=None):
+def testcase(*before, after=None):
     """ Decorator for running test cases """
     def decorator(f):
         def doIt():
@@ -48,10 +48,7 @@ def testcase(before=None, after=None):
             m3 = 'After function threw exception'
             m4 = 'Test successful'
             print("Starting", f.__name__)
-            before = before or []
             after = after or []
-            if callable(before):
-                before = [before]
             for b in before:
                 if callable(b):
                     try:

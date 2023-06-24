@@ -148,8 +148,9 @@ class DummyDatabase(db_api):
             If indices is not specified, empty or None, ALL records from the table are read.
         """
         data = self.data[table.__name__]
-        records = [data[i] for i in indices if i in data]
-        return records
+        if indices:
+            return [data[i] for i in indices if i in data]
+        return list(data.values())
 
 
 
