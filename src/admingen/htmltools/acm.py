@@ -514,7 +514,7 @@ class ACM:
                 if i >= role_index:
                     return True
                 field_id = int(flask.request.cookies.get(field, 0))
-                if data.get(field, '-10') != str(field_id):
+                if str(data.get(field, '-10')) != str(field_id):
                     return False
             return True
 
@@ -540,7 +540,7 @@ class ACM:
                 return "Not authorized", 403
             # Always update the existing record, so the password is not modified.
             try:
-                return update_record(data_model.User, index, db, data, True)
+                return update_record(user_table, index, user_db, data, True)
             except NotAuthorized:
                 return "Not authorized", 403
 
@@ -585,140 +585,24 @@ class ACM:
 ###############################################################################
 ## UNIT TESTING
 if running_unittests():
-    from admingen.data.dummy_db import DummyDatabase
-    from admingen.data.data_type_base import mydataclass
-
-    class Rol(enum.IntEnum):
-        administrator = 0
-        editor = 1
-        user = 2
-
-    @mydataclass
-    class Bedrijf:
-        id: int
-        naam: str
-        omschrijving: str
-
-    @mydataclass
-    class User:
-        id: int
-        login: str
-        password: str
-        rol: int
-        email: str
-        vollenaam: str
-        bedrijf: int
-        klant: int
-
-
-    # First some mocks
-    class MockRequest:
-        cookies = {}
-        remote_addr = '127.0.0.1'
-        path = '/'
-        method = 'GET'
-        data = {}
-        args = {'encoding': ''}
-
-        @staticmethod
-        def set_data(data):
-            MockRequest.data = data
-            MockRequest.form = data
-            MockRequest.values = data
-        @staticmethod
-        def set_cookies(data):
-            for c, v in list(data.items()):
-                if not isinstance(c, str):
-                    c = c.decode('utf8')
-                if type(v) not in [str, bytes, bytearray]:
-                    v = str(v)
-                MockRequest.cookies[c] = v
-
-    class MockHeaders:
-        headers = []
-        @staticmethod
-        def add(key, value):
-            MockHeaders.headers.append((key, value))
-
-    class MockResponse:
-        text = ''
-        code = -1
-        cookies = {}
-        headers = MockHeaders
-        @staticmethod
-        def set_cookie(name, value, max_age=-1):
-            MockResponse.cookies[name] = value
-        @staticmethod
-        def delete_cookie(name):
-            if name in MockResponse.cookies:
-                del MockResponse.cookies[name]
-
-    class MockFlask:
-        request = MockRequest
-
-        @staticmethod
-        def make_response(msg, code):
-            MockResponse.text = msg
-            MockResponse.code = code
-            return MockResponse
-
-    class MockDb:
-        all_tables = {'testdb': [User, Bedrijf]}
-        db = DummyDatabase(all_tables['testdb'])
-
-        @staticmethod
-        def setRecords(records):
-            def doIt():
-                MockDb.db.clear()
-                for record in records:
-                    MockDb.db.set(record)
-            return doIt
-
-    class MockApp:
-        routes = []
-        befores = []
-        all_tables = MockDb.all_tables
-        context = {'databases': {'testdb': MockDb.db},
-                   'datamodel': all_tables}
-        db = context['databases']['testdb']
-        acm = None
-
-
-        @staticmethod
-        def route(path, methods=['GET']):
-            def route_setter(func):
-                MockApp.routes.append((path, methods, func))
-            return route_setter
-        @staticmethod
-        def before_request(f):
-            MockApp.befores.append(f)
-        @staticmethod
-        def request(path, method, data=None):
-            print("Routing:", path)
-            MockRequest.path = path
-            MockRequest.method = method
-            if data:
-                MockRequest.set_data(data)
-            for b in MockApp.befores:
-                b()
-            for p, m, f in MockApp.routes:
-                if p == path and method in m:
-                    f()
+    from dataclasses import asdict
+    from admingen.testing.mocks import *
 
     def mockFlask():
         global flask
         flask = MockFlask
         data_server.flask = MockFlask
 
+
     def mockApp():
         if MockApp.acm is None:
             MockApp.acm = ACM()
             MockApp.acm.add_handlers(MockApp, MockApp.context)
 
-    #######################################
-    # test cases
 
     user1 = User(id=1, login='Tom Poes', password=password2str('test me'), rol=Rol.user, email='', vollenaam='', bedrijf=15, klant=3)
+    editor1 = User(id=1, login='Tom Poes', password=password2str('test me'), rol=Rol.editor, email='', vollenaam='', bedrijf=15, klant=3)
+    admin1 = User(id=1, login='Tom Poes', password=password2str('test me'), rol=Rol.administrator, email='', vollenaam='', bedrijf=15, klant=3)
 
     @testcase()
     def constructionTest():
@@ -853,12 +737,104 @@ if running_unittests():
     def change_passwordTest():
         # Login as Tom Poes
         MockApp.acm.accept_login(user1)
-        # Submit a proper request to change the password
+        MockRequest.set_cookies(MockResponse.cookies)
+
+        # Fail because the original PW is not correct
+        data = {'current_password': 'error',
+                'new_password1': 'test me nogmaals',
+                'new_password2': 'test me nogmaals'}
+        MockApp.request('/update_password', 'POST', data=data)
+        assert MockResponse.code == 400
+
+        # Fail because the two new passwords don't match
+        data = {'current_password': 'test me',
+                'new_password1': 'test me nogmaals',
+                'new_password2': 'test me nogmals'}
+        MockApp.request('/update_password', 'POST', data=data)
+        assert MockResponse.code == 400
+
+        # Submit a proper request to change the password successfully.
         data = {'current_password': 'test me',
                 'new_password1': 'test me nogmaals',
                 'new_password2': 'test me nogmaals'}
-        MockRequest.set_cookies(MockResponse.cookies)
         MockApp.request('/update_password', 'POST', data=data)
-        assert MockResponse.code == 303
+        assert MockResponse.code == 200
         assert not checkpasswd('test me', MockDb.db.data['User'][1].password)
         assert checkpasswd('test me nogmaals', MockDb.db.data['User'][1].password)
+
+
+    @testcase(mockFlask, mockApp, MockDb.setRecords([user1]))
+    def update_userTest():
+        # Login as Tom Poes
+        MockApp.acm.accept_login(user1)
+        MockRequest.set_cookies(MockResponse.cookies)
+
+        # no-one should be able to change the password this way
+        # By the user himself
+        old_pw = user1.password
+        data = {'id': user1.id, 'login': user1.login, 'password': 'Verzin een list!', 'rol': user1.rol, 'email': 'test@pp.nl', 'vollenaam': user1.vollenaam,
+                'bedrijf': user1.bedrijf, 'klant': user1.klant}
+        MockApp.request(f'/data/User/{user1.id}', 'POST', data=data)
+        assert MockDb.db.data['User'][1].password == old_pw
+        assert MockDb.db.data['User'][1].email == data['email']
+        assert MockResponse.code == 201
+
+        # By an editor
+        data['vollenaam'] = 'aan lange naam'
+        MockApp.acm.accept_login(editor1)
+        MockRequest.set_cookies(MockResponse.cookies)
+        MockApp.request(f'/data/User/{user1.id}', 'POST', data=data)
+        assert MockDb.db.data['User'][1].password == old_pw
+        assert MockDb.db.data['User'][1].vollenaam == data['vollenaam']
+        assert MockResponse.code == 201
+
+        # By an administrator
+        MockApp.acm.accept_login(admin1)
+        MockRequest.set_cookies(MockResponse.cookies)
+        MockApp.request(f'/data/User/{user1.id}', 'POST', data=data)
+        assert MockDb.db.data['User'][1].password == old_pw
+        assert MockResponse.code == 201
+
+    @testcase(mockFlask, mockApp, MockDb.setRecords([
+        User(id=20, login='nr1', password=password2str('test me'), rol=Rol.user, email='', vollenaam='', bedrijf=15,
+             klant=3),
+        User(id=21, login='nr2', password=password2str('test me'), rol=Rol.editor, email='', vollenaam='', bedrijf=15,
+             klant=3),
+        User(id=22, login='nr3', password=password2str('test me'), rol=Rol.user, email='', vollenaam='', bedrijf=15,
+             klant=4),
+        User(id=23, login='nr4', password=password2str('test me'), rol=Rol.editor, email='', vollenaam='', bedrijf=15,
+             klant=4),
+        User(id=24, login='nr5', password=password2str('test me'), rol=Rol.user, email='', vollenaam='', bedrijf=15,
+             klant=5),
+        User(id=25, login='nr6', password=password2str('test me'), rol=Rol.editor, email='', vollenaam='', bedrijf=16,
+             klant=6),
+        User(id=26, login='nr7', password=password2str('test me'), rol=Rol.user, email='', vollenaam='', bedrijf=16,
+             klant=6),
+        User(id=27, login='nr8', password=password2str('test me'), rol=Rol.editor, email='', vollenaam='', bedrijf=16,
+             klant=7),
+        User(id=28, login='nr9', password=password2str('test me'), rol=Rol.user, email='', vollenaam='', bedrijf=16,
+             klant=7),
+        User(id=29, login='nr10', password=password2str('test me'), rol=Rol.user, email='', vollenaam='', bedrijf=16,
+             klant=8),
+    ]))
+    def filter_recordsTest():
+        MockApp.acm.accept_login(user1)
+        MockRequest.set_cookies(MockResponse.cookies)
+
+        # Directly test the API of the wrapped database.
+
+        # A 'user' can not access any users
+        result = MockDb.db.get_many(User)
+        assert len(result) == 0
+
+        # An 'editor' can see all users associated with a specific company
+        MockApp.acm.accept_login(editor1)
+        MockRequest.set_cookies(MockResponse.cookies)
+        result = MockDb.db.get_many(User)
+        assert len(result) == 5
+
+        # An 'admin' can see everybody
+        MockApp.acm.accept_login(admin1)
+        MockRequest.set_cookies(MockResponse.cookies)
+        result = MockDb.db.get_many(User)
+        assert len(result) == 10
