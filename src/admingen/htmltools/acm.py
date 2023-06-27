@@ -42,7 +42,7 @@ class auth_results(enum.Enum):
 class ACM:
     secret = b'Mooi test dit maar goed'
 
-    def __init__(self, role_hierarchy='administrator editor user', data_fields='bedrijf klant', testmode=False,
+    def __init__(self, role_hierarchy='administrator editor', data_fields='bedrijf', testmode=False,
                  project_name='admingen'):
         """ Configure the ACM system with a hierarchy.
             The first role is the administration role, and has unlimited access.
@@ -242,8 +242,8 @@ class ACM:
         # We store the token, the user id, the role of the user, company id, and the user name.
         res.set_cookie(self.token_name_b, token, max_age=self.max_age)
         res.set_cookie(self.rolename_name_b, role, max_age=self.max_age)
-        res.set_cookie(self.username_name_b, user.login.encode('utf-8'))
-        res.set_cookie(self.userid_name_b, user.id)
+        res.set_cookie(self.username_name_b, user.login.encode('utf8'))
+        res.set_cookie(self.userid_name_b, str(user.id).encode('utf8'))
         for field, field_b in zip(self.data_fields, self.data_fields_b):
             res.set_cookie(field_b, b'%i'%(details[field]))
         return res
@@ -402,6 +402,8 @@ class ACM:
                     if field in record.__class__.__annotations__:
                         # Simply return if the user is not authorized for this.
                         field_id = int(flask.request.cookies.get(field, 0))
+                        if not getattr(record, field, None):
+                            setattr(record, field, field_id)
                         if getattr(record, field, -1) != field_id:
                             return
                 if is_add:
@@ -430,7 +432,7 @@ class ACM:
                     if field in orig.__class__.__annotations__:
                         # Simply return if the user is not authorized for this.
                         field_id = int(flask.request.cookies.get(field, 0))
-                        if getattr(orig, field) != field_id or int(update[field]) != field_id:
+                        if getattr(orig, field) != field_id or int(update.get(field, getattr(orig, field))) != field_id:
                             raise NotAuthorized()
                 return True
             def update(self, table, record=None, checker=None):
@@ -706,6 +708,41 @@ if running_unittests():
         assert isinstance(rec, User)
         assert rec == User(id=1, login='Tom Poes', password=rec.password, rol=Rol.user, email='', vollenaam='', bedrijf=15, klant=3)
 
+    @testcase(mockFlask, mockApp)
+    def add_user_without_passwordTest():
+        # Test a number of combinations that should be rejected.
+        # The cases are determined by own role, new role and new company.
+        # Users can only create users with the same or lower role.
+        # Only administrators (role 0) can create users for a different company.
+        # Only editors and admins can create users for a different customer.
+        cases = [
+            (Rol.user, 2, 15, 4),
+            (Rol.user, 1, 15, 3),
+            (Rol.user, 0, 15, 3),
+            (Rol.editor, 0, 15, 3),
+            (Rol.user, 2, 16, 3),
+            (Rol.editor, 2, 16, 3)
+        ]
+        for details in cases:
+            print("Trying case", details)
+            my_role, new_role, new_company, new_customer = details
+
+            MockApp.acm.accept_login(User(10, 'obb', 'test me', my_role, '', '', 15, 3))
+            MockRequest.set_cookies(MockResponse.cookies)
+            data = {'id': None, 'login': 'Tom Poes', 'password': 'test me', 'rol': new_role, 'email': '', 'vollenaam': '',
+                    'bedrijf': str(new_company), 'klant': str(new_customer)}
+            MockApp.request('/data/User', 'POST', data=data)  # Calls the AddUser function
+            assert len(MockApp.db.data['User']) == 0, f'Failed testcase: {my_role}, {new_role}, {new_company}'
+
+        # Now test a number of combinations that should work
+        cases = [
+            (Rol.administrator, 0, 16, 4),
+            (Rol.administrator, 1, 16, 4),
+            (Rol.administrator, 2, 16, 4),
+            (Rol.editor, 1, 15, 4),
+            (Rol.editor, 2, 15, 4),
+            (Rol.user, 2, 15, 3)
+        ]
 
     @testcase(mockFlask, mockApp, MockDb.setRecords([user1]))
     def accept_loginTest():
