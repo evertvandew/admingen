@@ -52,6 +52,7 @@ TAG_CLOSE_MSG = '__TAG_CLOSE__'
 
 
 data_models = {}
+queries = {}
 url_prefixes = {}
 source_2_url_prefix = {}
 table_acm = {}
@@ -59,6 +60,23 @@ id_counter = 0
 
 def handle_Datamodel(args, lines):
     """ Analyse and store data model definitions """
+    def handle_view(line_it):
+        """ Read the definition of data returned by a 'view'.
+            The same syntax is used as for a table definition.
+        """
+        result = {'id': ['int']}
+        # Consume and handle the column definitions
+        l = next(line_it)
+        try:
+            while l and l[0] in ' \t':
+                name, details = l.split(':', maxsplit=1)
+                colname = name.strip()
+                details = [d.strip() for d in details.split(',')]
+                result[colname] = details
+                l = next(line_it)
+        except StopIteration:
+            pass  # Use the exception only to break out of the while loop.
+        return l, result
     def handle_table(line_it):
         """ Read the column definitions for a table"""
         result = {'id': ['int']}
@@ -102,7 +120,7 @@ def handle_Datamodel(args, lines):
     try:
         while True:
             # Consume lines until we get a table or enum
-            while l.split(':')[0] not in ['table', 'enum']:
+            while l.split(':')[0] not in ['table', 'enum', 'view']:
                 l = next(line_it)
             
             table_type, tablename = l.strip().split(':', maxsplit=1)
@@ -118,9 +136,13 @@ def handle_Datamodel(args, lines):
                 if acm_details:
                     acm = acm_details.groups()[0]
                 table_acm[tablename] = acm
+                data_model[tablename] = tabledef
             elif table_type.strip() == 'enum':
                 l, tabledef = handle_enum(line_it, tablename)
-            data_model[tablename] = tabledef
+                data_model[tablename] = tabledef
+            elif table_type.strip() == 'view':
+                l, tabledef = handle_view(line_it)
+                queries[tablename] = tabledef
     except StopIteration:
         pass
     return ''
@@ -201,6 +223,13 @@ class DataContext:
         if isinstance(reftable, enum.EnumMeta):
             return False
         return coltype
+
+    @staticmethod
+    def getColumnType(source, t, column):
+        if source in data_models and column in data_models[source][t]:
+            return data_models[source][t][column]
+        if source in queries:
+            return queries[source][column]
 
     @staticmethod
     def firstElementName(source, table):
@@ -286,6 +315,9 @@ class DataContext:
             if (pathparts[0] or pathparts[1]) in url_prefixes:
                 source = url_prefixes[pathparts[0] or pathparts[1]]
                 specs = data_models[source][table]
+            elif path in queries:
+                source = path
+                specs = queries[path]
             else:
                 # This is an unknown data source. Only process parameters
                 source = specs = None
@@ -348,8 +380,8 @@ class DataContext:
                             ftable = data_models[source][ftable][fk][0]
                     return data_models[source][ftable][c]
                 for t in [details.table, *details.join_tables]:
-                    if col in data_models[source][t]:
-                        return data_models[source][t][col]
+                    if col_type := DataContext.getColumnType(source, t, col):
+                        return col_type
                 raise RuntimeError(f"Column {col} not found in tables {details.table} and {details.join_tables}")
         
             details.column_types = [get_col_type(c) for c in details.column_names]
