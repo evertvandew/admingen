@@ -1,5 +1,13 @@
 """
+ACM rights are stored in a table. The table links the path of a resource with the roles that can access them.
+By default, a role that is in the list has full access. But the role can be followed by by a set of letters indicating
+specific rights: RWLAD, for Read, Write, List, Add and Delete. For example:
 
+```
+    data/Resource:editor:RWL,administrator,user:R
+```
+
+This allows the editors to Read, Write and List the Resources. Users can only Read these. Administrators have full rights.
 """
 
 import re
@@ -77,6 +85,8 @@ class ACM:
         self.parameterized_acm_table = {}    # [path parts]: roles pairs
         self.par_acm_matchers = []           # (matcher, roles) pairs
 
+        self.all_roles = {}
+
     def get_user_role(self):
         return flask.request.cookies.get(self.rolename_name, '')
 
@@ -95,6 +105,14 @@ class ACM:
             r = '/'.join(parts[:parameterized[0]])
             self.parameterized_acm_table[r] = auth
         return route
+
+    def getRoles(self, name):
+        if not self.all_roles:
+            for path, rights in self.acm_table.items():
+                roles = [r.split(':', maxsplit=1) for r in (rights.split(',') if isinstance(rights, str) else rights)]
+                roles_dict = {r[0]: (r[1] if len(r) > 1 else 'RWLAD') for r in roles}
+                self.all_roles[path] = roles_dict
+        return self.all_roles[name]
 
 
     # TODO: rename to `decode_token`
@@ -337,13 +355,14 @@ class ACM:
                 return db
             def __init__(self):
                 self.has_acm = True
-            def check_read(self, table, records):
-                # First do course ACM using the roles.
-                roles = parent.acm_table.get(f'data/{table.__name__}', '').split(',')
-                if 'any' in roles:
+            def check_read(self, table, records, access_type='L'):
+                # First do ACM using the roles.
+                roles_dict = parent.getRoles(f'data/{table.__name__}')
+                if 'any' in roles_dict:
                     return records
-                if parent.get_user_role() not in roles:
+                if access_type not in roles_dict.get(parent.get_user_role(), ''):
                     return []
+
                 # Now do fine-grained ACM using the company and user ids.
                 # Determine up to which level we need to do this.
                 role_index = parent.role_names.index(parent.get_user_role())
@@ -358,12 +377,12 @@ class ACM:
                 return records
             def get(self, table: Type[Record], index: int) -> Record:
                 r = super().get(table, index)
-                ok = r and self.check_read(table, [r])
+                ok = r and self.check_read(table, [r], 'R')
                 if ok:
                     return r
             def get_many(self, table:Type[Record], indices:List[int]=None) -> List[Record]:
                 r = super().get_many(table, indices)
-                r = self.check_read(table, r)
+                r = self.check_read(table, r, 'L')
                 return r
 
             def query(self, table: Type[Record], **kwargs) -> List[Record]:
@@ -372,9 +391,14 @@ class ACM:
                 return records
             def delete(self, table:Type[Record], index:int) -> None:
                 """ Delete a field is the details of the record correspond to the login.
-                    Currently, the ACM table is not checked.
                 """
-                r = super().get(table, index)
+                # First do course ACM using the roles.
+                roles_dict = parent.getRoles(f'data/{table.__name__}')
+                rights = roles_dict.get(parent.get_user_role(), roles_dict.get('any', ''))
+                if 'D' not in rights:
+                    return auth_results.NOT_AUTHORIZED
+
+                r = self.get_raw(table, index)
                 role_index = parent.role_names.index(parent.get_user_role())
                 for i, field in enumerate(parent.data_fields):
                     # If the user has sufficient authority, we do not need to check the lower levels.
@@ -384,13 +408,19 @@ class ACM:
                         # Simply return if the user is not authorized for this.
                         field_id = int(flask.request.cookies.get(field, 0))
                         if getattr(r, field, -1) != field_id:
-                            return
+                            return auth_results.NOT_AUTHORIZED
                 super().delete(table, index)
             def add(self, table: Union[Type[Record], Record], record: Record=None, is_add=True) -> Record:
                 """ Only let a user add records that have the field associated with their role. """
-                if record is None:
+                # First do course ACM using the roles.
+                if not record:
                     record = table
-                    table = type(table)
+                    table = type(record)
+                roles_dict = parent.getRoles(f'data/{table.__name__}')
+                rights = roles_dict.get(parent.get_user_role(), roles_dict.get('any', ''))
+                if 'A' not in rights:
+                    return
+
                 if isinstance(record, dict):
                     record = table(**record)
 
@@ -562,7 +592,7 @@ class ACM:
         # Load the ACM table for the other elements
         with open('acm_table') as f:
             for line in f:
-                path, r = line.strip().split(':')
+                path, r = line.strip().split(':', maxsplit=1)
                 # Ensure the entries in the table have no leading or trailing slashes.
                 path = path.strip('/')
 

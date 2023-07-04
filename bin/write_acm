@@ -2,6 +2,7 @@
 
 import sys
 import json
+import os.path
 from admingen.xml_template import processor, data_models, default_generators, Tag, table_acm
 
 from argparse import ArgumentParser
@@ -19,6 +20,9 @@ def handle_Page(args, lines):
     """ Handle the ACM parameters for each page """
     url = args['url']
     acm[url.strip('/')] = args.get('acm', current_page_context['acm'])
+    # for index, add alternative paths the browser will try in resolving this path
+    if os.path.basename(url) in ['index.html', 'index.htm']:
+        acm[os.path.dirname(url).strip('/')] = args.get('acm', current_page_context['acm'])
     return ''
 
 def handle_PageContextValue(args, lines):

@@ -644,7 +644,7 @@ def debug_render(template, lines=None, render_context=None):
     lines = lines or []
     render_context = render_context or {}
     try:
-        return template.render(**render_context)
+        return template.render(lines=lines, **render_context)
     except:
         # Try to re-create the error using a proper file template
         # This will give a clearer error message.

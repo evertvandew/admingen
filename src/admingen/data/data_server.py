@@ -230,7 +230,9 @@ def register_db_handlers(db_name, app, prefix, db, table_classes):
     @bp.route('/<path:table>/<int:index>', methods=['DELETE'])
     def delete_item(table, index):
         tablecls = table_classes[table]
-        db.delete(tablecls, index)
+        result = db.delete(tablecls, index)
+        if result:
+            return flask.make_response('Not authorized', 403)
         return flask.make_response('', 204)
 
     @bp.route('/<path:table>', methods=['DELETE'])
