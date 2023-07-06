@@ -4,6 +4,7 @@ import enum
 from admingen.htmltools import svg
 from admingen.htmltools.fontsizes import font_sizes
 from itertools import chain
+from admingen.htmltools.diagrams.square_routing import Point, routeSquare
 
 
 ###############################################################################
@@ -61,6 +62,18 @@ def renderText(text, d):
     rendered = [svg.text(line, x=xpos, y=int(ypos+lineheight*(i+1)), text_anchor=anchor, font_size=fontsize, font_family=d.getStyle('font', 'Arial'))
                 for i, line in enumerate(lines)]
     return rendered
+
+
+def drawSquaredLine(start, end, gridline):
+    p1, p2 = [Point(p.x, p.y) + Point(p.width, p.height)/2 for p in [start, end]]
+    points = routeSquare((p1, Point(0,0)), (p2, Point(0,0)), [gridline])
+
+    waypoints = ''.join(f'L {p.x} {p.y} ' for p in points[1:])
+    start, end = points[0], points[-1]
+    path = f"M {start.x} {start.y} {waypoints}"
+
+    return svg.path(d=path, stroke='black', stroke_width=2, fill=None,
+                             marker_end='url(#endarrow)')
 
 
 ###############################################################################
