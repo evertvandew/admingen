@@ -5,6 +5,7 @@ from admingen.htmltools import svg
 from admingen.htmltools.fontsizes import font_sizes
 from itertools import chain
 from admingen.htmltools.diagrams.square_routing import Point, routeSquare
+from admingen.testing import testcase, expect_exception, running_unittests
 
 
 ###############################################################################
@@ -47,12 +48,12 @@ def wrapText(text, width, font='Arial.ttf', fontsize='10'):
 def renderText(text, d):
     font_file = d.getStyle('font', 'Arial')+'.ttf'
     fontsize = float(d.getStyle('fontsize', 12))
-    lines = wrapText(text, d.width, font_file, fontsize)
+    xmargin = int(d.getStyle('xmargin', '5'))
+    lines = wrapText(text, d.width-2*xmargin, font_file, fontsize)
     # Now render these lines
     anchor = {HAlign.LEFT: 'start', HAlign.CENTER: 'middle', HAlign.RIGHT: 'end'}[d.getStyle('halign', HAlign.LEFT)]
-    lineheight = font_sizes[font_file]['lineheight'] * fontsize * float(d.getStyle('linespace', '1.2'))
+    lineheight = font_sizes[font_file]['lineheight'] * fontsize * float(d.getStyle('linespace', '1.5'))
     # Calculate where the text must be placed.
-    xmargin = int(d.getStyle('xmargin', '5'))
     xpos = int({HAlign.LEFT: d.x+xmargin, HAlign.CENTER: d.x+d.width/2, HAlign.RIGHT: d.x+d.width-xmargin}[d.getStyle('halign', HAlign.LEFT)])
     ypos = {#VAlign.TOP: y+ymargin,
             VAlign.CENTER: d.y+(d.height-len(lines)*lineheight)/2
@@ -439,3 +440,20 @@ class Hourglass(Drum):
     @classmethod
     def getPath(cls, details):
         return f'M {details.x} {details.y} h {details.width} l -{details.width} {details.height} h {details.width} l -{details.width} -{details.height}'
+
+
+
+###############################################################################
+## UNIT TESTING
+if running_unittests():
+    @testcase()
+    def testTextWrap():
+        cases = ['Openstaande acties',
+                 'Civiel - Uitvoeren marktanalyse',
+                 'Uitwerking kwaliteitsdoelstellingen']
+        expecteds = [['Openstaande acties'],
+                 ['Civiel - Uitvoeren', 'marktanalyse'],
+                 ['Uitwerking', 'kwaliteitsdoelstellingen']]
+        for case, expect in zip(cases, expecteds):
+            wrapped = wrapText(case, 140, 'Arial.ttf', 12)
+            assert wrapped == expect

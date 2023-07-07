@@ -628,7 +628,7 @@ if running_unittests():
 
     def mockApp():
         if MockApp.acm is None:
-            MockApp.acm = ACM()
+            MockApp.acm = ACM('administrator editor user', 'bedrijf klant')
             MockApp.acm.add_handlers(MockApp, MockApp.context)
 
 
