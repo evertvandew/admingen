@@ -6,6 +6,9 @@ from admingen.htmltools.fontsizes import font_sizes
 from itertools import chain
 from admingen.htmltools.diagrams.square_routing import Point, routeSquare
 from admingen.testing import testcase, expect_exception, running_unittests
+import pyphen
+
+pyphen.language_fallback('nl_NL_variant1')
 
 
 ###############################################################################
@@ -29,13 +32,32 @@ def wrapText(text, width, font='Arial.ttf', fontsize='10'):
     parts = text.split()
     normalized_width = width / POINT_TO_PIXEL / fontsize
     sizes = [sum(font.get(ord(ch), font[32]) for ch in part) for part in parts]
+    dic = pyphen.Pyphen(lang='nl_NL')
 
     # Now fill the lines
     line_length = 0
     lines = []
     current_line = []
     for size, part in zip(sizes, parts):
-        if line_length + size + font[32]*(len(current_line)-1) > normalized_width:
+        while line_length + size + font[32]*(len(current_line)-1) > normalized_width:
+            # Only hyphenate if the remaining space is more than 4 characters
+            if normalized_width - line_length > 4*size/len(part):
+                # Find the largest part that fits
+                for a, b in dic.iterate(part):
+                    a = a + '-'
+                    size = sum(font.get(ord(ch), font[32]) for ch in a)
+                    if line_length + size + font[32]*(len(current_line)-1) <= normalized_width:
+                        current_line.append(a)
+                        part = b
+                        line_length += size
+                        size = sum(font.get(ord(ch), font[32]) for ch in b)
+                        break
+                else:
+                    # No part fitted. Check this is not an empty line, otherwise the word will never fit.
+                    if not current_line:
+                        # Just add the word and let the user deal with it.
+                        size = sum(font.get(ord(ch), font[32]) for ch in part)
+                        break
             lines.append(' '.join(current_line))
             current_line = []
             line_length = 0
@@ -448,12 +470,16 @@ class Hourglass(Drum):
 if running_unittests():
     @testcase()
     def testTextWrap():
-        cases = ['Openstaande acties',
-                 'Civiel - Uitvoeren marktanalyse',
-                 'Uitwerking kwaliteitsdoelstellingen']
-        expecteds = [['Openstaande acties'],
-                 ['Civiel - Uitvoeren', 'marktanalyse'],
-                 ['Uitwerking', 'kwaliteitsdoelstellingen']]
+        cases = [
+            'Uitwerking kwaliteitsdoelstellingen',
+            'Openstaande acties',
+            'Civiel - Uitvoeren marktanalyse',
+        ]
+        expecteds = [
+            ['Uitwerking kwali-', 'teitsdoelstellingen'],
+            ['Openstaande acties'],
+             ['Civiel - Uitvoeren', 'marktanalyse'],
+        ]
         for case, expect in zip(cases, expecteds):
             wrapped = wrapText(case, 140, 'Arial.ttf', 12)
             assert wrapped == expect
