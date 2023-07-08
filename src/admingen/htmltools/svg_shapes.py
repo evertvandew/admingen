@@ -471,14 +471,18 @@ if running_unittests():
     @testcase()
     def testTextWrap():
         cases = [
+            'kwaliteitsdoelstellingenintelligentieonderzoek',
             'Uitwerking kwaliteitsdoelstellingen',
             'Openstaande acties',
             'Civiel - Uitvoeren marktanalyse',
+            ''
         ]
         expecteds = [
+            ['kwaliteitsdoelstellin-', 'genintelligentieon-', 'derzoek'],
             ['Uitwerking kwali-', 'teitsdoelstellingen'],
             ['Openstaande acties'],
-             ['Civiel - Uitvoeren', 'marktanalyse'],
+            ['Civiel - Uitvoeren', 'marktanalyse'],
+            [],
         ]
         for case, expect in zip(cases, expecteds):
             wrapped = wrapText(case, 140, 'Arial.ttf', 12)
