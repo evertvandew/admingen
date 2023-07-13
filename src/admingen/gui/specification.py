@@ -174,9 +174,10 @@ class FunctionCall:
 @dataclass
 class StateTransition:
     new_state: str
+    data_routing: Dict[str, DataManipulation] = field(default_factory=dict)
 
 @dataclass
-class PostRequest():
+class PostRequest:
     key: str
     url: str
     success_action: str = ''
@@ -202,6 +203,13 @@ class State(Widget):
     data_sources: Dict[str, DataSource]
     event_handler: EventHandler
     return_url: str = ''
+
+
+@dataclass
+class SubState(Widget):
+    elements: List[Widget]
+    event_hanler: EventHandler
+
 
 
 def is_enum(datatype):
