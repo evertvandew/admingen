@@ -29,6 +29,7 @@ class Collapsible:
 class Button(Widget):
     text: str
     action: str
+    type: str = ''
 
 @dataclass
 class Markdown:
@@ -59,8 +60,8 @@ class InputField(Widget):
 class Form(Widget):
     item_names: List[str]
     item_types: List[Any]
-    submitter: DataSource
     children: List[Widget]
+    submitter: DataSource = None
 
 # Widgets for building tables
 @dataclass
@@ -177,6 +178,11 @@ class StateTransition:
     data_routing: Dict[str, DataManipulation] = field(default_factory=dict)
 
 @dataclass
+class SubStateMachine(Widget):
+    elements: field(default_factory=list)
+    transitions: Dict[str, str]
+
+@dataclass
 class PostRequest:
     key: str
     url: str
@@ -190,8 +196,8 @@ class EventTrigger:
 @dataclass
 class EventRule:
     event_source: str
-    data_routing: Dict[str, DataManipulation]
-    action: FunctionCall | StateTransition | EventTrigger | ShowMessage
+    action: FunctionCall | StateTransition | EventTrigger | ShowMessage | SubStateMachine | PostRequest
+    data_routing: Dict[str, DataManipulation] = field(default_factory=dict)
 
 @dataclass
 class EventHandler:
@@ -203,13 +209,6 @@ class State(Widget):
     data_sources: Dict[str, DataSource]
     event_handler: EventHandler
     return_url: str = ''
-
-
-@dataclass
-class SubState(Widget):
-    elements: List[Widget]
-    event_hanler: EventHandler
-
 
 
 def is_enum(datatype):

@@ -130,8 +130,9 @@ class FlaskClientSide:
         return self.Component(html=markdown.markdown(widget.text))
 
     def Button(self, widget):
+        btn_type = widget.type or 'primary'
         return self.Component(
-            f'<div id="{widget.key}" class="btn btn-large" onclick="{widget.action}">{self.render_text(widget.text)}</div>')
+            f'<div id="{widget.key}" class="btn btn-large btn-{btn_type}" onclick="{widget.action}">{self.render_text(widget.text)}</div>')
 
     def Form(self, widget):
         contents = self.render(widget.children)
@@ -416,6 +417,8 @@ function get_{widget.key}() {{
         event_sources = set(rule.event_source for rule in widget.rules)
         scripts = []
         newline = '\n'
+        html = []
+        external_scripts = []
 
         for event_source in event_sources:
             rules = [rule for rule in widget.rules if rule.event_source == event_source]
@@ -448,6 +451,28 @@ function get_{widget.key}() {{
                     }}).fail(function(data) {{
                         {rule.action.fail_action or 'route("'+rule.action.key+'/error")'};
                     }});''')
+                elif isinstance(rule.action, sp.SubStateMachine):
+                    substate = rule.action
+                    body = self.render(substate.elements)
+                    html.append(f'''
+                    <dialog id="{substate.key}Dialog">
+                    {body.html}
+                    </dialog>
+''')
+                    external_scripts.append(body.js)
+                    rule_scripts.append(f'''
+                    let theDialog = document.getElementById("{substate.key}Dialog");
+                    theDialog.showModal();
+                    ''')
+                    for ev, ac in substate.transitions.items():
+                        if ac == 'close':
+                            scripts.append(f'''
+                            if (event_source == "{ev}") {{
+                                let theDialog = document.getElementById("{substate.key}Dialog");
+                                theDialog.close();
+                            }}''')
+                        else:
+                            raise RuntimeError(f"Unknown substate action {ac} for event {ev}")
                 else:
                     raise RuntimeError(f"Unknown event handler action {type(rule.action).__name__}")
             scripts.append(f'''
@@ -456,12 +481,13 @@ function get_{widget.key}() {{
                 }}
             ''')
         script = f'''
+        {newline.join(external_scripts)}
         function route(event_source, index) {{
             console.log(event_source);
             {newline.join(scripts)}
         }}
 '''
-        return self.Component(html='', js=script)
+        return self.Component(html='\n'.join(html), js=script)
 
     def State(self, widget):
         data_sources = self.render(widget.data_sources)
