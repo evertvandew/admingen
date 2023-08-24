@@ -301,7 +301,7 @@ def read_lines(stream, headers, types, delimiter):
         if not line:
             return
         parts = line.split(delimiter)
-        parts = [p.strip('"') for p in parts]
+        parts = [p.strip('"').replace('\d', delimiter).replace(r'\n', '\n') for p in parts]
         yield constructor(parts)
 
 
