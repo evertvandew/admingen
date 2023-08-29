@@ -110,6 +110,35 @@ page_template = Template("""<!DOCTYPE html>
         today = dd + '-' + mm + '-' + yyyy + ' ' + hh + ':' + m + ':00';
         return today;
     }
+    function show_message(key, type, title, msg, buttons) {
+        let icon = $("#notification_icon")[0];
+        icon.className = "";
+        icon.classList.add('fa');
+        if (type==1) {
+            icon.classList.add('fa-check-circle');
+            icon.style.color = "#00B60A";
+        } else if (type==2) {
+            icon.classList.add('fa-info-circle');
+            icon.style.color = "#0050B6";
+        } else if (type==3) {
+            icon.classList.add('fa-question-circle');
+            icon.style.color = "#0050B6";
+        } else if (type==4) {
+            icon.classList.add('fa-exclamation-circle');
+            icon.style.color = "#ffa500";
+        } else if (type==5) {
+            icon.classList.add('fa-exclamation-circle');
+            icon.style.color = "#ff0000";
+        }
+        $("#notification_message")[0].innerHTML = msg;
+        $("#notification .modal-title")[0].innerHTML = title;
+        buttons_txt = ''
+        buttons.forEach(function(txt) {
+            buttons_txt += '<button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="route('+"'"+key+'/'+txt+"'"+')">'+txt+'</button>';
+        });
+        $("div[id='notification']  .modal-footer")[0].innerHTML = buttons_txt;
+        $("div[id='notification']").modal('show');
+    }
     $(document).ready(function(){
         $.ajaxSetup({
             cache: false,

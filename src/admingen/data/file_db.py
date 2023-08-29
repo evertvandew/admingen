@@ -18,7 +18,7 @@ from urllib.parse import unquote
 from dataclasses import is_dataclass, asdict, fields
 from typing import Union, Type, Callable, List
 from admingen.data import serialiseDataclass, deserialiseDataclass
-from .db_api import db_api, filter_context, Record
+from .db_api import db_api, filter_context, Record, DbActions
 
 
 class UnknownRecord(RuntimeError): pass
@@ -126,6 +126,7 @@ class FileDatabase(db_api):
             ad = os.path.join(tp, self.archive_dir)
             if not os.path.exists(ad):
                 os.mkdir(ad)
+        self.transactionEnd()
                 
     def clear(self):
         """ Delete the whole structure and build anew, without any records """
@@ -158,11 +159,16 @@ class FileDatabase(db_api):
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
+        self.transactionLog(DbActions.delete, {'table': table, 'id': record.id})
         self.call_hooks(type(record), self.actions.add, record)
         return record
     
     def set(self, record: Record) -> Record:
         fullpath = f"{self.path}/{type(record).__name__}/{record.id}"
+        if self.inTransaction():
+            # Retrieve and store the old value for logging
+            current = self.get(type(record), record.id)
+            self.transactionLog(DbActions.update, current)
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
@@ -190,6 +196,8 @@ class FileDatabase(db_api):
         if checker:
             if not checker(record, data):
                 return
+
+        self.transactionLog(DbActions.update, data)
 
         # Update with the new data
         for k, v in record.items():
@@ -229,7 +237,11 @@ class FileDatabase(db_api):
         newpath = f"{ad}/index"
         os.rename(fullpath, newpath)
         self.call_hooks(table, self.actions.delete, index)
-
+    def undoDelete(self, data):
+        fullpath = f"{self.path}/{table.__name__}/{index}"
+        ad = f"{self.path}/{table.__name__}/{self.archive_dir}"
+        newpath = f"{ad}/index"
+        os.rename(newpath, fullpath)
     def ll_get(self, table, index):
         """ Low-level getter that is used by both `get` and `get_many`.
             The low-level getter is not overridden by e.g. the ACM wrapper, so this can

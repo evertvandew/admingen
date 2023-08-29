@@ -3,6 +3,8 @@ import enum
 import operator
 from typing import List, Type, Union, Callable
 from dataclasses import asdict
+from contextlib import contextmanager
+import logging
 
 # Define the operators that can be used in filter and join conditions
 filter_context = {
@@ -32,16 +34,26 @@ def getJsonJoined(a_cls, b_cls):
     return jsonify
 
 
+
+DbActions = enum.IntEnum('DbActions', 'delete add update')
+
+
 class db_api:
     """ A simple API for a data base.
         Also defines some algorithms that make use of the low-level functions,
         but can be overwritten by classes that use e.g. SQL to implement these algorithms.
+
+        It contains a mechanism for transaction. Transactions are stored in a queue of actions
+        necessary to undo what happened since the beginning of the transaction.
+        There is a default implementation that is useful for e.g. the fs database: override this
+        for e.g. an SQL database.
     """
     actions = enum.Enum('actions', 'add update delete')
     has_acm = False
     def __init__(self):
         self.hooks = {}
         self.active_hooks = set()
+        self.current_transaction = None
     def get(self, table: Type[Record], index: int) -> Record:
         raise NotImplementedError()
     def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:
@@ -118,9 +130,38 @@ class db_api:
         if filter:
             records = [rec for rec in records if filter(rec)]
         return records
-
-
-
+    def undoDelete(self, data):
+        self.add(data)
+    def inTransaction(self):
+        return self.current_transaction is not None
+    def transactionEnd(self):
+        self.current_transaction = None
+    def transactionBegin(self):
+        self.current_transaction = []
+    def transactionCommit(self):
+        self.current_transaction = None
+    def transactionRollback(self):
+        for action, data in reversed(self.current_transaction):
+            if action == DbActions.delete:
+                self.delete(data['table'], data['id'])
+            elif action == DbActions.add:
+                self.undoDelete(data)
+            elif action == DbActions.update:
+                self.set(data)
+    def transactionLog(self, action, data):
+        if self.current_transaction is not None:
+            self.current_transaction.append((action, data))
+    @contextmanager
+    def transaction(self):
+        self.transactionBegin()
+        try:
+            yield self
+            self.transactionCommit()
+        except:
+            logging.error("Exception during transaction: rolling back!")
+            self.transactionRollback()
+            raise
+        self.transactionEnd()
 
 def update_unique(db, table, new_data, pk=['id']):
     """ Update a table in the database.
