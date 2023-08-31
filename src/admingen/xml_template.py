@@ -171,11 +171,13 @@ handle_dom_name = (context_reference, lambda x: f"""{x[1:]}: $("[name='{x[1:]}']
 handle_dom_id = (context_reference, lambda x: f"""{x[1:]}: $("#{x[1:]}").val()""")
 handle_url_param = (context_reference, lambda
     x: f"""{x[1:]}: new URLSearchParams(window.location.search).get('{x[1:]}')""")
+handle_func_call = (context_reference, lambda x: f"""{x[1:]}: {x[1:]}()""")
 handle_default_parameter = (lambda x: x, lambda x: '')
 
-double_brace_specials = {'@': handle_dom_name,  # Refers to DOM element by name
-                         '#': handle_dom_id,  # Refers to DOM element by ID
-                         '!': handle_url_param  # Refers to URL parameter
+double_brace_specials = {'@': handle_dom_name,   # Refers to DOM element by name
+                         '#': handle_dom_id,     # Refers to DOM element by ID
+                         '!': handle_url_param,  # Refers to URL parameter
+                         '^': handle_func_call   # Refers to the result of a function call
                          }
 
 
@@ -299,6 +301,7 @@ class DataContext:
         * {{#element}} refers to the current value of a DOM element identified by id.
         * {{!element}} refers to a parameter submitted to the API function.
         * {{variable}} refers to the current value of a local javascript object.
+        * {{^function}} refers to the result of a function call.
         * Python variables in the current loop are referred to by just using the name in things
           that are evaluated in a python context, like filter and join conditions.
         
