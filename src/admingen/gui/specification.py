@@ -161,36 +161,43 @@ class SubElement(DataManipulation):
 class ResourceValue(DataManipulation):
     src: str
 
+
+class Action:
+    pass
+
+
 @dataclass
-class ShowMessage(Widget):
+class ShowMessage(Action):
+    key: str
     type: message_types
     title: str
     message: str            # Using the Markdown notation
     buttons: List[str]      # The button text is reused in the generated event when clicked
 
 @dataclass
-class FunctionCall:
+class FunctionCall(Action):
     target_function: str
 
 @dataclass
-class StateTransition:
+class StateTransition(Action):
     new_state: str
     data_routing: Dict[str, DataManipulation] = field(default_factory=dict)
 
 @dataclass
-class SubStateMachine(Widget):
-    elements: field(default_factory=list)
+class SubStateMachine(Action):
+    key: str
+    elements: List[Widget]
     transitions: Dict[str, str]
 
 @dataclass
-class PostRequest:
+class PostRequest(Action):
     key: str
     url: str
     success_action: str = ''
     fail_action: str = ''
 
 @dataclass
-class EventTrigger:
+class EventTrigger(Action):
     event: str
 
 @dataclass
