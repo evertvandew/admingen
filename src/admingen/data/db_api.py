@@ -34,9 +34,10 @@ def getJsonJoined(a_cls, b_cls):
     return jsonify
 
 
-
-DbActions = enum.IntEnum('DbActions', 'delete add update')
-
+class DbActions(enum.IntEnum):
+    add    = 1
+    update = 3
+    delete = 5
 
 class db_api:
     """ A simple API for a data base.
@@ -48,12 +49,13 @@ class db_api:
         There is a default implementation that is useful for e.g. the fs database: override this
         for e.g. an SQL database.
     """
-    actions = enum.Enum('actions', 'add update delete')
+    actions = enum.Enum('actions', 'pre_add post_add pre_update post_update pre_delete post_delete')
     has_acm = False
     def __init__(self):
         self.hooks = {}
         self.active_hooks = set()
         self.current_transaction = None
+        self.queue = []
     def get(self, table: Type[Record], index: int) -> Record:
         raise NotImplementedError()
     def add(self, table: Union[Type[Record], Record], record: Record=None) -> Record:
@@ -69,22 +71,27 @@ class db_api:
         raise NotImplementedError()
 
 
-    def data_hook(self, table):
+    def define_hook(self, table, action):
         """ Decorator that defines a hook for updates on data of a specific type.
         """
-        def add_hook(hook):
+        def theHook(func):
             hooks = self.hooks.setdefault(table.__name__, [])
-            hooks.append(hook)
-            return hook
-        return add_hook
+            hooks.append((action, func))
+            return func
+        return theHook
 
-    def call_hooks(self, table, action, record):
+    def call_hooks(self, table, action, record, current=None):
         # Call the hooks, but make sure there is no recursion.
-        for hook in self.hooks.get(table.__name__, []):
+        for a, hook in self.hooks.get(table.__name__, []):
+            if a != action:
+                continue
             if hook not in self.active_hooks:
                 self.active_hooks.add(hook)
                 try:
-                    hook(action, record)
+                    if action == self.actions.pre_update:
+                        hook(record, current)
+                    else:
+                        hook(record)
                 finally:
                     self.active_hooks.remove(hook)
 
@@ -130,6 +137,8 @@ class db_api:
         if filter:
             records = [rec for rec in records if filter(rec)]
         return records
+    def count(self, table: Type[Record], filter=None):
+        return len(self.query(table, filter))
     def undoDelete(self, data):
         self.add(data)
     def inTransaction(self):

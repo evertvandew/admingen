@@ -14,6 +14,7 @@ import os, os.path
 import enum
 import shutil
 import functools
+from copy import copy
 from urllib.parse import unquote
 from dataclasses import is_dataclass, asdict, fields
 from typing import Union, Type, Callable, List
@@ -105,7 +106,6 @@ def do_leftjoin(tabl1, tabl2, data1, data2, condition):
 
 
 class FileDatabase(db_api):
-    actions = enum.Enum('actions', 'add update delete')
     def __init__(self, path, tables):
         db_api.__init__(self)
         self.archive_dir = 'archived'
@@ -143,6 +143,9 @@ class FileDatabase(db_api):
             table = type(table)
         elif isinstance(record, dict):
             record = table(**record)
+
+        self.call_hooks(type(record), self.actions.pre_add, record)
+
         fullpath = os.path.join(self.path, table.__name__)
         if not getattr(record, 'id', None):
             # We need to know the highest current ID in the database
@@ -160,19 +163,20 @@ class FileDatabase(db_api):
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
         self.transactionLog(DbActions.delete, {'table': table, 'id': record.id})
-        self.call_hooks(type(record), self.actions.add, record)
+        self.call_hooks(type(record), self.actions.post_add, record)
         return record
     
     def set(self, record: Record) -> Record:
+
         fullpath = f"{self.path}/{type(record).__name__}/{record.id}"
-        if self.inTransaction():
-            # Retrieve and store the old value for logging
-            current = self.get(type(record), record.id)
-            self.transactionLog(DbActions.update, current)
+        # Retrieve and store the old value for logging
+        current = self.get(type(record), record.id)
+        self.call_hooks(type(record), self.actions.pre_update, record, current)
+        self.transactionLog(DbActions.update, current)
         data_str = serialiseDataclass(record)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
-        self.call_hooks(type(record), self.actions.update, record)
+        self.call_hooks(type(record), self.actions.post_update, record)
         return record
 
     def update(self, table: Union[Type[Record], dict], record: dict=None, checker: Callable[[Record, dict],bool]=None) -> None:
@@ -197,7 +201,8 @@ class FileDatabase(db_api):
             if not checker(record, data):
                 return
 
-        self.transactionLog(DbActions.update, data)
+        current = copy(data)
+        self.transactionLog(DbActions.update, current)
 
         # Update with the new data
         for k, v in record.items():
@@ -216,12 +221,14 @@ class FileDatabase(db_api):
                 else:
                     value = v
             setattr(data, k, value)
-        
+
+        self.call_hooks(table, self.actions.pre_update, data, current)
+
         # Now serialize
         data_str = serialiseDataclass(data)
         with open(fullpath, "w") as dest_file:
             dest_file.write(data_str)
-        self.call_hooks(table, self.actions.update, data)
+        self.call_hooks(table, self.actions.post_update, data)
         return data
             
     def delete(self, table:Type[Record], index:int) -> None:
@@ -229,6 +236,8 @@ class FileDatabase(db_api):
         fullpath = f"{self.path}/{table.__name__}/{index}"
         if not os.path.exists(fullpath):
             raise(UnknownRecord())
+        data = deserialiseDataclass(table, open(fullpath).read())
+        self.call_hooks(table, self.actions.pre_delete, data)
 
         # Don't actually delete the record, move it to the "archived" directory
         ad = f"{self.path}/{table.__name__}/{self.archive_dir}"
@@ -236,7 +245,7 @@ class FileDatabase(db_api):
             os.mkdir(ad)
         newpath = f"{ad}/index"
         os.rename(fullpath, newpath)
-        self.call_hooks(table, self.actions.delete, index)
+        self.call_hooks(table, self.actions.post_delete, index)
     def undoDelete(self, data):
         fullpath = f"{self.path}/{table.__name__}/{index}"
         ad = f"{self.path}/{table.__name__}/{self.archive_dir}"

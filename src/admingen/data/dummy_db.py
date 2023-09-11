@@ -22,27 +22,6 @@ class DummyDatabase(db_api):
         self.active_hooks = set()
         self.create()
 
-    def data_hook(self, table):
-        """ Decorator that defines a hook for updates on data of a specific type.
-        """
-
-        def add_hook(hook):
-            hooks = self.hooks.setdefault(table.__name__, [])
-            hooks.append(hook)
-            return hook
-
-        return add_hook
-
-    def call_hooks(self, table, action, record):
-        # Call the hooks, but make sure there is no recursion.
-        for hook in self.hooks.get(table.__name__, []):
-            if hook not in self.active_hooks:
-                self.active_hooks.add(hook)
-                try:
-                    hook(action, record)
-                finally:
-                    self.active_hooks.remove(hook)
-
     def create(self):
         self.data = {t.__name__: {} for t in self.tables}
 
@@ -62,6 +41,7 @@ class DummyDatabase(db_api):
 
         data = self.data[table.__name__]
 
+        self.call_hooks(type(record), self.actions.pre_add, record)
         if not getattr(record, 'id', None):
             # We need to know the highest current ID in the database
             record.id = max(data) + 1 if data else 1
@@ -70,13 +50,14 @@ class DummyDatabase(db_api):
             if record.id in data:
                 raise RuntimeError('Record ID already exists', 400)
         data[record.id] = record
-        self.call_hooks(type(record), self.actions.add, record)
+        self.call_hooks(type(record), self.actions.post_add, record)
         return record
 
     def set(self, record: Record) -> Record:
         data = self.data[type(record).__name__]
+        self.call_hooks(type(record), self.actions.pre_update, record, data[record.id])
         data[record.id] = record
-        self.call_hooks(type(record), self.actions.update, record)
+        self.call_hooks(type(record), self.actions.post_update, record)
         return record
 
     def update(self, table: Union[Type[Record], dict], record: dict = None,
@@ -95,10 +76,11 @@ class DummyDatabase(db_api):
         if not record['id'] in data:
             raise (UnknownRecord())
 
-        data = data[record['id']]
+        data = data[record['id']].copy()
         if checker:
             if not checker(record, data):
                 return
+
 
         # Update with the new data
         for k, v in record.items():
@@ -118,7 +100,11 @@ class DummyDatabase(db_api):
                     value = v
             setattr(data, k, value)
 
-        self.call_hooks(table, self.actions.update, data)
+        self.call_hooks(table, self.actions.pre_update, data, data[record['id']])
+
+        data[record['id']] = data
+
+        self.call_hooks(table, self.actions.post_update, data)
         return data
 
     def delete(self, table: Type[Record], index: int) -> None:
@@ -127,8 +113,9 @@ class DummyDatabase(db_api):
         if not index in data:
             raise (UnknownRecord())
 
+        self.call_hooks(table, self.actions.pre_delete, data[index])
         del data[index]
-        self.call_hooks(table, self.actions.delete, index)
+        self.call_hooks(table, self.actions.post_delete, index)
 
     def get(self, table: Type[Record], index: int) -> Record:
         """ Retrieve a record identified by table name and index.

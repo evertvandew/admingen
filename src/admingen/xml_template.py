@@ -60,6 +60,14 @@ id_counter = 0
 
 def handle_Datamodel(args, lines):
     """ Analyse and store data model definitions """
+    def handle_logic(line_it):
+        """ Read the definition of business logic.
+        """
+        # First line: logic: <table> <action> as <parameterlist>
+        ## Update has two arguments: current and update
+        ## Add has one argument: new
+        ## Delete has one argument: current
+        # After the first line follows a bit of Python code
     def handle_view(line_it):
         """ Read the definition of data returned by a 'view'.
             The same syntax is used as for a table definition.
