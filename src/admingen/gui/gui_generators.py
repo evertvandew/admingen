@@ -2,7 +2,8 @@ from typing import Self, Callable, List, Any, Dict, _GenericAlias, Tuple
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import EnumMeta, Enum
 
-import specification as sp
+import admingen.gui.specification as sp
+from admingen.db_api import ColumnDetails
 
 
 ###############################################################################
@@ -12,7 +13,19 @@ def is_enum(datatype):
     return isinstance(datatype, EnumMeta) or getattr(datatype, '__is_enum__', False)
 
 
-def getEditWidgets(key, name, datatype):
+def getEditWidgets(key, name, column_details):
+    if not isinstance(column_details, ColumnDetails):
+        column_details = ColumnDetails(
+            type = column_details,
+            nullable = False,
+            required = True,
+            unique = False,
+            isdetail = False,
+            default = None
+        )
+
+    datatype = column_details.type
+
     if isinstance(datatype, _GenericAlias):
         match datatype._name:
             case 'List':
@@ -89,7 +102,10 @@ def getForeignDataSourcesRules(foreign_references, base_url):
 
     return remote_data_sources, rules
 
-
+def translation_wrapper(translation_table):
+    def get(word):
+        return translation_table.get(word, word)
+    return get
 
 def generateEditForm(data_table, data_source, translation_table):
     elements = [dt for dt in fields(data_table) if dt not in fields(sp.Widget)]
@@ -124,7 +140,7 @@ def generateEditForm(data_table, data_source, translation_table):
                          data_routing={'index': sp.QueryParameter('id')}),
                sp.EventRule(event_source=f'{data_source.key}/ready',
                          action=sp.FunctionCall(target_function=f'set_{my_key}'),
-                         data_routing={'data': sp.ResourceValue('Record')}),
+                         data_routing={'data': sp.ResourceValue(f'{data_source.key}')}),
 
                # The Save changes dialog
                sp.EventRule(event_source=f'{my_key}/save',
@@ -169,13 +185,8 @@ def generateEditForm(data_table, data_source, translation_table):
                          data_routing={}),
                ] + rules
     )
-    editor = sp.State(
-        key=f'{data_table.__name__}/edit.html',
-        elements=contents,
-        data_sources=data_source,
-        event_handler=eh,
-    )
-    return editor
+    return contents, eh
+
 
 
 def generateAddForm(data_table, data_source, translation_table):
@@ -191,7 +202,7 @@ def generateAddForm(data_table, data_source, translation_table):
         sp.Button(key=f'{my_key}_cancel', text='Cancel {fa-times}', action=f"route('{my_key}/cancel')"),
         sp.Button(key=f'{my_key}_save', text='Save {fa-save}', action=f"route('{my_key}/save')")
     ]))
-    children.insert(0, sp.Markdown(text=f'# {data_table.__name__.capitalize()} aanpassen'))
+    children.insert(0, sp.Markdown(text=f'# {data_table.__name__.capitalize()} toevoegen'))
     submitted_types = [getSubmittedType(t) for t in types]
 
     foreign_selections = [e for e in elements if is_dataclass(e.type)]
@@ -229,19 +240,15 @@ def generateAddForm(data_table, data_source, translation_table):
                          data_routing={}),
                ] + rules
     )
-    editor = sp.State(
-        key=f'{data_table.__name__}/add.html',
-        elements=contents,
-        data_sources=data_source,
-        event_handler=eh,
-    )
-    return editor
+    return contents, eh
+
 
 
 def generateListView(data_table, data_source, translation_table):
     my_key = f'{data_table.__name__}List'
     # Elements to display
-    elements = [dt for dt in fields(data_table) if dt not in fields(sp.Widget) and dt.name != 'id']
+    relevant_fields = [dt for dt in fields(data_table) if not isinstance(dt.type, ColumnDetails) or not dt.type.isdetail]
+    elements = [dt for dt in relevant_fields if dt not in fields(sp.Widget) and dt.name != 'id']
     # Elements to store in the data
     all_keys = [dt.name for dt in fields(data_table)]
     keys = [e.name for e in elements]
@@ -270,11 +277,11 @@ def generateListView(data_table, data_source, translation_table):
                          action=sp.FunctionCall(target_function=f'set_{data_table.__name__}Table'),
                          data_routing={'data': sp.DataForEach(src=data_source.key, rv='rec', inner=sp.ObjectUnion(srcs=[sp.ObjectMapping(src='rec', index=k, target=k) for k in all_keys]))}),
                sp.EventRule(event_source=f'{my_key}/add',
-                         action=sp.StateTransition(new_state='add.html'),
+                         action=sp.StateTransition(new_state='./add.html'),
                          data_routing={}),
                sp.EventRule(event_source=f'{my_key}/edit',
-                         action=sp.StateTransition(new_state='edit.html'),
-                         data_routing={'id': 'index'}),
+                         action=sp.StateTransition(new_state='./edit.html'),
+                         data_routing={'id': sp.LocalVariable('index')}),
 
                # The Dialog for deleting a record.
                sp.EventRule(event_source=f'{my_key}/delete',
@@ -297,16 +304,20 @@ def generateListView(data_table, data_source, translation_table):
                          data_routing={}),
                ],
     )
-    return sp.State(key=f'{data_table.__name__}/index.html',
-        elements=contents,
-        data_sources=data_source,
-        event_handler=eh
-    )
+    return contents, eh
+
+def generateEditFormWithAssociations(data_table, data_source, translation_table):
+    contents, handlers = generateEditForm(data_table, data_source, translation_table)
 
 
-
-def generateAutoEditor(data_table, data_source, translation_table):
+def generateAutoEditor(data_table, data_source, translation_table, prefix=''):
     """ Generate a viewer, editor and adder for new records. """
-    return [generateEditForm(data_table, data_source, translation_table),
-            generateAddForm(data_table, data_source, translation_table),
-            generateListView(data_table, data_source, translation_table)]
+    if isinstance(translation_table, dict):
+        translation_table = translation_wrapper(translation_table)
+
+    keys = [f'{prefix}/{data_table.__name__}/edit.html', f'{prefix}/{data_table.__name__}/add.html', f'{prefix}/{data_table.__name__}/index.html']
+    contents = [func(data_table, data_source, translation_table) for func in [generateEditForm, generateAddForm, generateListView]]
+    pages = [sp.State(key, elements, data_source, event_handler) for key, (elements, event_handler) in zip(keys, contents)]
+    return pages
+
+

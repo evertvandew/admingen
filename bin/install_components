@@ -24,7 +24,8 @@ def handle_Component(args, lines):
     basename, extension = op.splitext(archive)
     if extension in ['.zip', '.gz', '.tar', '.tgz']:
         shutil.unpack_archive(archive, target)
-        dirname = op.join(target, op.splitext(archive)[0])
+        repo_name = args.get('offset', False) or op.splitext(archive)[0]
+        dirname = op.join(target, repo_name)
         files = glob.glob(dirname+'/*')
         if 'extract_only' in args:
             files = [op.join(dirname, p) for p in args['extract_only'].split(',')]

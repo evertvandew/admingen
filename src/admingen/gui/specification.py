@@ -119,6 +119,10 @@ class GlobalVariable:
     name: str
 
 @dataclass
+class LocalVariable:
+    name: str
+
+@dataclass
 class StoreGlobal:
     target: str
     source: str

@@ -3,8 +3,28 @@ from mimetypes import guess_type
 from dataclasses import dataclass, is_dataclass, asdict
 from enum import Enum
 from datetime import datetime, date, time
+import typing
 from decimal import Decimal
 import copy
+
+
+class ColumnDetails:
+    def __init__(self, type: typing.Any, nullable: bool, required:bool, unique:bool, isdetail:bool, default:typing.Any):
+        self.type = type
+        self.nullable = nullable
+        self.required = required
+        self.unique = unique
+        self.isdetail = isdetail
+        self.default = default
+
+    def __call__(self, value):
+        """ Simulate the constructor for an item of this class """
+        # References to self are translated into an integer.
+        if isinstance(self.type, str) and self.type.lower() == 'self':
+            if value in [None, 'none', 'null', 'void']:
+                return None
+            return int(value)
+        return self.type(value)
 
 class fileblob:
     """ A data structure that lets random binary data be stored in the database.
@@ -168,7 +188,7 @@ def mydataclass(cls):
     # Replace any 'self' annotations with cls.
     for k in cls.__annotations__.keys():
         t = cls.__annotations__[k]
-        if isinstance(t, str) and t == 'self':
+        if isinstance(t, str) and t == 'self' or t == typing.Self:
             cls.__annotations__[k] = cls
 
     original_annotations = copy.copy(cls.__annotations__)
@@ -178,7 +198,10 @@ def mydataclass(cls):
         """ Return the value in the correct type for field key. """
         assert (k in cls.__annotations__)
         t = cls.__annotations__[key]
-        if type(v) == t or v is None:
+        t1 = cls.__original_annotations[key]
+        if isinstance(t1, ColumnDetails) and type(v) == t1.type:
+            pass
+        elif type(v) == t or v is None:
             pass
         elif v == 'null':
             v = None
@@ -187,6 +210,8 @@ def mydataclass(cls):
             pass
         elif isinstance(v, Enum):
             pass
+        elif isinstance(t, ColumnDetails):
+            v = t(v)
         elif is_dataclass(t):
             v = int(v)
         else:
@@ -229,7 +254,7 @@ def mydataclass(cls):
     wrapped = dataclass(cls)
 
     # Replace any references to other data classes with integers
-    references = [k for k, t in cls.__annotations__.items() if is_dataclass(t)]
+    references = [k for k, t in cls.__annotations__.items() if not isinstance(t, ColumnDetails) and is_dataclass(t)]
     for k in references:
         wrapped.__annotations__[k] = int
 

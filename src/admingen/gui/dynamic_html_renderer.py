@@ -26,7 +26,9 @@ class FlaskClientSide:
     <link rel="stylesheet" type="text/css" href="/batic/css/fontawesome.min.css" />
     <link rel="stylesheet" type="text/css" href="/batic/css/solid.min.css" />
     <link rel="stylesheet" type="text/css" href="/batic/css/stylesheet.css" />
-    <script src="/batic/js/bootstrap.min.js"></script>'''
+    <link rel="stylesheet" type="text/css" href="/batic/css/select2.min.css" />
+    <script src="/batic/js/bootstrap.min.js"></script>
+    <script src="/batic/js/select2.min.js"></script>'''
 
     def render_text(self, text):
         """ Render a text, replacing font-awesome tags with the proper structures. """
@@ -48,13 +50,14 @@ class FlaskClientSide:
                 }}
                 function set_{widget.key}(value) {{
                     $("#{widget.key}").val(value).change();
+                    $("#{widget.key}").select2();
                 }}
                 function set_options_{widget.key}(options) {{
                     // Remove existing options
                     var {widget.key}_select = $("#{widget.key}")[0];
                     var i, L = {widget.key}_select.options.length - 1;
                     for (i = L; i >= 0; i--) {{
-                        ${widget.key}_select.remove(i);
+                        {widget.key}_select.remove(i);
                     }}
 
                     // Add the new options
@@ -63,6 +66,7 @@ class FlaskClientSide:
                             {widget.key}_select.add(opt);
                         }}
                     );
+                    $("#{widget.key}").select2();
                 }}
             '''
         )
@@ -350,15 +354,19 @@ function get_{widget.key}() {{
 
                 # Ensure the running variable is not added to the 'sources', but any other externals are
                 self.renderDataManipulationPreparation(inner, context)
-                if manipulator.rv in context['sources']:
-                    context['sources'].remove(manipulator.rv)
+                to_remove = []
+                for s in context['sources']:
+                    if s.split('.')[0] == manipulator.rv:
+                        to_remove.append(s)
+                for s in to_remove:
+                    context['sources'].remove(s)
 
                 # Add the code to implement the for each
                 context['parts'].append(
                     f'''let temp_{manipulator.getId()} = {self.renderDataManipulation(manipulator.src)}.map( ({manipulator.rv}) => {{ return {self.renderDataManipulation(manipulator.inner)}; }});''')
             case sp.QueryParameter():
                 pass  # Nothing to prepare
-            case sp.GlobalVariable():
+            case sp.GlobalVariable() | sp.LocalVariable():
                 pass  # Nothing to prepare
             case sp.SubElement():
                 self.renderDataManipulationPreparation(manipulator.src)
@@ -407,6 +415,8 @@ function get_{widget.key}() {{
                 return manipulator
             case sp.GlobalVariable():
                 return f'global_context.{manipulator.name}'
+            case sp.LocalVariable():
+                return f'{manipulator.name}'
             case sp.ResourceValue():
                 return f'get_{manipulator.src}()'
             case _:

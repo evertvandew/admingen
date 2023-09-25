@@ -3,6 +3,7 @@ import logging
 import os.path
 import shutil
 from dataclasses import dataclass, is_dataclass
+from admingen.data.data_type_base import ColumnDetails
 from typing import Tuple
 from urllib.parse import urlparse
 from typing import Any
@@ -19,21 +20,24 @@ class required: pass
 class unique: pass
 
 
-@dataclass
-class ColumnDetails:
-    name: str
-    primarykey: int
-    type: Any
-    nullable: bool
-    collection: Any
-    options: Any
-    required: bool
-    related_columns: Any
-    unique: bool
-    default: Any
-
 def mkColumnDetails(t: Any, *args):
-    return t
+    default = None
+    if 'default' in args:
+        index = args.index('default')
+        d = args[index]
+        if '=' in default or ':' in default:
+            sep = '=' if '=' in default else ':'
+            d = d.split(sep, maxsplit=1)[1]
+            default = d
+
+    return ColumnDetails(
+        type=t,
+        nullable='nullable' in args,
+        required='required' in args,
+        unique='unique' in args,
+        isdetail='detail' in args,
+        default=default
+    )
 
 
 @dataclass
