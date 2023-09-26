@@ -125,6 +125,12 @@ def handle_Datamodel(args, lines):
     line_it = iter(lines.splitlines())
     l = next(line_it)
     acm_default = args.get('ACM_default', '')
+    compartment_on = args.get('compartment_on', None)
+    compartment_variable, compartment_table = None, None
+    compartment_cookie = args.get('compartment_cookie')
+    if compartment_on:
+        compartment_variable, compartment_table = compartment_on.split(':')
+    compartment_exceptions = args.get('compartment_exceptions', '').split(',')
     try:
         while True:
             # Consume lines until we get a table or enum
@@ -143,6 +149,9 @@ def handle_Datamodel(args, lines):
                 acm_details = re.match(r'\sACM\(([-a-zA-Z0-9_.,]*)\)', acm)
                 if acm_details:
                     acm = acm_details.groups()[0]
+                if compartment_on and tablename not in compartment_exceptions:
+                    tabledef[compartment_variable] = [compartment_table, 'protected']
+                    acm += f',compartmented({compartment_variable}={compartment_cookie})'
                 table_acm[tablename] = acm
                 data_model[tablename] = tabledef
             elif table_type.strip() == 'enum':

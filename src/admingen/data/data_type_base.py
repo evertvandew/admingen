@@ -254,7 +254,7 @@ def mydataclass(cls):
     wrapped = dataclass(cls)
 
     # Replace any references to other data classes with integers
-    references = [k for k, t in cls.__annotations__.items() if not isinstance(t, ColumnDetails) and is_dataclass(t)]
+    references = [k for k, t in cls.__annotations__.items() if (is_dataclass(t) if not isinstance(t, ColumnDetails) else is_dataclass(t.type))]
     for k in references:
         wrapped.__annotations__[k] = int
 

@@ -33,6 +33,7 @@ def read_records(fullpath, cls=None, raw=False):
     if fullpath[0] != '/':
         fullpath = os.path.join(root_path, fullpath)
 
+    print('reading record', fullpath)
     # We need to make an object of the whole contents of a directory
     entries = [int(f) for f in os.listdir(fullpath) if f.isnumeric()]
     

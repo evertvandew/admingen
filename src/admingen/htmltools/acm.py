@@ -84,11 +84,15 @@ class ACM:
         self.acm_table = {}                  # path:roles pairs
         self.parameterized_acm_table = {}    # [path parts]: roles pairs
         self.par_acm_matchers = []           # (matcher, roles) pairs
+        self.compartmented = {}              # path:(record_key, context_key)
 
         self.all_roles = {}
 
     def get_user_role(self):
         return flask.request.cookies.get(self.rolename_name, '')
+
+    def getContextValue(self, context):
+        return flask.request.cookies.get(context)
 
     def roles(self, route, auth):
         """ Function that marks a specific route as having a specific authorization.
@@ -357,9 +361,20 @@ class ACM:
                 self.has_acm = True
             def check_read(self, table, records, access_type='L'):
                 # First do ACM using the roles.
-                roles_dict = parent.getRoles(f'data/{table.__name__}')
+                path = f'data/{table.__name__}'
+                roles_dict = parent.getRoles(path)
+
+                # If compartmented, filter elements regardless of the user's rights
+                if path in parent.compartmented:
+                    key, context = parent.compartmented[path]
+                    compartment = int(parent.getContextValue(context))
+                    records = [r for r in records if getattr(r, key) == compartment]
+
+                # Check if this table can be read by all.
                 if 'any' in roles_dict:
                     return records
+
+                # If the user is not logged in, return nothing.
                 if access_type not in roles_dict.get(parent.get_user_role(), ''):
                     return []
 
@@ -600,6 +615,11 @@ class ACM:
                 if '*' in path:
                     self.parameterized_acm_table[path] = r
                 else:
+                    # Check for the "compartemented" command.
+                    c = re.search(r'compartmented\(([a-zA-Z_]*)=([a-zA-Z_]*)\)', r)
+                    if c:
+                        self.compartmented[path] = r[c.regs[1][0]:c.regs[1][1]], r[c.regs[2][0]:c.regs[2][1]]
+                        r = r[0:c.regs[0][0]-1]+r[c.regs[0][1]:]
                     self.acm_table[path] = r
                     # If there are keys that end in 'index.html', also add the '' alias.
                     if path.endswith('index.html'):

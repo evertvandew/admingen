@@ -259,6 +259,7 @@ class FileDatabase(db_api):
         if not index:
             return None
         fullpath = f"{self.path}/{table.__name__}/{index}"
+        #print('Retrieving', fullpath)
         if not os.path.exists(fullpath):
             # See if that object was archived.
             fullpath = f"{self.path}/{table.__name__}/{self.archive_dir}/{index}"
