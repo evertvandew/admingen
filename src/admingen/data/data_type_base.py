@@ -240,8 +240,8 @@ def mydataclass(cls):
         self.__dict__[attr] = v
 
     def get_fks(cls):
-        fks = [k for k, t in original_annotations.items() if is_dataclass(t)]
-        fkts = [original_annotations[k] for k in fks]
+        fks = [k for k, t in original_annotations.items() if (is_dataclass(t) if not isinstance(t, ColumnDetails) else is_dataclass(t.type))]
+        fkts = [(original_annotations[k] if not isinstance(original_annotations[k], ColumnDetails) else original_annotations[k].type) for k in fks]
         return dict(zip(fks, fkts))
 
 
