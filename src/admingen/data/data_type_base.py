@@ -188,7 +188,9 @@ def mydataclass(cls):
     # Replace any 'self' annotations with cls.
     for k in cls.__annotations__.keys():
         t = cls.__annotations__[k]
-        if isinstance(t, str) and t == 'self' or t == typing.Self:
+        if isinstance(t, ColumnDetails):
+            t = t.type
+        if (isinstance(t, str) and t == 'self') or t == typing.Self:
             cls.__annotations__[k] = cls
 
     original_annotations = copy.copy(cls.__annotations__)
@@ -253,11 +255,14 @@ def mydataclass(cls):
 
     wrapped = dataclass(cls)
 
-    # Replace any references to other data classes with integers
-    references = [k for k, t in cls.__annotations__.items() if (is_dataclass(t) if not isinstance(t, ColumnDetails) else is_dataclass(t.type))]
-    for k in references:
-        wrapped.__annotations__[k] = int
+    # Replace any ColumnDetails with the underlying type
+    underlying_types = {k: (t.type if isinstance(t, ColumnDetails) else t) for k, t in cls.__annotations__.items()}
 
+    # Replace any references to other data classes with integers
+    references = [k for k, t in underlying_types.items() if is_dataclass(t)]
+    for k in references:
+        underlying_types[k] = int
+    wrapped.__annotations__ = underlying_types
     return wrapped
 
 
