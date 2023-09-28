@@ -236,6 +236,9 @@ def mydataclass(cls):
     def __json__(self):
         return asdict(self)
 
+    def __hash__(self):
+        return self.id
+
     def my_setattr(self, attr, value):
         constructor = cls.__annotations__[attr]
         v = constructor(value)
@@ -249,6 +252,7 @@ def mydataclass(cls):
 
     cls.__init__ = __init__
     cls.__json__ = __json__
+    cls.__hash__ = __hash__
     cls.set_attr = my_setattr
     cls.get_fks = classmethod(get_fks)
     cls.convert_field = classmethod(convert_field)
