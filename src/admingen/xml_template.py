@@ -41,6 +41,7 @@ import tempfile
 import shutil
 import traceback
 from dataclasses import dataclass, is_dataclass
+import xml.etree.ElementTree as ET
 from typing import List, Tuple, Any, Dict
 import urllib.parse
 from mako.template import Template, DefTemplate
@@ -57,6 +58,29 @@ url_prefixes = {}
 source_2_url_prefix = {}
 table_acm = {}
 id_counter = 0
+
+data_rules = []
+
+
+@dataclass
+class DataRule:
+    table: Any
+    field: str
+    conditions: Dict[str, str]
+    actions: Dict[str, str]
+
+
+def handle_DataRules(args, lines):
+    root = ET.fromstring('<?xml version="1.0"?><DataRules>\n' + lines + '</DataRules>')
+    for rule in root.iter('DataRule'):
+        conditions = {}
+        actions = {}
+        for impl in rule.iter('Implementation'):
+            lang = impl.attrib['lang']
+            conditions[lang] = impl.find('Condition').text
+            actions[lang] = impl.find('Action').text
+        data_rules.append(DataRule(rule.attrib['table'], rule.attrib['field'], conditions, actions))
+    return ''
 
 def handle_Datamodel(args, lines):
     """ Analyse and store data model definitions """
@@ -459,7 +483,16 @@ class DataContext:
     def get_urlprefix(datasource):
         source, _ = datasource.split('.', maxsplit=1)
         return '/' + source_2_url_prefix[source].strip('/')
-    
+
+    @staticmethod
+    def get_data_rules(table, lang):
+        rules: Dict[str, List[str]] = {}
+        for rule in data_rules:
+            if rule.table == table:
+                if lang in rule.conditions and lang in rule.actions:
+                    rules.setdefault(rule.field, []).append((rule.conditions[lang], rule.actions[lang]))
+        return rules
+
 
 def read_argument_lines(line, istream):
     """ Read a stream until all arguments in a Tag are read
@@ -824,9 +857,12 @@ def handle_Context(args, lines):
 
 
 # Note: There is no tag handler for the TemplateSlots, these are hard-coded.
-default_generators = {'Datamodel': Tag('Datamodel', handle_Datamodel),
-                      'Template': Tag('Template', handle_Template, expand_tags=False),
-                      'Context': Tag('Context', handle_Context, expand_tags=False)}
+default_generators = {
+    'Datamodel': Tag('Datamodel', handle_Datamodel),
+    'Template': Tag('Template', handle_Template, expand_tags=False),
+    'Context': Tag('Context', handle_Context, expand_tags=False),
+    'DataRules': Tag('DataRules', handle_DataRules)
+}
 
 generators = default_generators.copy()
 
