@@ -65,28 +65,18 @@ class fileblob:
 
 image = fileblob
 
-class enum_type:
-    __is_enum__ = True
-    def __init__(self, name, options):
-        self._name = name
-        self._my_enum = Enum(name, options)
-        self._my_enum.__str__ = lambda self: str(self.value)
-    def __call__(self, x):
-        if isinstance(x, int):
-            return self._my_enum(x)
-        if '.' in x:
-            x = x.split('.')[-1]
-        elif isinstance(x, str) and x.isnumeric():
-            return self._my_enum(int(x))
-        return self._my_enum[x]
-    def __getattr__(self, key):
-        if not key.startswith('_'):
-            return self._my_enum[key]
-        return object.__getattr(self, key)
-    def __iter__(self):
-        return iter(self._my_enum)
-    def __str__(self):
-        return self._name
+def MyEnum(cls):
+    ''' Decorator that allows enum values to be initialized from the name of a constant '''
+    original_new = cls.__new__
+    def __new__(c, x):
+        if isinstance(x, str):
+            if x.isnumeric():
+                return original_new(c, int(x))
+            return cls[x]
+        return original_new(c, x)
+    cls.__new__ = __new__
+    return cls
+
 
 def formatted_date(fmt):
     """ Custom converter class for dates."""
