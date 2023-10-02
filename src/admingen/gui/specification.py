@@ -193,6 +193,9 @@ class SubStateMachine(Action):
     elements: List[Widget]
     transitions: Dict[str, str]
 
+    def getId(self):
+        return self.key+'Dialog'
+
 @dataclass
 class PostRequest(Action):
     key: str

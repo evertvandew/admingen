@@ -30,6 +30,8 @@ class FlaskClientSide:
     <script src="/batic/js/bootstrap.min.js"></script>
     <script src="/batic/js/select2.min.js"></script>'''
 
+        self.container_stack = []
+
     def render_text(self, text):
         """ Render a text, replacing font-awesome tags with the proper structures. """
         return re.sub(r'{fa-(.*?)}', r'<i class="fa fa-\1"></i>', text)
@@ -42,15 +44,16 @@ class FlaskClientSide:
     def SelectionField(self, widget: sp.SelectionField):
         options = ''.join(
             f'<option value="{v}">{n}</option>' for v, n in zip(widget.option_values, widget.option_names))
+        container = self.container_stack[-1] if self.container_stack else None
         return self.Component(
-            html=f'<div class="col-9"><select id="{widget.key}" name="{widget.key}" class="form-control">{options}</select></div>',
+            html=f'<div class="col-9"><select id="{widget.key}" name="{widget.key}" class="form-control" style="width:100%">{options}</select></div>',
             js=f'''
                 function get_{widget.key}() {{
                     return $("#{widget.key}").val();
                 }}
                 function set_{widget.key}(value) {{
                     $("#{widget.key}").val(value).change();
-                    $("#{widget.key}").select2();
+                    $("#{widget.key}").select2({{dropdownParent: $('#{container.getId() if container else ''}')}});
                 }}
                 function set_options_{widget.key}(options) {{
                     // Remove existing options
@@ -66,7 +69,7 @@ class FlaskClientSide:
                             {widget.key}_select.add(opt);
                         }}
                     );
-                    $("#{widget.key}").select2();
+                    $("#{widget.key}").select2({{dropdownParent: $('#{container.getId() if container else ''}')}});
                 }}
             '''
         )
@@ -463,9 +466,10 @@ function get_{widget.key}() {{
                     }});''')
                 elif isinstance(rule.action, sp.SubStateMachine):
                     substate = rule.action
+                    self.container_stack.append(substate)
                     body = self.render(substate.elements)
                     html.append(f'''
-                    <dialog id="{substate.key}Dialog">
+                    <dialog id="{substate.getId()}" style="width:50%;height:50%">
                     {body.html}
                     </dialog>
 ''')
@@ -483,6 +487,7 @@ function get_{widget.key}() {{
                             }}''')
                         else:
                             raise RuntimeError(f"Unknown substate action {ac} for event {ev}")
+                    self.container_stack.pop()
                 else:
                     raise RuntimeError(f"Unknown event handler action {type(rule.action).__name__}")
             scripts.append(f'''
