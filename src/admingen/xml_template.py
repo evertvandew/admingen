@@ -866,7 +866,8 @@ default_generators = {
 
 generators = default_generators.copy()
 
-def processor(ingenerators=generators, istream=sys.stdin, ostream=sys.stdout, preprocess_only=False):
+def processor(ingenerators=generators, istream=sys.stdin, ostream=sys.stdout, preprocess_only=False,
+              expand_templates=True):
     """ Parses the server definition file.
 
         Scans the file for XML tags that we handle, and
@@ -875,6 +876,9 @@ def processor(ingenerators=generators, istream=sys.stdin, ostream=sys.stdout, pr
     global generators
     if ingenerators != generators:
         generators = ingenerators
+
+    if not expand_templates:
+        del generators['Template']
     
     istream = open(istream) if isinstance(istream, str) else istream
 

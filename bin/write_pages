@@ -141,6 +141,11 @@ page_template = Template("""<!DOCTYPE html>
         $("div[id='notification']  .modal-footer")[0].innerHTML = buttons_txt;
         $("div[id='notification']").modal('show');
     }
+    function get_parameter(param) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const myParam = urlParams.get(param);
+        return myParam;
+    }
     $(document).ready(function(){
         $.ajaxSetup({
             cache: false,

@@ -1,4 +1,4 @@
-from typing import Self, Callable, List, Any, Dict, _GenericAlias, Tuple
+from typing import Self, Callable, List, Any, Dict, _GenericAlias, Tuple, Optional
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import EnumMeta, Enum
 
@@ -11,6 +11,54 @@ from admingen.db_api import ColumnDetails
 
 def is_enum(datatype):
     return isinstance(datatype, EnumMeta) or getattr(datatype, '__is_enum__', False)
+
+
+
+###############################################################################
+## Custom generators
+
+
+def generateAddAssociationPopup(association_table, data_source, preset_fields: Dict[str,sp.DataManipulation], btn_txt:str, translation_table):
+    """ Generate a pop-up window for creating a new association.
+        This assumes n**m associations, i.e. two, three or more - way associations.
+    """
+    if isinstance(translation_table, dict):
+        translation_table = translation_wrapper(translation_table)
+    form, eh = generateAddForm(association_table, data_source, translation_table, preset_fields=preset_fields)
+    eh.rules.extend([
+            sp.EventRule(
+                event_source=f'{association_table.__name__}_editor/submit',
+                action=sp.PostRequest(f'{association_table.__name__}_post', data_source),
+                data_routing={'data':
+                                  {'doc': 'current_doc',
+                                   'info': 'info_selection',
+                                   'proces': 'proces_selection',
+                                   'dir': 'dir_selection',
+                                   'bedrijf': 'current_bedrijf'
+                                   }}
+            ),
+            sp.EventRule(
+                event_source=f'{association_table.__name__}_editor/add',
+                action=sp.SubStateMachine(
+                    f'{association_table.__name__}_editor',
+                    elements=form,
+                    transitions={f'{association_table.__name__}Add/cancel': 'close', f'{association_table.__name__}Add/save': 'close'}
+                ),
+            ),
+        ])
+    return [
+        sp.Button("connection_add_btn", btn_txt, f"route('{association_table.__name__}_editor/add')"),
+        eh
+    ]
+
+
+
+
+
+
+
+###############################################################################
+## Core generation of forms, edit and list views.
 
 
 def getEditWidgets(key, name, column_details):
@@ -107,8 +155,10 @@ def translation_wrapper(translation_table):
         return translation_table.get(word, word)
     return get
 
-def generateEditForm(data_table, data_source, translation_table):
-    elements = [dt for dt in fields(data_table) if dt not in fields(sp.Widget)]
+def generateEditForm(data_table, data_source, translation_table, preset_fields: Dict[str,sp.DataManipulation]=None,
+                     has_delete=True):
+    elements = [dt for dt in fields(data_table)
+                if dt not in fields(sp.Widget) and not (preset_fields and dt.name not in preset_fields)]
 
     # First create the editor
     my_key = f'{data_table.__name__}Edit'
@@ -117,11 +167,13 @@ def generateEditForm(data_table, data_source, translation_table):
     names = [translation_table(n) for n in keys]
     types = [e.type for e in elements]
     children = [sp.Row(children=getEditWidgets(key, name, et)) for key, name, et in zip(keys, names, types)]
-    children.append(sp.Row(children=[
+    buttons = [
         sp.Button(key=f'{my_key}_cancel', text='Cancel {fa-times}', action=f"route('{my_key}/cancel')"),
-        sp.Button(key=f'{my_key}_save', text='Save {fa-save}', action=f"route('{my_key}/save')"),
-        sp.Button(key=f'{my_key}_delete', text='Verwijderen {fa-trash-alt}', action=f"route('{my_key}/delete')")
-    ]))
+        sp.Button(key=f'{my_key}_save', text='Save {fa-save}', action=f"route('{my_key}/save')")
+    ]
+    if has_delete:
+        buttons.append(sp.Button(key=f'{my_key}_delete', text='Verwijderen {fa-trash-alt}', action=f"route('{my_key}/delete')"))
+    children.append(sp.Row(children=buttons))
     children.insert(0, sp.Markdown(text=f'# {data_table.__name__.capitalize()} aanpassen'))
     foreign_selections = [e for e in elements if is_dataclass(e.type)]
 
@@ -133,64 +185,71 @@ def generateEditForm(data_table, data_source, translation_table):
             item_types=submitted_types,
             submitter=None,                     # RestApi(url=data_url, model=data_table),
             children=children + sources)
-    eh = sp.EventHandler(
-        rules=[# Loading the record as the document is loaded
-               sp.EventRule(event_source=f'Document/ready',
-                         action=sp.FunctionCall(target_function=f'retrieve_record_{data_source.key}'),
-                         data_routing={'index': sp.QueryParameter('id')}),
-               sp.EventRule(event_source=f'{data_source.key}/ready',
-                         action=sp.FunctionCall(target_function=f'set_{my_key}'),
-                         data_routing={'data': sp.ResourceValue(f'{data_source.key}')}),
 
-               # The Save changes dialog
-               sp.EventRule(event_source=f'{my_key}/save',
-                         action=sp.FunctionCall(target_function=f'set_record_{data_source.key}'),
-                         data_routing={'index': sp.QueryParameter('id'), 'data': {k: f'{my_key}/{k}' for k in all_keys}}),
-               sp.EventRule(event_source=f'{data_source.key}/success',
-                         action=sp.StateTransition('index.html'),
-                         data_routing={}),
-               sp.EventRule(event_source=f'{data_source.key}/error',
-                         action=sp.ShowMessage(
-                             key='save_failure',
-                             type=sp.message_types.Error,
-                             title="Probleem",
-                             message="De gegevens konden niet gewijzigd worden.",
-                             buttons=['OK']
-                         ),
-                         data_routing={}),
-               sp.EventRule(event_source=f'save_failure/OK',
-                         action=sp.StateTransition('index.html'),
-                         data_routing={}),
+    rules=[# Loading the record as the document is loaded
+           sp.EventRule(event_source=f'Document/ready',
+                     action=sp.FunctionCall(target_function=f'retrieve_record_{data_source.key}'),
+                     data_routing={'index': sp.QueryParameter('id')}),
+           sp.EventRule(event_source=f'{data_source.key}/ready',
+                     action=sp.FunctionCall(target_function=f'set_{my_key}'),
+                     data_routing={'data': sp.ResourceValue(f'{data_source.key}')}),
 
-               # Dialog for canceling edits
-               sp.EventRule(event_source=f'{my_key}/cancel',
-                         action=sp.StateTransition('index.html'),
-                         data_routing={}),
+           # The Save changes dialog
+           sp.EventRule(event_source=f'{my_key}/save',
+                     action=sp.FunctionCall(target_function=f'set_record_{data_source.key}'),
+                     data_routing={'index': sp.QueryParameter('id'), 'data': {k: f'{my_key}/{k}' for k in all_keys}}),
+           sp.EventRule(event_source=f'{data_source.key}/success',
+                     action=sp.StateTransition('index.html'),
+                     data_routing={}),
+           sp.EventRule(event_source=f'{data_source.key}/error',
+                     action=sp.ShowMessage(
+                         key='save_failure',
+                         type=sp.message_types.Error,
+                         title="Probleem",
+                         message="De gegevens konden niet gewijzigd worden.",
+                         buttons=['OK']
+                     ),
+                     data_routing={}),
+           sp.EventRule(event_source=f'save_failure/OK',
+                     action=sp.StateTransition('index.html'),
+                     data_routing={}),
 
-               # The Dialog for deleting the record
-               sp.EventRule(event_source=f'{my_key}/delete',
-                         action=sp.ShowMessage(
-                             key='delete_confirm',
-                             type=sp.message_types.Question,
-                             title='Verwijderen?',
-                             message=f'Wilt u deze {data_table.__name__} verwijderen?',
-                             buttons=['OK', 'Cancel']
-                         ),
-                         data_routing={}),
-               sp.EventRule(event_source=f'delete_confirm/OK',
-                         action=sp.FunctionCall(target_function=f'delete_{data_source.key}'),
-                         data_routing={'index': sp.QueryParameter('id')}),
-               sp.EventRule(event_source=f'{data_source.key}_delete/success',
-                         action=sp.StateTransition('index.html'),
-                         data_routing={}),
-               ] + rules
-    )
+           # Dialog for canceling edits
+           sp.EventRule(event_source=f'{my_key}/cancel',
+                     action=sp.StateTransition('index.html'),
+                     data_routing={}),
+        ] + rules
+
+    if has_delete:
+        rules.extend([
+           # The Dialog for deleting the record
+           sp.EventRule(event_source=f'{my_key}/delete',
+                     action=sp.ShowMessage(
+                         key='delete_confirm',
+                         type=sp.message_types.Question,
+                         title='Verwijderen?',
+                         message=f'Wilt u deze {data_table.__name__} verwijderen?',
+                         buttons=['OK', 'Cancel']
+                     ),
+                     data_routing={}),
+           sp.EventRule(event_source=f'delete_confirm/OK',
+                     action=sp.FunctionCall(target_function=f'delete_{data_source.key}'),
+                     data_routing={'index': sp.QueryParameter('id')}),
+           sp.EventRule(event_source=f'{data_source.key}_delete/success',
+                     action=sp.StateTransition('index.html'),
+                     data_routing={}),
+           ])
+
+    eh = sp.EventHandler(rules)
+
     return contents, eh
 
 
 
-def generateAddForm(data_table, data_source, translation_table):
-    elements = [dt for dt in fields(data_table) if dt not in fields(sp.Widget) and dt.name != 'id']
+def generateAddForm(data_table, data_source, translation_table, preset_fields: Dict[str,sp.DataManipulation]=None):
+    elements = [dt for dt in fields(data_table)
+                if dt not in fields(sp.Widget) and dt.name != 'id' and not (preset_fields and dt.name in preset_fields)
+                ]
 
     # First create the editor
     my_key = f'{data_table.__name__}Add'
@@ -213,10 +272,13 @@ def generateAddForm(data_table, data_source, translation_table):
             item_types=submitted_types,
             submitter=None,                     # RestApi(url=data_url, model=data_table),
             children=children + sources)
+    data_rules = {k:f'{my_key}/{k}' for k in keys}
+    if preset_fields:
+        data_rules.update(preset_fields)
     eh = sp.EventHandler(
         rules=[sp.EventRule(event_source=f'{my_key}/save',
                          action=sp.FunctionCall(target_function=f'set_{data_source.key}'),
-                         data_routing={'data': {k:f'{my_key}/{k}' for k in keys}}),
+                         data_routing={'data': data_rules}),
                sp.EventRule(event_source=f'{data_source.key}/success',
                          action=sp.ShowMessage(
                              key='save_success',

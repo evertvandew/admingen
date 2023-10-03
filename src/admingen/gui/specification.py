@@ -115,20 +115,20 @@ class DataManipulation:
         return id(self)
 
 @dataclass
-class GlobalVariable:
+class GlobalVariable(DataManipulation):
     name: str
 
 @dataclass
-class LocalVariable:
+class LocalVariable(DataManipulation):
     name: str
 
 @dataclass
-class StoreGlobal:
+class StoreGlobal(DataManipulation):
     target: str
     source: str
 
 @dataclass
-class QueryParameter:
+class QueryParameter(DataManipulation):
     name: str
 
 @dataclass
@@ -165,6 +165,9 @@ class SubElement(DataManipulation):
 class ResourceValue(DataManipulation):
     src: str
 
+@dataclass
+class JSValue(DataManipulation):
+    js: str
 
 class Action:
     pass

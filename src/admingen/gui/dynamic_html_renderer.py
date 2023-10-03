@@ -375,6 +375,8 @@ function get_{widget.key}() {{
                 self.renderDataManipulationPreparation(manipulator.src)
             case sp.ResourceValue():
                 pass
+            case sp.JSValue():
+                pass
             case str():
                 context['sources'].add(os.path.dirname(manipulator) or manipulator)
             case _:
@@ -422,6 +424,8 @@ function get_{widget.key}() {{
                 return f'{manipulator.name}'
             case sp.ResourceValue():
                 return f'get_{manipulator.src}()'
+            case sp.JSValue():
+                return manipulator.js
             case _:
                 raise RuntimeError(f"Unsupported data manipulator {manipulator}")
 

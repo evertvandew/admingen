@@ -15,7 +15,7 @@ args = parser.parse_args()
 
 # Extract the datamodel from the XML file.
 
-_ = processor(istream=args.input, ostream=open('/dev/null', 'w'))
+_ = processor(istream=args.input, ostream=open('/dev/null', 'w'), expand_templates=False)
 
 # Now write the python model file.
 
