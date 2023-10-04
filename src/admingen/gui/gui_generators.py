@@ -24,19 +24,8 @@ def generateAddAssociationPopup(association_table, data_source, preset_fields: D
     """
     if isinstance(translation_table, dict):
         translation_table = translation_wrapper(translation_table)
-    form, eh = generateAddForm(association_table, data_source, translation_table, preset_fields=preset_fields)
+    form, eh = generateAddForm(association_table, data_source, translation_table, preset_fields=preset_fields, ok_action=False)
     eh.rules.extend([
-            sp.EventRule(
-                event_source=f'{association_table.__name__}_editor/submit',
-                action=sp.PostRequest(f'{association_table.__name__}_post', data_source),
-                data_routing={'data':
-                                  {'doc': 'current_doc',
-                                   'info': 'info_selection',
-                                   'proces': 'proces_selection',
-                                   'dir': 'dir_selection',
-                                   'bedrijf': 'current_bedrijf'
-                                   }}
-            ),
             sp.EventRule(
                 event_source=f'{association_table.__name__}_editor/add',
                 action=sp.SubStateMachine(
@@ -246,7 +235,8 @@ def generateEditForm(data_table, data_source, translation_table, preset_fields: 
 
 
 
-def generateAddForm(data_table, data_source, translation_table, preset_fields: Dict[str,sp.DataManipulation]=None):
+def generateAddForm(data_table, data_source, translation_table, preset_fields: Dict[str,sp.DataManipulation]=None,
+                    ok_action=sp.StateTransition('index.html'),):
     elements = [dt for dt in fields(data_table)
                 if dt not in fields(sp.Widget) and dt.name != 'id' and not (preset_fields and dt.name in preset_fields)
                 ]
@@ -275,6 +265,8 @@ def generateAddForm(data_table, data_source, translation_table, preset_fields: D
     data_rules = {k:f'{my_key}/{k}' for k in keys}
     if preset_fields:
         data_rules.update(preset_fields)
+    if ok_action:
+        rules.append(sp.EventRule(event_source='save_success/OK', action=sp.StateTransition('index.html'),data_routing={}))
     eh = sp.EventHandler(
         rules=[sp.EventRule(event_source=f'{my_key}/save',
                          action=sp.FunctionCall(target_function=f'set_{data_source.key}'),
@@ -296,10 +288,7 @@ def generateAddForm(data_table, data_source, translation_table, preset_fields: D
                              message="De gegevens konden niet worden opgeslagen.",
                              buttons=['OK']
                          ),
-                         data_routing={}),
-               sp.EventRule(event_source='save_success/OK',
-                         action=sp.StateTransition('index.html'),
-                         data_routing={}),
+                         data_routing={})
                ] + rules
     )
     return contents, eh
