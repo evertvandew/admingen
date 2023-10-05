@@ -904,5 +904,5 @@ if __name__ == '__main__':
     # Normally, this file is executed through a different script in the `bin` directory.
     # This is only executed when debugging.
     import os
-    os.chdir('/home/ehwaal/projects/inplanner')
     result = processor(istream=open('webinterface.xml'))
+
