@@ -11,14 +11,14 @@ This allows the editors to Read, Write and List the Resources. Users can only Re
 """
 
 import re
-from typing import List, Type, Union
+from typing import List, Type, Union, Dict
 import flask
 import secrets
 from Crypto.Cipher import Blowfish
 import time
 import logging
 import json
-import enum
+from enum import Enum, auto
 from admingen.data import data_server
 from admingen.data.db_api import Record
 from admingen.data.data_server import read_records, add_record, update_record, get_request_data
@@ -41,10 +41,11 @@ password_field = 'psw'
 class NotAuthorized(RuntimeError): pass
 
 
-class auth_results(enum.Enum):
-    NOT_AUTHENTICATED = 1
-    NOT_AUTHORIZED = 2
-    OK = 3
+class auth_results(Enum):
+    NOT_AUTHENTICATED = auto()
+    NOT_AUTHORIZED = auto()
+    WRONG_COMPARTIMENT = auto()
+    OK = auto()
 
 
 class ACM:
@@ -84,7 +85,7 @@ class ACM:
         self.acm_table = {}                  # path:roles pairs
         self.parameterized_acm_table = {}    # [path parts]: roles pairs
         self.par_acm_matchers = []           # (matcher, roles) pairs
-        self.compartmented = {}              # path:(record_key, context_key)
+        self.compartiments = {}              # path:(record_key, context_key)
 
         self.all_roles = {}
 
@@ -365,8 +366,8 @@ class ACM:
                 roles_dict = parent.getRoles(path)
 
                 # If compartmented, filter elements regardless of the user's rights
-                if path in parent.compartmented:
-                    key, context = parent.compartmented[path]
+                if path in parent.compartiments:
+                    key, context = parent.compartiments[path]
                     compartment = int(parent.getContextValue(context))
                     records = [r for r in records if getattr(r, key) == compartment]
 
@@ -408,7 +409,8 @@ class ACM:
                 """ Delete a field is the details of the record correspond to the login.
                 """
                 # First do course ACM using the roles.
-                roles_dict = parent.getRoles(f'data/{table.__name__}')
+                path = f'data/{table.__name__}'
+                roles_dict = parent.getRoles(path)
                 rights = roles_dict.get(parent.get_user_role(), roles_dict.get('any', ''))
                 if 'D' not in rights:
                     return auth_results.NOT_AUTHORIZED
@@ -424,20 +426,37 @@ class ACM:
                         field_id = int(flask.request.cookies.get(field, 0))
                         if getattr(r, field, -1) != field_id:
                             return auth_results.NOT_AUTHORIZED
+                # Check for compartiment
+                if details := parent.compartiments.get(path, False):
+                    key, cookie = details
+                    if getattr(r, key) != int(parent.getContextValue(cookie)):
+                        return auth_results.WRONG_COMPARTIMENT
                 super().delete(table, index)
             def add(self, table: Union[Type[Record], Record], record: Record=None, is_add=True) -> Record:
                 """ Only let a user add records that have the field associated with their role. """
-                # First do course ACM using the roles.
+                # First do coarse ACM using the roles.
                 if not record:
                     record = table
                     table = type(record)
-                roles_dict = parent.getRoles(f'data/{table.__name__}')
+                path = f'data/{table.__name__}'
+                roles_dict = parent.getRoles(path)
                 rights = roles_dict.get(parent.get_user_role(), roles_dict.get('any', ''))
                 if 'A' not in rights:
                     return
 
                 if isinstance(record, dict):
                     record = table(**record)
+
+                # Take care of compartimentialization
+                if details := parent.compartiments.get(path, False):
+                    key, cookie = details
+                    cookie_value = int(parent.getContextValue(cookie))
+                    if not getattr(record, key):
+                        setattr(record, key, cookie_value)
+                    else:
+                        if getattr(record, key) != cookie_value:
+                            # We allow no action on another compartiment
+                            return
 
                 role_index = parent.role_names.index(parent.get_user_role())
                 for i, field in enumerate(parent.data_fields):
@@ -467,8 +486,9 @@ class ACM:
                         if getattr(record, field, -1) != field_id:
                             return
                 return self.add(record, is_add=False)
-            def update_checker(self, update, orig):
+            def update_checker(self, update: Dict, orig: Record):
                 """ Ensure that the user is authorized to make the change proposed here. """
+                path = f'data/{type(orig).__name__}'
                 role_index = parent.role_names.index(parent.get_user_role())
                 for i, field in enumerate(parent.data_fields):
                     # If the user has sufficient authority, we do not need to check the lower levels.
@@ -479,6 +499,16 @@ class ACM:
                         field_id = int(flask.request.cookies.get(field, 0))
                         if getattr(orig, field) != field_id or int(update.get(field, getattr(orig, field))) != field_id:
                             raise NotAuthorized()
+
+                # Don't allow messing with the compartiments
+                if details := parent.compartiments.get(path, False):
+                    key, cookie = details
+                    cookie_value = int(parent.getContextValue(cookie))
+                    if getattr(orig, key) != cookie_value:
+                        return False
+                    if key in update and int(update[key]) != cookie_value:
+                        return False
+                # It is OK to make this change
                 return True
             def update(self, table, record=None, checker=None):
                 super().update(table, record, checker=self.update_checker)
@@ -618,7 +648,7 @@ class ACM:
                     # Check for the "compartemented" command.
                     c = re.search(r'compartmented\(([a-zA-Z_]*)=([a-zA-Z_]*)\)', r)
                     if c:
-                        self.compartmented[path] = r[c.regs[1][0]:c.regs[1][1]], r[c.regs[2][0]:c.regs[2][1]]
+                        self.compartiments[path] = r[c.regs[1][0]:c.regs[1][1]], r[c.regs[2][0]:c.regs[2][1]]
                         r = r[0:c.regs[0][0]-1]+r[c.regs[0][1]:]
                     self.acm_table[path] = r
                     # If there are keys that end in 'index.html', also add the '' alias.

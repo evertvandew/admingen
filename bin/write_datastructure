@@ -3,7 +3,7 @@
 import sys
 import time
 import datetime
-from admingen.xml_template import processor, data_models, source_2_url_prefix
+from admingen.xml_template import processor, data_models, source_2_url_prefix, compartiments
 import enum
 
 from argparse import ArgumentParser
@@ -90,10 +90,14 @@ for database, tables in data_models.items():
 model_lines = '\n'.join(lines)
 the_tables_str = '{' + ', '.join("'"+k+"'"+': [' + ', '.join(v) + ']' for k, v in the_tables.items()) + '}'
 
+compartments_list = ['CompartmentDetails(' + ', '.join(f'{k}={repr(v)}' for k, v in c.items()) + ')' for c in compartiments.values()]
+compartments_txt = '{' + ', '.join(f'"{k}": {t}' for k, t in zip(compartiments.keys(), compartments_list)) + '}'
+
 file_template = f'''""" Generated model file for the project data structures.
 This file was generated on {time.ctime()}. DO NOT CHANGE!
 """
 from enum import IntEnum, auto
+from typing import Tuple, Any, List
 from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
 from admingen.data.db_api import Record
 from admingen.data.data_type_base import *
@@ -104,6 +108,17 @@ from admingen.data.data_type_base import *
 # Create a list with all data tables defined here.
 all_tables = {the_tables_str}
 database_urls = {repr(source_2_url_prefix)}
+
+
+
+@dataclass
+class CompartmentDetails:
+    compartimented_field: Tuple[str, Any]
+    compartimented_cookie: str
+    exceptions: List[Any]
+
+
+compartiments = {compartments_txt}
 '''
 
 

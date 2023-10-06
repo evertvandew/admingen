@@ -61,6 +61,8 @@ id_counter = 0
 
 data_rules = []
 
+compartiments = {}
+
 
 @dataclass
 class DataRule:
@@ -155,6 +157,12 @@ def handle_Datamodel(args, lines):
     if compartment_on:
         compartment_variable, compartment_table = compartment_on.split(':')
     compartment_exceptions = args.get('compartment_exceptions', '').split(',')
+    if compartment_on:
+        compartiments[name] = {
+            'compartimented_field': compartment_on,
+            'compartimented_cookie': compartment_cookie,
+            'exceptions': compartment_exceptions}
+
     try:
         while True:
             # Consume lines until we get a table or enum
