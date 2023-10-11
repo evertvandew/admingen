@@ -152,7 +152,7 @@ page_template = Template("""<!DOCTYPE html>
         });
 
         $("#div_current_user").each(function(i){
-            this.innerHTML = getCookie("user_name");
+            this.innerHTML = getCookie("uname");
         });
     });
 </script>

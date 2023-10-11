@@ -550,7 +550,7 @@ class ACM:
             if not self.check_authentication():
                 flask.abort(401)
 
-            user_id = int(flask.request.cookies.get(self.userid_name, '-1'))
+            user_id = int(flask.request.form['user_id'])
             details = user_db.get_raw(user_table, user_id)
             if not details:
                 flask.abort(400)

@@ -4,6 +4,9 @@ from typing import Self, Callable, List, Any, Dict, _GenericAlias, Tuple
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import EnumMeta, Enum
 
+# Import special field types understood by the specification.
+from admingen.data.data_type_base import email, longstr, password, phone, url, path, order, color
+
 # Base classes
 @dataclass
 class DataSource:

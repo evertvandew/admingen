@@ -267,5 +267,5 @@ class password(str): pass
 class phone(str): pass
 class url(str): pass
 class path(str): pass
-class Order(int): pass
+class order(int): pass
 class color(str): pass

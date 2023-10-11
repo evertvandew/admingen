@@ -372,3 +372,18 @@ def generateAutoEditor(data_table, data_source, translation_table, prefix=''):
     return pages
 
 
+def generateSimpleForm(key, names, types, texts):
+    """ Return a simple form to enter key:value forms. """
+    children = [sp.Row(children=getEditWidgets(key, name, et)) for key, name, et in zip(names, texts, types)]
+    children.append(sp.Row(children=[
+        sp.Button(key=f'{key}_cancel', text='Cancel {fa-times}', action=f"route('{key}/cancel')"),
+        sp.Button(key=f'{key}_save', text='Save {fa-save}', action=f"route('{key}/save')")
+    ]))
+    submitted_types = [getSubmittedType(t) for t in types]
+
+    contents = sp.Form(key=f'{key}',
+                       item_names=names,
+                       item_types=submitted_types,
+                       submitter=None,  # RestApi(url=data_url, model=data_table),
+                       children=children)
+    return contents

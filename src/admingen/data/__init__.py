@@ -30,7 +30,7 @@ def mkDecimal(s='0'):
 
 def mkdate(s):
     ''' Assume the format YYYY-MM-DD '''
-    return date.strftime('%Y-%m-%d')
+    return datetime.strptime(s, '%Y-%m-%d').date() if s else None
 
 
 def mkdatetime(s):
