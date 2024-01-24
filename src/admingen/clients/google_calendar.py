@@ -33,10 +33,10 @@ def get_calendar_meetings(url, range):
 
     parser = icp.ical_reader(f, tp_start, tp_end)
 
-    meetings = [m for m in parser]
+    meetings = list(parser)
 
     # Use only a selection of the columns
-    columns = 'DTSTART DTEND SUMMARY DESCRIPTION'.split()
+    columns = 'DTSTART DTEND SUMMARY'.split()
     # Only use meetings with all columns
     meetings = [meeting for meeting in meetings if all(k in meeting for k in columns)]
     # Use only a selection of the columns
