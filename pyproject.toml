@@ -1,0 +1,34 @@
+ [build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "admingen"
+version = "0.1"
+description = "A tool for generating administrative applications."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{name = "Evert van de Waal", email = "info@vdwi-software.nl"}]
+keywords = ["database", "application", "web application", "DSL", "code generation"]
+
+
+[project.scripts]
+# Scripts in the scripts directory
+edit_keyring = "admingen.scripts.edit_keyring:run"
+filter_data = "admingen.scripts.filter_data:run"
+render_template = "admingen.scripts.render_template:run"
+render_word_template = "admingen.scripts.render_word_template:run_cli"
+
+## scripts that work with the XML DSL application description
+write_acm = "admingen.scripts.write_acm:run"
+write_datastructure = "admingen.scripts.write_datastructure:run"
+write_pages = "adminge.scripts.write_pages:run"
+write_sqlalchemy_model = "admingen.scripts.write_sqlalchemy_model:run"
+
+## scripts for running an application
+install_components = "admingen.scripts.install_components:run"
+webfs = "admingen.scripts.webfs:run"
+
+# Scripts that are in other parts of the code tree
+xml_template = "admingen.xml_template:run"

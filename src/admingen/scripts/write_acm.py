@@ -42,20 +42,25 @@ def handle_QueryAcm(_args, lines):
         acm[url.strip('/')] = roles
     return ''
 
-generators = default_generators.copy()
-generators.update(
-    Page=Tag('Page', handle_Page),
-    PageContextValue=Tag('PageContextValue', handle_PageContextValue),
-    QueryAcm=Tag('QueryAcm', handle_QueryAcm)
-)
-_ = processor(generators, istream=args.input, ostream=open('/dev/null', 'w'))
+def run():
+    generators = default_generators.copy()
+    generators.update(
+        Page=Tag('Page', handle_Page),
+        PageContextValue=Tag('PageContextValue', handle_PageContextValue),
+        QueryAcm=Tag('QueryAcm', handle_QueryAcm)
+    )
+    _ = processor(generators, istream=args.input, ostream=open('/dev/null', 'w'))
 
-# Add the ACM details for accessing the data tables
-for db, db_details in data_models.items():
-    for table, table_def in db_details.items():
-        if isinstance(table_def, dict) and table in table_acm:
-            acm['data/%s'%table] = table_acm[table]
+    # Add the ACM details for accessing the data tables
+    for db, db_details in data_models.items():
+        for table, table_def in db_details.items():
+            if isinstance(table_def, dict) and table in table_acm:
+                acm['data/%s'%table] = table_acm[table]
 
-# Write the ACM table
-for k, v in acm.items():
-    print(f'{k}:{v}')
+    # Write the ACM table
+    for k, v in acm.items():
+        print(f'{k}:{v}')
+
+
+if __name__ == '__main__':
+    run()

@@ -908,6 +908,26 @@ def processor(ingenerators=generators, istream=sys.stdin, ostream=sys.stdout, pr
     root_line_reader(pre_processed, ostream)
     return
 
+def run():
+    """ This is the normal entry point when the package has been properly installed. """
+    import sys
+    import io
+    from admingen.xml_template import processor
+
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('--output', '-o', default=sys.stdout)
+    parser.add_argument('--input', '-i', default=sys.stdin)
+    parser.add_argument('--preprocess', '-p', action="store_true")
+    parser.add_argument('--print_datamodel', action="store_true")
+
+    args = parser.parse_args()
+
+    result = processor(istream=args.input, ostream=args.output, preprocess_only=args.preprocess)
+    if result:
+        sys.exit(result)
+
 if __name__ == '__main__':
     # Normally, this file is executed through a different script in the `bin` directory.
     # This is only executed when debugging.

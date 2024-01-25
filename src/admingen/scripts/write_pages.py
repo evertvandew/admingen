@@ -212,14 +212,7 @@ def handle_Markdown(args, lines):
     md = markdown.markdown(''.join(lines))
     return md
 
-
-if False:
-    processor({'Page': Tag('Page', handle_Page),
-               'PageContextValue': Tag('PageContextValue', handle_PageContextValue),
-               'MarkDown': Tag('MarkDown', handle_Markdown)
-               },
-              open('page_definitions.xml'))
-else:
+def run():
     parser = argparse.ArgumentParser()
     parser.add_argument('--file', '-f', default=None)
     args = parser.parse_args()
@@ -230,3 +223,5 @@ else:
                },
               stream)
 
+if __name__ == '__main__':
+    run()

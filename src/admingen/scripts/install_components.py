@@ -10,11 +10,6 @@ import shutil
 import glob
 from admingen.xml_template import processor, Tag
 
-parser = ArgumentParser()
-parser.add_argument('--file', '-f', default='')
-args = parser.parse_args()
-
-
 def handle_Component(args, lines):
     url = args['url']
     archive = op.split(url)[-1]
@@ -47,5 +42,13 @@ def handle_Component(args, lines):
     return ''
 
 
-_ = processor({'Component': Tag('Component', handle_Component)},
-              istream=args.file, ostream=open('/dev/null', 'w'))
+def run():
+    parser = ArgumentParser()
+    parser.add_argument('--file', '-f', default='')
+    args = parser.parse_args()
+
+    _ = processor({'Component': Tag('Component', handle_Component)},
+                  istream=args.file, ostream=open('/dev/null', 'w'))
+
+if __name__ == '__main__':
+    run()

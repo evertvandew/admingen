@@ -24,13 +24,6 @@ import os.path
 
 import argparse
 
-parser = argparse.ArgumentParser(__doc__)
-parser.add_argument('template', help="Word template to be rendered.")
-parser.add_argument('output', help="Location where the file is writen to.")
-parser.add_argument('--details', '-d', help="File containing details to be filled into the template. Default: stdin",
-                    default=None)
-
-
 def open_template(template):
     local = uno.getComponentContext()
     resolver = local.ServiceManager.createInstanceWithContext("com.sun.star.bridge.UnoUrlResolver", local)
@@ -106,7 +99,17 @@ def run(args):
     doc.close(False)
 
 
-if __name__ == '__main__':
+def run_cli():
+    parser = argparse.ArgumentParser(__doc__)
+    parser.add_argument('template', help="Word template to be rendered.")
+    parser.add_argument('output', help="Location where the file is writen to.")
+    parser.add_argument('--details', '-d',
+                        help="File containing details to be filled into the template. Default: stdin",
+                        default=None)
+
     args = parser.parse_args()
     args.details = open(args.details) if args.details else sys.stdin
     run(args)
+
+if __name__ == '__main__':
+    run_cli()

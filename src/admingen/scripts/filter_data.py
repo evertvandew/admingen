@@ -17,8 +17,7 @@ while True:
         tryonce -= 1
 
 
-
-if __name__ == '__main__':
+def run():
     #print("Arguments:", sys.argv, file=sys.stderr)
     parse = argparse.ArgumentParser()
     parse.add_argument('script')
@@ -37,3 +36,7 @@ if __name__ == '__main__':
     except AssertionError as e:
         logging.error(e)
         sys.exit(1)
+
+
+if __name__ == '__main__':
+    run()

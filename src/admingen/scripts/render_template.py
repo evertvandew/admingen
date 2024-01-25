@@ -9,8 +9,11 @@ from admingen.reporting import render_stream
 
 
 
-if __name__ == '__main__':
+def run():
     parse = argparse.ArgumentParser()
     parse.add_argument('template')
     args = parse.parse_args()
     render_stream(sys.stdin, open(args.template), sys.stdout)
+
+if __name__ == '__main__':
+    run()
