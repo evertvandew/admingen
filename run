@@ -7,7 +7,7 @@ import os, os.path
 # Add the proper directories to the system path so they can be imported
 root = os.path.abspath(os.path.dirname(__file__))
 srcdir = root + '/src'
-sys.path.append(os.path.join(root, 'projects'))
+sys.path.append(os.path.join(root, 'experiments'))
 sys.path.append(srcdir)
 
 print('System path:', '\n'.join(sys.path))

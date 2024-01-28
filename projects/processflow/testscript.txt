@@ -1,9 +1,0 @@
-login admin testing
-transition on submit({oid}) for Any from Any to submitted if True
-transition on accept({oid}) for Any from submitted to accepted if all(d['ref']==oid and d['state']=='accepted' for d in docs if d['type'] == 'reviewrequest')
-insert {'title': 'Testdocument', 'type': 'testdocument'}
-get docs[1]
-update [d for d in docs if d['type']=='testdocument'], {'text': 'Dit is leuk!'}
-get [d for d in docs if d['type']=='testdocument']
-delete 1
-get docs[1]

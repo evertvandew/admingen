@@ -26,8 +26,6 @@ from admingen.data import password2str, checkpasswd
 import data_model
 from admingen.testing import testcase, expect_exception, running_unittests
 
-the_db = None
-
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -77,7 +75,7 @@ class ACM:
         self.username_name_b = self.username_name.encode('utf8')
         self.userid_name_b = self.userid_name.encode('utf8')
 
-        self.data_fields = data_fields.split()
+        self.data_fields = [f.strip() for f in data_fields.split(',')]
         self.data_fields_b = [t.encode('utf8') for t in self.data_fields]
         self.role_names = role_hierarchy.split()
 
@@ -263,17 +261,19 @@ class ACM:
         res = res or flask.make_response("See Other", 303)
         # Set the cookies on the response
         # We store the token, the user id, the role of the user, company id, and the user name.
-        res.set_cookie(self.token_name_b, token, max_age=self.max_age)
-        res.set_cookie(self.rolename_name_b, role, max_age=self.max_age)
-        res.set_cookie(self.username_name_b, user.login.encode('utf8'))
-        res.set_cookie(self.userid_name_b, str(user.id).encode('utf8'))
+        res.set_cookie(self.token_name, token.decode('utf8'), max_age=self.max_age)
+        res.set_cookie(self.rolename_name, role, max_age=self.max_age)
+        res.set_cookie(self.username_name, user.login)
+        res.set_cookie(self.userid_name, str(user.id))
         for field, field_b in zip(self.data_fields, self.data_fields_b):
-            res.set_cookie(field_b, b'%i'%(details[field]))
+            res.set_cookie(field, '%i'%(details[field]))
         return res
 
 
     def verify_login(self, username, password):
-        for user in self.user_db.get_many_raw(self.user_table):
+        with self.user_db.Session() as session:
+            users = session.query(data_model.User).all()
+        for user in users:
             if user.login == username:
                 p = user.password.encode('utf8')
                 if self.testmode or checkpasswd(password, p):
@@ -300,11 +300,11 @@ class ACM:
     def logout(self):
         """ Clears the cookies associated with a login. """
         res = flask.make_response('U bent uitgelogged.<BR><BR><A HREF="/">Opnieuw inloggen</A>', 401)
-        res.delete_cookie(self.token_name_b)
-        res.delete_cookie(self.rolename_name_b)
-        res.delete_cookie(self.username_name_b)
-        res.delete_cookie(self.userid_name_b)
-        for field in self.data_fields_b:
+        res.delete_cookie(self.token_name)
+        res.delete_cookie(self.rolename_name)
+        res.delete_cookie(self.username_name)
+        res.delete_cookie(self.userid_name)
+        for field in self.data_fields:
             res.delete_cookie(field)
         return res
 
@@ -323,14 +323,29 @@ class ACM:
         users = [u for u in users if u.rol == data_model.UserRole.administrator]
         if len(users) == 0:
             # Create a default user.
-            data = {'login': 'evert',
-                    'password': password2str('verander mij'),
+            data = {'login': 'testuser',
+                    'password': password2str('change me'),
                     'rol': data_model.UserRole.administrator.value,
                    }
             add_record('User', data_model.User, data, mk_response=False)
             print("Created default user")
 
 
+    def ensure_login_sql(self, db):
+        """ Ensure that there is at least one user that can login as administrator.
+            If there is no such user, create a default admin user.
+        """
+        # If there are no known users, create one.
+        with self.user_db.Session() as session:
+            count = session.query(data_model.User).count()
+            if count == 0:
+                # Create a default user.
+                session.add(data_model.User(login = 'testuser',
+	                                   password = password2str('change me'),
+	                                   rol = data_model.UserRole.administrator
+                    )
+                )
+                session.commit()
     def filtered_db(parent, db):
         """ Wrap an existing 'db' with a set of functions that check authorization.
             The wrapping is done in such a way that even when the db calls functions internally,
@@ -360,6 +375,8 @@ class ACM:
                 return db
             def __init__(self):
                 self.has_acm = True
+            def get_raw_db(self):
+                return db
             def check_read(self, table, records, access_type='L'):
                 # First do ACM using the roles.
                 path = f'data/{table.__name__}'
@@ -471,7 +488,7 @@ class ACM:
                         if getattr(record, field, -1) != field_id:
                             return
                 if is_add:
-                    return super().add(table, record)
+                    return super().add(record)
                 return super().set(record)
             def set(self, record):
                 # Ensure that the original values of the record allow the user to modify them.
@@ -572,7 +589,7 @@ class ACM:
             """ Check the authorization for creating or updating a user.
             """
             # Obviously, a user can not promote anybody to a role higher than his own.
-            new_role = int(data.get('rol', -1))
+            new_role = int(data.get('rol', -1)) - 1   # The role values start at 1, not at 0.
             role_index = self.role_names.index(self.get_user_role())
             if new_role < role_index:
                 return False
@@ -606,6 +623,7 @@ class ACM:
             record = user_db.add(user_table, data)
             if record:
                 return "User Added", 201
+            return "Could not add user", 400
 
         def update_user(index):
             """ The password can not be updated in this way """
@@ -632,7 +650,7 @@ class ACM:
         # Ensure there is a user, if need be create a default administrator user
         # This is necessary to ensure the password is known and formatted correctly
         # In future, perhaps replace this with a script that is run during reployment.
-        self.ensure_login()
+        self.ensure_login_sql(self.user_db)
 
         # Load the ACM table for the other elements
         with open('acm_table') as f:

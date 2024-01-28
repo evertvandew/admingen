@@ -16,7 +16,7 @@ from dataclasses import dataclass, asdict
 from admingen.keyring import KeyRing
 from admingen.worker import Worker, appconfig
 
-from projects.paypal_exact import Task, TaskDetails
+from experiments.paypal_exact import Task, TaskDetails
 
 
 testdir = os.path.dirname(__file__)

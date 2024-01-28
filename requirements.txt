@@ -1,10 +1,9 @@
-tatsu==4.2.3
-pony
+tatsu==5.8.1
 cherrypy
 pyJWT==1.3.0
 py-bcrypt==0.4
 requests
-cryptography==37
+pycryptodome
 configobj
 jinja2
 mako
@@ -21,4 +20,7 @@ oauth2client
 croniter
 pillow
 pytest
-xmltodict
+flask
+uwsgi
+sqlalchemy
+pyphen

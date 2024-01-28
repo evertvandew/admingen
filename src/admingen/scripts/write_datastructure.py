@@ -21,14 +21,14 @@ def run():
     # Now write the python model file.
 
     class_template = '''@mydataclass
-    class {name}(Record):
-        {class_lines}
-    '''
+class {name}(Record):
+    {class_lines}
+'''
 
     enum_template = """@MyEnum
-    class {name}(IntEnum):
-        {option_lines}
-    """
+class {name}(IntEnum):
+    {option_lines}
+"""
 
     lines = []
     the_tables = {}
@@ -95,32 +95,32 @@ def run():
     compartments_txt = '{' + ', '.join(f'"{k}": {t}' for k, t in zip(compartiments.keys(), compartments_list)) + '}'
 
     file_template = f'''""" Generated model file for the project data structures.
-    This file was generated on {time.ctime()}. DO NOT CHANGE!
-    """
-    from enum import IntEnum, auto
-    from typing import Tuple, Any, List
-    from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
-    from admingen.data.db_api import Record
-    from admingen.data.data_type_base import *
-    
-    # The actual data model.
-    {model_lines}
-    
-    # Create a list with all data tables defined here.
-    all_tables = {the_tables_str}
-    database_urls = {repr(source_2_url_prefix)}
-    
-    
-    
-    @dataclass
-    class CompartmentDetails:
-        compartimented_field: Tuple[str, Any]
-        compartimented_cookie: str
-        exceptions: List[Any]
-    
-    
-    compartiments = {compartments_txt}
-    '''
+This file was generated on {time.ctime()}. DO NOT CHANGE!
+"""
+from enum import IntEnum, auto
+from typing import Tuple, Any, List
+from admingen.db_api import ColumnDetails, mkColumnDetails, required, unique
+from admingen.data.db_api import Record
+from admingen.data.data_type_base import *
+
+# The actual data model.
+{model_lines}
+
+# Create a list with all data tables defined here.
+all_tables = {the_tables_str}
+database_urls = {repr(source_2_url_prefix)}
+
+
+
+@dataclass
+class CompartmentDetails:
+    compartimented_field: Tuple[str, Any]
+    compartimented_cookie: str
+    exceptions: List[Any]
+
+
+compartiments = {compartments_txt}
+'''
 
 
     args.output.write(file_template)

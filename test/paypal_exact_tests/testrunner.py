@@ -1,7 +1,7 @@
 
 from unittest import TestCase
 import selenium
-from projects.paypal_exact import run, worker
+from experiments.paypal_exact import run, worker
 
 
 class RunnerTests(TestCase):

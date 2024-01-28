@@ -8,7 +8,7 @@ version = "0.1"
 description = "A tool for generating administrative applications."
 readme = "README.md"
 requires-python = ">=3.12"
-license = "MIT"
+license = "LGPLv3"
 authors = [{name = "Evert van de Waal", email = "info@vdwi-software.nl"}]
 keywords = ["database", "application", "web application", "DSL", "code generation"]
 
@@ -23,7 +23,7 @@ render_word_template = "admingen.scripts.render_word_template:run_cli"
 ## scripts that work with the XML DSL application description
 write_acm = "admingen.scripts.write_acm:run"
 write_datastructure = "admingen.scripts.write_datastructure:run"
-write_pages = "adminge.scripts.write_pages:run"
+write_pages = "admingen.scripts.write_pages:run"
 write_sqlalchemy_model = "admingen.scripts.write_sqlalchemy_model:run"
 
 ## scripts for running an application

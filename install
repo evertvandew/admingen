@@ -62,7 +62,7 @@ RestartSec=3
 WantedBy=multi-user.target
 
 '''
-service_file = os.path.join(root, 'projects', args.project, args.project+'.service')
+service_file = os.path.join(root, 'experiments', args.project, args.project + '.service')
 if not os.path.exists(service_file):
     # Generate the service file
     with open(service_file, 'w') as f:

@@ -1,0 +1,14 @@
+data/
+html/
+resources/
+acm_table
+bootstrap*
+data_model.py
+fontawesome*
+jquery*
+page_definitions.xml
+smtp.conf
+ondervrager.pid
+ondervrager.s
+data.sqlite3
+failed_template.py

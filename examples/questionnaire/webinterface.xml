@@ -1,0 +1,471 @@
+<?xml version="1.0"?>
+
+<!-- Use me as follows:
+        ~/admingen/bin/xml_template -i hmi.xml |/admingen/bin/write_pages
+        webfs.py --root-path html
+
+
+
+-->
+
+<PageContextValue name="role_cookie_name">ondervrager_role</PageContextValue>
+<PageContextValue name="title">Questionaires.nl</PageContextValue>
+<PageContextValue name="acm">editor,administrator</PageContextValue>
+
+<include file="webif_templates.xml" />
+<Component url="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/11.0.2/bootstrap-slider.min.js"
+           path="html/batic/js" />
+<Component url="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/11.0.2/css/bootstrap-slider.min.css"
+           path="html/batic/css" />
+<Component url="file://stylesheet.css" path="html/batic/css" />
+
+<PageContextValue name="dependencies" action="append">
+    <link rel="stylesheet" type="text/css" href="/batic/css/stylesheet.css" />
+</PageContextValue>
+
+<Datamodel name="ondervrager" url_prefix="data" ACM_default="editor,administrator">
+<!-- The roles recognized by the system. Most powerful must be first. -->
+enum: UserRole
+    administrator
+    editor
+    user
+<!-- The User table and the fields login, role and password must not be changed -->
+table: Bedrijf
+    naam: str
+    omschrijving: str, optional
+    logo: image, optional
+    style: longstr, default=''
+table: User
+    login: str                          <!-- Do not change -->
+    password: password, protected       <!-- Do not change -->
+    rol: UserRole                       <!-- Do not change -->
+    email: str
+    vollenaam: str
+    coach: User, optional
+    bedrijf: Bedrijf, optional
+table: Questionair
+    naam: str
+    omschrijving: longstr
+    bedrijf: Bedrijf, protected
+    rapport_template: fileblob, optional
+    vraag_volgorde: str
+table: Categorie
+    naam: str
+    omschrijving: longstr
+    questionaire: Questionair, protected
+    kleur: str, default="000000"
+    bedrijf: Bedrijf, protected
+table: Question, ACM(user,editor,administrator)
+    questionaire: Questionair, protected
+    vraag: str
+    categorie: Categorie, optional
+    telt_negatief: bool
+    bedrijf: Bedrijf, protected
+    order: int, protected
+table: Uitnodiging, ACM(user,editor,administrator)
+    klant: User, protected
+    questionaire: Questionair, protected
+    uitnodiging: datetime
+    ingevuld: datetime, optional
+    bedrijf: Bedrijf, protected
+table: Antwoord, ACM(user,editor,administrator)
+    klant: User, protected
+    uitnodiging: Uitnodiging, protected
+    vraag: Question
+    antwoord: int
+    bedrijf: Bedrijf, protected
+table: LongLink, ACM(any)
+    id: str
+    set_uid: User, protected
+    uitnodiging: Uitnodiging, protected
+</Datamodel>
+
+<PageContextValue name="heading">
+<header class="navbar navbar-expand navbar-custom flex-column flex-md-row bd-navbar">
+<div class="navbar-nav-scroll">
+<ul class="navbar-nav bd-navbar-nav flex-row">
+    <NavItem url="/">Overzicht</NavItem>
+    <NavItem url="/beheer_klanten">Klanten</NavItem>
+    <NavItem url="/beheer_questionaires">Questionaires</NavItem>
+    <NavItem id="company_but" url="/beheer_company">Bedrijven</NavItem>
+</ul>
+</div>
+<ul class="navbar-nav navbar-custom flex-row ml-md-auto d-none d-md-flex">
+    <li class="navbar-text" style="font-size:10pt">
+        Ingelogd als <CurrentUser/>
+    </li>
+    <NavItem url="/logout">
+        Uitloggen
+    </NavItem>
+</ul>
+</header>
+</PageContextValue>
+
+
+<Page url="index.html">
+
+<h1 class="bd-title">Welkom bij de Questionaires</h1>
+
+<LargeButton url="/beheer_klanten/add">Nodig een nieuwe klant uit</LargeButton>
+
+<LargeButton url="/beheer_questionaires/">Voeg een questionaire toe</LargeButton>
+
+<h4>Recent ingevulde questionaires</h4>
+<QueryTable query="ondervrager.Uitnodiging?filter=ingevuld is not None&sort=ingevuld:desc&limit=10&resolve_fk=1"
+            id="ingevuld"
+            columns="klant.vollenaam,questionaire.naam,ingevuld"
+            link_url="/present_results?invitation={{line.id}}"
+/>
+
+<h4>Uitstaande questionaires</h4>
+<QueryTable query="ondervrager.Uitnodiging?filter=ingevuld is None&resolve_fk=1"
+            id="openstaand"
+            columns="klant.vollenaam,questionaire.naam,uitnodiging"
+            delete="data/Uitnodiging"
+/>
+
+</Page>
+
+<!-- Filtering users is done at the REST server: any other solution would be unsafe -->
+<AutoEditor url="/beheer_klanten" datasource="ondervrager.User" entity_name="klant">
+<TemplateSlot name="edit_postfix">
+    <!-- Allow the password to be set -->
+    <LargeButton url="/update_password">Verander paswoord</LargeButton>
+    <!-- Send a new invitation to the user -->
+    <H2>Stuur een uitnodiging</H2>
+    <QuerySelectorField query="ondervrager.Questionair" name="questionair" screen="naam"/>
+    <div id="invite_btn" class="btn btn-large">Versturen <i class="fa fa-paper-plane"></i> </div>
+    <Event source="{{#invite_btn}}.click">
+        <PostData
+            url="/query/invite_user"
+            data_fields="user:{{!id}},questionair:{{#questionair}}"
+            onsuccess="uitnodigingen_tbl_refresh();show_info('Uitnodiging verstuurd');"
+            onerror="show_error('Uitnodiging kon niet verstuurd worden');"
+        />
+    </Event>
+    <H2>Open uitnodigingen:</H2>
+    <QueryTable query="ondervrager.Uitnodiging?klant={{!id}}&resolve_fk=1"
+                id="uitnodigingen_tbl"
+                delete="/data/Uitnodiging"
+                columns="questionaire.naam,uitnodiging"
+    />
+</TemplateSlot>
+</AutoEditor>
+
+<AutoEditor url="/beheer_company" datasource="ondervrager.Bedrijf" entity_name="bedrijf/bedrijven" hide="style">
+<TemplateSlot name="edit_postfix">
+    <Collapsible heading="Questionaires" collapsed="1">
+    <QueryTable query="ondervrager.Questionair?filter=eq(bedrijf,{{!id}})"
+        id="questionaire"
+        columns="id,naam"
+        delete="/data/Questionair"
+        link_url="/beheer_questionaires/edit?id={{line.id}}"
+    />
+    </Collapsible>
+    <LargeButton url="/beheer_questionaires/add?bedrijf={{!id}}">Voeg een questionaire toe</LargeButton>
+</TemplateSlot>
+</AutoEditor>
+
+<!-- Filtering questionaires is done at the REST server: any other solution would be unsafe -->
+<AutoEditor url="/beheer_questionaires" datasource="ondervrager.Questionair" entity_name="questionaire/questionaires">
+<TemplateSlot name="edit_postfix">
+    <Collapsible heading="Categoriën">
+        <LargeButton url="/category/add">Toevoegen <i class="fa fa-plus"></i></LargeButton>
+        <QueryTable query="ondervrager.Categorie?filter=eq(questionaire,{{!id}})"
+            id="categorien"
+            columns="id,naam"
+            delete="/data/Category"
+            link_url="/category/edit?id={{line.id}}"
+        />
+    </Collapsible>
+    <Collapsible heading="Vragen" collapsed="1">
+        <LargeButton url="/question/add">Toevoegen <i class="fa fa-plus"></i></LargeButton>
+        <QueryTable query="ondervrager.Question?filter=eq(questionaire['id'],{{!id}})&resolve_fk=1"
+            id="vragen"
+            columns="vraag,categorie.naam,telt_negatief"
+            delete="/data/Question"
+            link_url="/question/edit?id={{line.id}}"
+        />
+    </Collapsible>
+</TemplateSlot>
+<TemplateSlot name="index_postfix">
+    <MarkDown>## Nieuwe questionaire uploaden
+Een nieuwe questionaire kan door middel van een CSV file geupload worden.
+Dit CSV file moet 3 kolommen hebben met daar in:
+
+1. De eigenlijke vraag
+2. De categorie waar de vraag onder valt. Dit kan zowel een cijfer als een naam zijn,
+   maar die moet wel consequent gebruikt worden.
+3. Als de vraag negatief geteld moet worden, moet een n in deze kolom staan.
+
+De questionaire krijgt een voorlopige naam, die het zelfde is als de filename
+(zonder de .csv extensie).
+    </MarkDown>
+    <FileUpload label="CSV file" url="/query/upload_questionair" id="csv_file"
+                onsuccess="refresh__beheer_questionaires();"
+                onerror="show_error('Bestand kon niet verwerkt worden');"
+    />
+</TemplateSlot>
+</AutoEditor>
+
+
+<AutoEditor url="/question" datasource="ondervrager.Question" entity_name="vraag/vragen"/>
+<AutoEditor url="/category" datasource="ondervrager.Categorie" entity_name="categorie/categorieën"/>
+
+<Context>
+<PageContextValue name="heading"></PageContextValue>
+
+<Page url="present_questions" acm="user,editor,administrator">
+  <link rel="stylesheet" type="text/css" href="/batic/css/bootstrap-slider.min.css" />
+  <script src="/batic/js/bootstrap-slider.min.js"></script>
+  <style>#ex1Slider .slider-selection {
+      background: #BABABA;
+    }
+  </style>
+
+<MarkDown># Vragenlijst
+Welkom bij de “Wie ben ik?” persoonlijkheidstest!
+Hieronder volgen stellingen. Aan jou de vraag om bij elk van deze stellingen aan te geven in hoeverre deze stelling op jou van toepassing is.
+Dit zijn de antwoordmogelijkheden:
+
+1 = klopt helemaal niet
+2 = klopt niet
+3 = klopt soms
+4 = klopt wel
+5 = klopt helemaal wel
+
+Denk niet te lang na over je antwoord, vul in wat het beste bij je past. Er zijn geen foute antwoorden.
+Zodra je een stelling hebt beantwoord, wordt deze grijs van kleur, je kunt je antwoord nog wel wijzigen.
+Wanneer je antwoord op een stelling “klopt helemaal niet” is, schuif de blauwe schuif dan even heen en weer.
+
+Veel plezier!
+</MarkDown>
+
+<span id="done_msg" class="d-none">Alle vragen zijn ingevuld, u kunt ze nog wel wijzigen.</span>
+
+<script>
+    function post_answers(next_page) {
+        // Check all valid questions are answered.
+        let is_answered = true;
+        for (i=0; i<10; i++) {
+            let row_items = $( "#row_"+i );
+            let row_item = row_items[0];
+            if (row_item.style.visibility=="visible") {
+                if (!row_items.hasClass("answered")) {
+                    show_error('Nog niet alle vragen zijn beantwoord');
+                    return;
+                }
+            }
+        }
+        <PostData
+            url="/query/submit_answers"
+            data_fields="invitation:{{!invitation}},questions:{{#question_ids}},values:answers,ansids:ansids"
+            onsuccess="load_questions(next_page);"
+        >
+            var answers=$('input[name ^= "answer"]').map(function(i) {
+                return {"id": this.id, "value": this.value};
+            }).get();
+            var ansids=$('input[id ^= "questionid"]').map(function(i) {
+                return {"id": this.id, "value": this.value};
+            }).get();
+        </PostData>
+    }
+    function load_questions(page) {
+        // First hide the previous questions
+        var i;
+        for (var i=0; i<10; i++) {
+            var row_item = $( "#row_"+i )[0];
+            row_item.style.visibility = "hidden";
+            $("#row_"+i).addClass("answered");
+        }
+        var invitation = new URLSearchParams(window.location.search).get('invitation');
+        let query = "/query/get_questions?invitation="+invitation;
+        if (page !== null) {
+            query = query + "&page="+page;
+        }
+        var jqxhr = $.get(query, function(raw) {
+            if (jqxhr.status == "204") {
+                // There are no more remaining questions to be answered.
+                if (page === null) {
+                    show_info("Dankjewel voor het invullen van de test! Jij en jouw coach ontvangen de rapportage met de uitslag van de test. Neem de rapportage door als voorbereiding op jouw volgende sessie. Jouw coach zal de uitslag dan met jou bespreken.");
+                }
+                return;
+            }
+            let reply = JSON.parse(raw);
+            data = reply.records;
+            // Take the questions from the data and fill them in.
+            for (i=0; i<data.length; i++) {
+                if (i==10){
+                    break;
+                }
+                q_div = $( "#question_"+i )[0];
+                q_div.innerHTML = data[i].vraag;
+                row_item = $( "#row_"+i )[0];
+                row_item.style.visibility="visible";
+                let value = 1;
+                let is_answered = false;
+                if (data[i].Antwoord) {
+                    value = data[i].Antwoord.antwoord;
+                    $("#questionid_"+i).val(data[i].Antwoord.id);
+                    is_answered = true;
+                } else {
+                    $("#questionid_"+i).val(null);
+                }
+                $mySlider = $( "#answer_"+i );
+                $mySlider.slider('setValue', value, true, true);
+                if (is_answered) {
+                    $("#row_"+i).addClass("answered");
+                } else {
+                    $("#row_"+i).removeClass("answered");
+                }
+            }
+            var ids = jQuery.map(data, function(i) {
+                return i.id;
+            });
+            $("#question_ids").val(ids.join(","));
+            // Handle the paging.
+            // TODO: implement this in the smart table.
+            let back_button = $("#previous_page_but")[0];
+            if (reply.current_page > 0) {
+                // Enable the BACK button
+                back_button.style.visibility="visible";
+                back_button.onclick = function () {
+                    post_answers(reply.current_page-1);
+                };
+            } else {
+                // Disable the BACK button
+                back_button.style.visibility="hidden";
+            }
+            let forward_button = $("#next_page_but")[0];
+            if (!reply.is_final_page) {
+                // Enable the FORWARD button
+                forward_button.style.visibility="visible";
+                forward_button.onclick = function () {
+                    post_answers(reply.current_page+1);
+                };
+            } else {
+                // Disable the FORWARD button
+                forward_button.style.visibility="hidden";
+            }
+            // Set the page number information
+            let page_counter = $( "#page_counter" )[0];
+            page_counter.innerHTML = " Pagina "+(reply.current_page+1)+" van "+reply.nr_pages;
+            // For the final page, show a special upload button
+            let save_but = $("#submit_but")[0];
+            if (reply.is_final_page) {
+                save_but.style.visibility = "visible";
+                save_but.onclick = function() {
+                    post_answers(reply.current_page+1);
+                }
+            } else {
+                save_but.style.visibility = "hidden";
+            }
+            let done_msg = $( "#done_msg" )[0];
+            if (reply.is_done) {
+                done_msg.classList.remove("d-none");
+                done_msg.classList.add("d-block");
+            } else {
+                done_msg.classList.add("d-none");
+                done_msg.classList.remove("d-block");
+            }
+        });
+    }
+    $( document ).ready(function() {
+        $( "input[id^='answer_']" ).on("slide change", function(slideEvt) {
+            $(this).parent().parent().parent().addClass("answered");
+        });
+        load_questions(null);
+    });
+</script>
+<style>
+.questions_table tr {
+    color:black;
+    font-weight: bold;
+}
+.questions_table tr.answered {
+    color:grey;
+    font-weight: normal;
+}
+
+</style>
+<div class="question_container">
+    <input id="question_ids" type="hidden"/>
+    <table class="questions_table">
+    % for i in range(10):
+        <tr id="row_${i}" style="visibility:hidden;">
+            <td class="q_col">
+        <div id="${f'question_{i}'}">
+            Question
+        </div></td>
+            <td class="a_col">
+        <div>
+          <input id="${f'questionid_{i}'}" type="hidden"/>
+          <input
+            id="${f'answer_{i}'}"
+            type="text"
+            name="answer"
+            data-provide="slider"
+            data-slider-ticks="[1, 2, 3, 4, 5]"
+            data-slider-ticks-labels='["klopt helemaal niet", "", "", "", "klopt helemaal wel"]'
+            data-slider-min="1"
+            data-slider-max="5"
+            data-slider-step="1"
+            data-slider-value="1"
+            data-slider-tooltip="hide"
+          />
+        </div></td>
+        </tr>
+    % endfor
+    </table>
+</div>
+<div class="container">
+    <table>
+        <tr>
+            <td></td><td></td>
+            <td><div id="submit_but" class="btn btn-large" style="visibility:hidden;">Vragen opslaan <i class="fa fa-paper-plane"></i></div></td>
+        </tr>
+        <tr>
+            <td><div id="previous_page_but" class="btn btn-large"><i class="fa fa-arrow-left"></i> Vorige pagina met vragen</div></td>
+            <td><div id="page_counter"></div></td>
+            <td><div id="next_page_but" class="btn btn-large">Volgende pagina met vragen <i class="fa fa-arrow-right"></i></div></td>
+        </tr>
+    </table>
+</div>
+</Page>
+</Context>
+
+<Page title="Ingevulde Questionaire" url="/present_results">
+    <H1 class="bd-title">Resultaten uit het invullen van de questionaire</H1>
+    <LateSet tag="img" src="/query/polar_plot.svg?invitation={{!invitation}}"/>
+    <BR>
+    <LateSet tag="A" href="/query/query_report.raw?invitation={{!invitation}}">Download het rapport <i class="fa fa-download"></i></LateSet>
+    <H2>Antwoorden op vragen:</H2>
+    <QueryTable id="antwoorden" query="ondervrager.Antwoord?filter=uitnodiging['id'] == {{!invitation}}&resolve_fk=1&join=Categorie,vraag['categorie']==Categorie['id']"
+            columns="vraag.vraag,Categorie.naam,antwoord"
+    />
+</Page>
+
+<Page title="Please login" url="/login.html">
+    <Form action="/login">
+        <FieldWrapper column="login naam">
+            <input id="uname" name="uname" />
+        </FieldWrapper>
+        <FieldWrapper column="paswoord">
+            <input id="psw" name="psw" type="password"/>
+        </FieldWrapper>
+    </Form>
+</Page>
+
+<Page title="Paswoord veranderen" url="/update_password">
+    <Form action="/update_password">
+        <FieldWrapper column="Huidig paswoord">
+            <input id="current_password" name="current_password" type="password" />
+        </FieldWrapper>
+        <FieldWrapper column="Nieuw paswoord">
+            <input id="new_password1" name="new_password1" type="password"/>
+        </FieldWrapper>
+        <FieldWrapper column="Nogmaals het nieuwe paswoord">
+            <input id="new_password2" name="new_password2" type="password"/>
+        </FieldWrapper>
+    </Form>
+</Page>

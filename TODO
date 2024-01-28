@@ -12,6 +12,8 @@ De template engine van het mailtje struikelt over het percentage teken. Gebruik 
 
 
 # TODO:
+* Inlcude a copyright notice to each source file.
+
 Framework:
 * Automatische validatie van de velden
 * Voeg support voor unix RC files toe aan de configuratie tools.

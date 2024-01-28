@@ -1,0 +1,947 @@
+<!-- Template for generating webinterfaces for administrative software.
+
+     These templates assume that availability of the JQuery.
+-->
+
+<Component url="https://github.com/twbs/bootstrap/releases/download/v5.3.0/bootstrap-4.6.0-dist.zip" path="html/batic" />
+<Component url="https://code.jquery.com/jquery-3.7.0.min.js" path="html/batic/js" />
+<Component url="https://use.fontawesome.com/releases/v5.15.1/fontawesome-free-5.15.1-web.zip"
+           path="html/batic"
+           extract_only="css/fontawesome.min.css,css/solid.min.css,webfonts"
+/>
+<Component url="https://code.jquery.com/jquery-3.7.0.min.js" path="html/batic/js" />
+<Component url="https://github.com/select2/select2/archive/refs/tags/4.0.13.zip"
+           offset="select2-4.0.13/dist"
+           path="html/batic"
+           extract_only="css/select2.min.css,js/select2.min.js"
+/>
+
+
+<PageContextValue name="dependencies" >
+    <script src="/batic/js/jquery-3.7.0.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/batic/css/bootstrap.min.css" />
+    <link rel="stylesheet" type="text/css" href="/batic/css/fontawesome.min.css" />
+    <link rel="stylesheet" type="text/css" href="/batic/css/solid.min.css" />
+    <link href="/batic/css/select2.min.css" rel="stylesheet" />
+    <script src="/batic/js/bootstrap.min.js"></script>
+    <script src="/batic/js/select2.min.js"></script>
+</PageContextValue>
+
+
+<Template tag="ACM" args="roles">
+    <TemplateSlot name="body"/>
+</Template>
+
+<Template tag="NavItem" args="url,id=None">
+    <li class="nav-item">
+    <a ${id if id else ''} class="nav-link " href="${url}"><TemplateSlot name="body"/></a>
+    </li>
+</Template>
+
+<Template tag="LargeButton" args="url,id=None">
+    % if id:
+        <A id=${id} HREF="${url}" class="btn btn-large btn-primary"><TemplateSlot name="body"/></A>
+    % else:
+        <A HREF="${url}" class="btn btn-large btn-primary"><TemplateSlot name="body"/></A>
+    % endif
+</Template>
+<Template tag="SmallButton" args="url,id=None">
+    % if id:
+        <A id=${id} HREF="${url}" class="btn btn-small"><TemplateSlot name="body"/></A>
+    % else:
+        <A HREF="${url}" class="btn btn-small"><TemplateSlot name="body"/></A>
+    % endif
+</Template>
+
+<Template tag="SmartTable" args="header,tid,data=[],hidden=[]">
+
+    <%
+    header = eval(header)
+    %>
+    <table ${'id="%s"'%id if id else ''} class="table table-hover table-bordered">
+        % if header:
+            <thead><tr>
+                % for h in header:
+                    <th>${h}</th>
+                % endfor
+            </tr></thead>
+        % endif
+        % for line in data:
+            <tr>
+                % for part in line:
+                    <td>${part}</td>
+                % endfor
+            </tr>
+        % endfor
+    </table>
+</Template>
+
+<Template tag="Form" args="action,method='POST',submit='inloggen'">
+    <form action="${action}" method="${method}">
+        <TemplateSlot name="body"/>
+        <input type="submit" value="${submit}" />
+    </form>
+</Template>
+
+<Template tag="Field" args="name,text,id,type='text'">
+    <label>${text} <input name="${name}" type="${type}" /></label>
+</Template>
+
+
+<Template tag="FieldWrapper" args="column,for_id=''">
+    <div class="form-group row">
+        <label for="${for_id or column}" class="col-sm-3 col-form-label">${column}</label>
+        <div class="col-sm-9">
+        <TemplateSlot name="body"/>
+        </div>
+    </div>
+</Template>
+
+
+
+<Template tag="AutoField" args="datafield,id=None">
+    <%
+        translator = {'str': 'text', 'int': 'number', 'bool': 'checkbox', 'phone': 'text', 'order': 'number'}
+        native_types = ['email', 'password', 'date', 'datetime', 'time']
+        input_types = list(translator.keys()) + native_types
+
+        source, table, column = datafield.split('.')
+        dataitem = nspace.datamodels[source][table][column]
+        coltype = dataitem[0]
+        details = {k.split('=')[0]: (k.split('=', maxsplit=1)[1] if '=' in k else None)
+                for k in dataitem[1:]}
+        name = "_".join([source, table, column])
+        inputtype = None
+        if coltype in input_types:
+            inputtype = translator.get(coltype, coltype)
+        elif coltype in nspace.datamodels[source]:
+            inputtype = 'select'
+        if id:
+            id_str = f'id="{id}"'
+        elif name:
+            id_str = f'id="{name}"'
+    %>
+    <FieldWrapper column="${column}" for_id="id_str">
+          % if coltype in input_types:
+            <input ${id_str} type="${inputtype}" name="${name}" class="form-control"/>
+          % elif coltype == 'longstr':
+            <textarea name="${name}"  class="form-control"></textarea>
+          % elif nspace.isEnum(source, coltype):
+            <select ${id_str} name="${name}" class="form-control">
+                % for option, value in nspace.GetEnumOptions(source, coltype):
+                    <option value="${value.value}">${option}</option>
+                % endfor
+            </select>
+          % elif inputtype == 'select':
+            <select ${id_str} name="${name}" class="form-control">
+            </select>
+          % elif coltype == 'fileblob':
+            <a id="current_filename_${name}" style="visibility:'hidden';"></a>
+            <input ${id_str} name="${name}" type="file" class="form-control">
+          % elif coltype == 'image':
+            <img id="img_${name}" src="" />
+            <input type="file" ${id_str} name="${name}"  class="form-control"/>
+          % else:
+                Column type ${coltype} is not supported
+          % endif
+    </FieldWrapper>
+</Template>
+
+<Template tag="FormWrapper" args="datasource">
+  <div id="div_${datasource}" class="container-fluid">
+          <TemplateSlot name="body"/>
+  </div>
+</Template>
+
+<Template tag="AutoForm" args="datasource,hidden">
+    <%
+        source, table = datasource.split('.')
+        table_data = nspace.datamodels[source][table]
+        column_paths = ['%s.%s'%(datasource, col) for col in table_data.keys()]
+        hidden_l = hidden.split(',') if isinstance(hidden, str) else hidden
+        if 'id' not in hidden_l:
+            hidden_l.append('id')
+
+        # Find any foreign keys in the datastructure
+        details = nspace.GetQueryDetails(datasource, None)
+        foreign_keys = {k:v for k, v in details.columns
+                        if nspace.isForeignKey(details.source, v) and k not in hidden_l}
+        enum_keys = {k:v for k, v in details.columns
+                        if nspace.isEnum(details.source, v) and k not in hidden_l}
+
+    %>
+    <FormWrapper datasource="${datasource}">
+        <form id="form_${datasource}" action="{action}" method="post" enctype="{enctype}" class="form-horizontal">
+          % for column in [c for name, c in zip(table_data.keys(), column_paths) if name not in hidden_l]:
+            <AutoField datafield="${column}" />
+          % endfor
+          % for column in hidden_l:
+            <input id="${source}_${table}_${column}" name="${source}_${table}_${column}" type="hidden" />
+          % endfor
+          % if 'id' not in hidden_l:
+            <input id="${source}_${table}_id" name="${source}_${table}_id" type="hidden" />
+          % endif
+        </form>
+    </FormWrapper>
+    <!-- Add an automatic setting script for selections from enumerations and foreign references. -->
+    <script>
+        $( document ).ready(function() {
+            % for key, foreign_details in foreign_keys.items():
+                $.get("/data/${foreign_details[0]}", function(options) {
+                    var selector = $("[name='${source}_${table}_${key}']" )[0];
+                    // The first option is 'null'
+                    var opt = document.createElement('option');
+                    opt.appendChild(document.createTextNode('---'));
+                    opt.value = null;
+                    opt.textContent = '---';
+                    selector.appendChild(opt);
+
+                    Object.keys(options).forEach(function(key,index) {
+                        var line = options[key];
+                        var opt = document.createElement('option');
+                        opt.appendChild(document.createTextNode(line[name]));
+                        opt.value = line['id'];
+                        opt.textContent = line['${nspace.firstElementName(source, foreign_details[0])}'];
+                        selector.appendChild(opt);
+                    });
+                });
+            % endfor
+        });
+    </script>
+</Template>
+
+
+
+<Template tag="QuerySelectorField" args="query,column,name,screen,key='id',label=''">
+    <%
+    query_details = nspace.GetQueryDetails(query, columns)
+    %>
+    <script>
+        function ${name}_refresh() {
+            ${query_details.context_setter}
+            var ${name}_select = $("#${name}")[0];
+            var i, L = ${name}_select.options.length - 1;
+            for(i = L; i >= 0; i--) {
+               ${name}_select.remove(i);
+            }
+            $.get(${query_details.url}, function(data) {
+                for(var index in data) {
+                    var opt = document.createElement('option');
+                    opt.appendChild(document.createTextNode(index));
+                    opt.value = data[index].${key};
+                    var txt = data[index].${screen};
+                    opt.textContent = txt;
+                    ${name}_select.appendChild(opt);
+                }
+            });
+        }
+        $(document).ready(${name}_refresh);
+    </script>
+    <FieldWrapper column="${column}">
+        <label> ${label} </label>
+        <select id="${name}" name="${name}"></select>
+    </FieldWrapper>
+</Template>
+
+
+<Template tag="QueryTable" args="id,query,delete='',columns=None,hide='',auto_load=1,link_url=''">
+    <%
+    import sys
+    query_details = nspace.GetQueryDetails(query, columns)
+    source = query_details.source
+    table = query_details.table
+    hidden = hide.split(',')
+    if 'id' not in hidden:
+        hidden.append('id')
+    %>
+    <script>
+        function ${id}_refresh() {
+            var the_table = $("#${id}")[0];
+            ${query_details.context_setter}
+            var i, L = the_table.rows.length - 1;
+            for(i = L; i >= 0; i--) {
+               the_table.deleteRow(i);
+            }
+            $.get(${query_details.url}, function(data) {
+                /* Update the list showing the all elements in the resource. */
+                Object.keys(data).forEach(function(key,index) {
+                    var line = data[key];
+                    var row = the_table.insertRow(-1);
+                    % for col in query_details.column_names:
+                      % if col not in hidden:
+                        var cell = row.insertCell(-1);
+                        % if nspace.isEnum(source, nspace.datamodels[source][table].get(col, None)):
+                          <% enumname = nspace.datamodels[source][table][col][0]
+                           %>
+                          %  for txt, enum_details in nspace.datamodels[source][enumname].__members__.items():
+                            if (${enum_details.value} == data[key].${col}) {
+                                cell.innerHTML = "${txt}";
+                            }
+                          % endfor
+                        % else:
+                            cell.innerHTML = line.${col};
+                        % endif
+                      %endif
+                    % endfor
+                    % if delete:
+                        var cell = row.insertCell(-1);
+                        cell.innerHTML = '<i class="fa fa-times" />';
+                        cell.onclick = function() {
+                            event.stopPropagation();
+                            $("#ackDeleteYes").on('click', function() {
+                                <!-- Sadly, jquery has no direct support for delete -->
+                                $.ajax({url: "${nspace.makeUrl(delete)}/"+line.id,
+                                        type: 'DELETE',
+                                        success: function(result) {
+                                            ${id}_refresh();
+                                        }
+                                });
+                                $("#ackDelete").modal('hide');
+                            });
+                            $("#ackDelete").modal('show');
+                        };
+                    % endif
+                    % if link_url:
+                        <%
+                            query_details2 = nspace.GetQueryDetails(link_url, [])
+                        %>
+                        ${query_details2.context_setter}
+                        row.onclick = function() {window.location.href=${query_details2.url};}
+                    % endif
+                });
+            });
+        }
+        % if auto_load != '0':
+            $(document).ready(${id}_refresh);
+        %endif
+    </script>
+    <table id="${id}" class="table table-hover table-bordered">
+
+    </table>
+</Template>
+
+
+
+<Template tag="SubmitValues" args="datasource,event,url,myId=None" >
+    <%
+        source, table = datasource.split('.')
+        table_data = nspace.datamodels[source][table]
+    %>
+    <script>
+        // Handle file uploads: load the data when the file is selected.
+        $( document ).ready(function() {
+            if (!window.hasOwnProperty('file_data') ) {
+                window.file_data = {};
+            }
+            $( 'input:file' ).each( function() {
+                var the_element = $(this);
+                the_element.change(function () {
+                    var fileReader = new FileReader();
+                    fileReader.onload = function () {
+                        var data = fileReader.result;  // data <-- in this var you have the file data in Base64 format
+                        // Store the string value in a global object.
+                        var the_id = the_element.attr('id');
+                        window.file_data[the_id] = the_element[0].files[0].name + ","+ the_element[0].files[0].size +","+ data
+                    };
+                    fileReader.readAsDataURL($(this).prop('files')[0]);
+                });
+            });
+        });
+    </script>
+    <Event source="${event}" >
+        <!-- Gather and save the data when click on the button.
+             Perhaps, in futute, we should trigger on any event.
+         -->
+        var data = {};      // TODO: add support for files, perhaps through formData
+        var value;
+        var successUrl = window.location.protocol + "//" + window.location.host + "/${url}";
+        var usp = new URLSearchParams(document.location.search.substring(1));
+        if (usp.get("__ReturnToReferrer") != null) {
+            successUrl = document.referrer;
+        }
+        % for key in table_data.keys():
+            % if table_data[key][0] == 'bool':
+                value = $( "*[name|='${datasource.replace(".", "_") + '_' + key}']" ).prop('checked');
+            % elif table_data[key][0] in ['image', 'fileblob']:
+                value = window.file_data["${datasource.replace(".", "_") + '_' + key}"];
+            % else:
+                value = $( "*[name|='${datasource.replace(".", "_") + '_' + key}']" ).val();
+            % endif
+            data["${key}"] = value;
+        % endfor
+        function onSuccess(data) {
+            window.location.href=successUrl;
+        }
+        function onError(jqXHR, textStatus, errorThrown) {
+            show_error("An error occurred:" + errorThrown);
+        }
+        var myId = $( "*[name|='${datasource.replace(".", "_") + '_' + "id"}']" ).val();
+        if (!myId) {
+            $.post("/data/${table}", data).fail(onError).done(onSuccess);
+        } else {
+            $.post("/data/${table}/"+myId, data).fail(onError).done(onSuccess);
+        }
+    </Event>
+</Template>
+
+<!-- Het QueryEditScreen bepaalt aan de hand van de databron de velden die getoond moeten worden.
+     Het filter wordt gebruikt om één bepaald element te selecteren uit de databron.
+     Door velden te hiden kunnen deze onaanpasbaar gemaakt worden.
+-->
+
+<Template tag="QueryContextSetter" args="url">${nspace.QueryContextSetter(url)}</Template>
+<Template tag="ExpandQuery" args="query">${nspace.ExpandQuery(query)}</Template>
+
+<Template tag="FilterEditScreen" args="url,datasource,filter">
+    <%
+        source, table = datasource.split('.')
+        table_data = nspace.datamodels[source][table]
+        column_paths = ['%s.%s'%(datasource, col) for col in table_data.keys()]
+    %>
+    <script>
+        <%
+            import sys
+            # Find any foreign keys in the datastructure
+            source, table = datasource.split('.')
+            hidden=nspace.getHidden(datasource).split(',')
+            foreign_keys = {k:v for k, v in nspace.datamodels[source][table].items()
+                            if v[0] in nspace.datamodels[source] and not nspace.isEnum(source, v[0])
+                            and k not in hidden}
+            enum_keys = {k:v for k, v in nspace.datamodels[source][table].items()
+                            if v[0] in nspace.datamodels[source] and nspace.isEnum(source, v[0])
+                            and k not in hidden}
+         %>
+        $( document ).ready(function() {
+            if (!window.hasOwnProperty('file_data') ) {
+                window.file_data = {};
+            }
+
+            <!-- if relevant, get & fill values from the resource. -->
+            /* Get the current values using an Ajax call */
+            <QueryContextSetter url="${filter}" />
+            $.get(<ExpandQuery query="/data/${table}?single=1&filter=${filter}" />, function(data) {
+                var value;
+                value = data["id"];
+                $( "*[name|='${datasource.replace(".", "_")}_id']" ).val(value);
+                % for key in [k for k in nspace.datamodels[source][table].keys() if k not in foreign_keys]:
+                    value = data["${key}"];
+                    % if table_data[key][0] == 'bool':
+                        var bool_value = typeof value == typeof false ? value : value.toLowerCase() == 'true';
+                        $( "*[name|='${datasource.replace(".", "_")}_${key}']" ).prop('checked', bool_value);
+                    % elif table_data[key][0] == 'image':
+                        if (value) {
+                            window.file_data['${datasource.replace(".", "_")}_${key}'] = value;
+                            let parts = value.split(',');
+                            $( "#img_${datasource.replace(".", "_")}_${key}" )[0].src = "data:image/png;base64,"+parts[3];
+                        }
+                    % elif table_data[key][0] == 'fileblob':
+                        let e = $( "#current_filename_${datasource.replace(".", "_")}_${key}" );
+                        if (value) {
+                            let parts = value.split(',');
+                            if (parts.length >= 4) {
+                                window.file_data['${datasource.replace(".", "_")}_${key}'] = value;
+                                e[0].innerHTML = parts[0] + '<i class="fa fa-download"></i>';
+                                e[0].download = parts[0];
+                                const bindata = window.atob(parts[3]);
+                                const byteNumbers = new Array(bindata.length);
+                                for (let i = 0; i < bindata.length; i++) {
+                                    byteNumbers[i] = bindata.charCodeAt(i);
+                                }
+                                const byteArray = new Uint8Array(byteNumbers);
+                                const blob = new Blob([byteArray]);
+                                if (window.webkitURL != null) {
+                                    e[0].href = window.webkitURL.createObjectURL(blob);
+                                }
+                                else {
+                                    e[0].href = window.URL.createObjectURL(blob);
+                                }
+                                e[0].style.visibility = "visible";
+                            } else {
+                                e[0].style.visibility = "hidden";
+                            }
+                        }
+                    % else:
+                        $( "*[name|='${datasource.replace(".", "_")}_${key}']" ).val(value);
+                    % endif
+                % endfor
+
+                /* For foreign references, find the options and the current value */
+                % for key, foreign_details in foreign_keys.items():
+                    <%
+                        # Find out the name of the field that is the text in the selection options.
+                        # This is the first data field in the database table.
+                        text_item = nspace.firstElementName(source, foreign_details[0])
+                    %>
+                    $.get("/data/${foreign_details[0]}", function(options) {
+                        var selector = $("[name='${source}_${table}_${key}']" )[0];
+                        // Delete any existing elements
+                        var i, L = selector.options.length - 1;
+                        for(i = L; i >= 0; i--) {
+                           selector.remove(i);
+                        }
+                        // The first option is 'null'
+                        var opt = document.createElement('option');
+                        opt.appendChild(document.createTextNode('---'));
+                        opt.value = null;
+                        opt.textContent = '---';
+                        selector.appendChild(opt);
+
+                        Object.keys(options).forEach(function(key,index) {
+                            var line = options[key];
+                            var opt = document.createElement('option');
+                            opt.appendChild(document.createTextNode(line["${text_item}"]));
+                            opt.value = line['id'];
+                            opt.textContent = line["${text_item}"];
+                            // Select the current value, if any
+                            if (line['id'] == data['${key}']) {
+                                opt.selected = true;
+                            }
+                            selector.appendChild(opt);
+                        });
+                    });
+                % endfor
+                /* For enumerations, just set the current value */
+                % for key, foreign_details in enum_keys.items():
+                    $("[name='${source}.${table}.${key}'] > *" ).each(function(index){
+                        if ($(this).value == data["${key}"]) {
+                            $(this).selected = true;
+                        } else {
+                            $(this).selected = false;
+                        }
+                    });
+                % endfor
+
+                /* Ensure any listeners are updated */
+                $( "*[name|='${datasource.replace(".", "_")}_id']" ).change();
+
+                <TemplateSlot name="onData"/>
+
+            }, "json");
+
+        });
+    </script>
+    <AutoForm datasource="${datasource}" hidden="${nspace.getHidden(datasource)}" />
+    <div class="container-fluid">
+    <div class="col-sm-9 offset-sm-3">
+        <div id="confirm_btn" class="btn btn-large" >Opslaan <i class="fa fa-save"></i></div>
+    </div>
+    </div>
+    <!-- Gather and save the data when click on the button -->
+    <SubmitValues datasource="${datasource}" event="{{#confirm_btn}}.click" url="${url}" />
+</Template>
+
+
+<!-- Het EditScreen is een tijdelijke template die vervangen moet worden door het QueryEditScreen.
+-->
+<Template tag="EditScreen" args="url,datasource,id_name='id',element='id'">
+    <FilterEditScreen filter="eq(${id_name},{{!${element}}})" datasource="${datasource}" url="${url}" />
+</Template>
+
+
+<Template tag="AutoEditor_index_prefix" args=""/>
+<Template tag="AutoEditor_index_postfix" args=""/>
+<Template tag="AutoEditor_view_postfix" args="" />
+<Template tag="AutoEditor_edit_postfix" args="" />
+
+
+<Template tag="AutoEditor" args="datasource,url,entity_name='',hide=''">
+    <!-- We need several pages: an overview, a details view, a details edit and a delete page. -->
+    <%
+        source, table = datasource.split('.')
+        table_data = nspace.datamodels[source][table]
+        column_paths = ['%s.%s'%(datasource, col) for col in table_data.keys()]
+        url_fn_name = url.replace('/', '_')
+        hidden = nspace.getHidden(datasource).split(',') + hide.split(',')
+        column_keys = [k for k in table_data.keys() if k not in hidden]
+        if '/' in entity_name:
+            entity_singular, entity_plural = entity_name.split('/')
+        else:
+            entity_singular = entity_name
+            entity_plural = entity_name + 'en'
+    %>
+    <Page url="${url}/index.html">
+            <script>
+            /* Get the listing of the resource */
+            function refresh_${url_fn_name}() {
+                $.get("/data/${table}?resolve_fk=1", function(data) {
+                    /* Update the list showing the all elements in the resource. */
+                    var table = $( "table[id|='${url_fn_name}']" )[0]
+                    var i, L = table.rows.length - 1;
+                    for(i = L; i >= 0; i--) {
+                       table.deleteRow(i);
+                    }
+                    Object.keys(data).forEach(function(key,index) {
+                        var line = data[key];
+                        var row = table.insertRow(-1);
+                        % for col in column_keys:
+                            var cell = row.insertCell(-1);
+                            % if reftab:=nspace.getForeignTable(source, table, col):
+                                if (line.${col}) {
+                                    var value = line.${col}.${nspace.firstElementName(source, reftab)};
+                                    cell.innerHTML = value;
+                                } else {
+                                    cell.innerHTML = '---';
+                                }
+                            % elif nspace.isEnum(source, nspace.datamodels[source][table][col][0]):
+                              <% enumname = nspace.datamodels[source][table][col][0]
+                               %>
+                              %  for txt, enum_details in nspace.datamodels[source][enumname].__members__.items():
+                                if (${enum_details.value} == data[key].${col}) {
+                                    cell.innerHTML = "${txt}";
+                                }
+                              % endfor
+                            % elif table_data[col][0] == 'image':
+                                parts = (data[key].${col} || '').split(",");
+                                if (parts.length >= 4) {
+                                    cell.innerHTML = '<img src="'+parts[2]+','+parts[3]+'" style="width:100px;"/>';
+                                } else {
+                                    cell.innerHTML = '-'
+                                }
+                            % elif table_data[col][0] == 'fileblob':
+                                parts = (data[key].${col} || '').split(",");
+                                if (parts.length >= 4) {
+                                    const bindata = window.atob(parts[3]);
+                                    const byteNumbers = new Array(bindata.length);
+                                    for (let i = 0; i < bindata.length; i++) {
+                                        byteNumbers[i] = bindata.charCodeAt(i);
+                                    }
+                                    const byteArray = new Uint8Array(byteNumbers);
+                                    const blob = new Blob([byteArray]);
+                                    let newLink = document.createElement("a");
+                                    newLink.download = parts[0];
+                                    if (window.webkitURL != null) {
+                                        newLink.href = window.webkitURL.createObjectURL(blob);
+                                    }
+                                    else {
+                                        newLink.href = window.URL.createObjectURL(blob);
+                                        newLink.style.display = "none";
+                                        document.body.appendChild(newLink);
+                                    }
+                                    newLink.innerHTML = '<i class="fa fa-download"></i>';
+                                    cell.appendChild(newLink);
+                                    cell.onclick = function(evt) {
+                                        evt.stopPropagation();
+                                    };
+                                } else {
+                                    cell.innerHTML = '-'
+                                }
+                            % else:
+                                cell.innerHTML = line.${col};
+                            % endif
+                        % endfor
+                        /* Only authorized people can delete or edit the record */
+                        /* This is only to help users, real security is in the server. */
+                        if (acm_authorized("editor,administrator")) {
+                            var cell = row.insertCell(-1);
+                            cell.innerHTML = '<i class="fa fa-times" />';
+                            cell.onclick = function() {
+                                location.href='${url}/delete?id='+line.id;
+                                event.stopPropagation()
+                            };
+                            row.onclick = function() {
+                                location.href='${url}/edit?id='+line.id;
+                            };
+                        } else {
+                            row.onclick = function() {
+                                location.href='${url}/view?id='+line.id;
+                            };
+                        }
+                    });
+                }, "json");
+
+            };
+            $( document ).ready(refresh_${url_fn_name});
+            </script>
+            % if entity_name:
+                <h1 class="bd-title">${entity_plural.capitalize()} overzicht</h1>
+            % endif
+            <TemplateSlot name="index_prefix"/>
+            <SmartTable id="${url_fn_name}" header="${column_keys}"/>
+            <ACM roles="editor,administrator">
+                <LargeButton url="${url}/add">Toevoegen <i class="fa fa-plus"></i></LargeButton>
+            </ACM>
+            <TemplateSlot name="index_postfix"/>
+    </Page>
+    <Page url="${url}/view">
+        <TemplateSlot name="body" default="1"/>
+        <TemplateSlot name="view_postfix"/>
+    </Page>
+    <Page url="${url}/add" acm="editor,administrator">
+            % if entity_name:
+                <h1 class="bd-title">${entity_singular.capitalize()} toevoegen</h1>
+            % endif
+            <AutoForm datasource="${datasource}" hidden="${nspace.getHidden(datasource)}" />
+            <div class="col col-md-9 col-md-offset-3">
+                <div id="confirm" class="btn btn-large" >Opslaan <i class="fa fa-save"></i></div>
+            </div>
+            <SubmitValues datasource="${datasource}" event="{{#confirm}}.click" url="${url}" />
+    </Page>
+    <Page url="${url}/edit" acm="editor,administrator">
+        % if entity_name:
+            <h1 class="bd-title">${entity_singular.capitalize()} aanpassen</h1>
+        % endif
+
+        <EditScreen datasource="${datasource}" url="${url}"/>
+        <TemplateSlot name="edit_postfix"/>
+    </Page>
+    <Page url="${url}/delete" acm="editor,administrator">
+        % if entity_name:
+            <h1 class="bd-title">${entity_singular.capitalize()} verwijderen</h1>
+        % endif
+        <script>
+            <!-- Create a custom handler for the Delete button. -->
+            $( document ).ready(function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const myId = urlParams.get('id');
+                var url = "/data/${table}/"+myId;
+                $( "#confirm" ).on("click", function() {
+                    $.ajax({
+                        type: "DELETE",
+                        url: url,
+                        success: function(){
+                            location.href="${url}";
+                        },
+                        });
+                    event.stopPropagation();
+                });
+            });
+
+        </script>
+        <div>${entity_singular.capitalize()} verwijderen?
+            <LargeButton url="${url}" >Cancel </LargeButton>
+            <div id="confirm" class="btn btn-large">Delete </div>
+        </div>
+        <TemplateSlot name="body"/>
+    </Page>
+</Template>
+
+
+<Template tag="AutoEditors" args="source,tables,entities=None">
+    <%
+        entities = entities.split(',') if entities else []
+        tables = tables.split(',')
+        if entities and len(entities) != len(tables):
+            print(f"Entities and tables do not match in autoeditors!\n{source}, {tables}, {entities}",
+                  file=sys.stderr)
+            entities = []
+        entities = entities or tables
+    %>
+    %for table, entity in zip(tables, entities):
+        <AutoEditor url="/beheer_${table.lower()}" datasource="${source}.${table}" entity_name="${entity}" />
+    %endfor
+</Template>
+
+
+<Template tag="CouplingEditor" args="source1,source2,coupler">
+
+    <FieldWrapper column="Voeg een teamlid toe">
+        <QuerySelector>
+            <div class="col col-md-9 col-md-offset-3">
+                <div id="confirm" class="btn btn-large" >Toevoegen<i class="fa fa-plus"></i></div>
+            </div>
+        </QuerySelector>
+    </FieldWrapper>
+
+    <QueryTable/>
+</Template>
+
+<Template tag="Event" args="source,action=''">
+    <%
+        object_ids = []
+        event_ids = []
+        for event_source in source.split(','):
+            event_path = event_source.split('.')
+            object_id = event_path[0]
+            if object_id.startswith('{{@'):
+                object_id = f"[name='{object_id[3:-2]}']"
+            elif object_id.startswith('{{#'):
+                object_id = object_id[2:-2]
+            object_ids.append(object_id)
+            event_id = event_path[-1]
+            event_ids.append(event_id)
+    %>
+    <script>
+        $(document).ready(function() {
+            function handle_event() {
+                % if action:
+                  % for func in action.split(','):
+                      ${func}();
+                  % endfor
+                % endif
+                <TemplateSlot name="script"/>
+            }
+            % for object_id, event_id in zip(object_ids, event_ids):
+                $("${object_id}").${event_id}(handle_event);
+            % endfor
+        });
+    </script>
+</Template>
+
+
+<Template tag="PostData" args="url,data_fields,onsuccess='',onerror=''">
+    <%
+        fields_config = [field.split(':') for field in data_fields.split(',')]
+    %>
+    <TemplateSlot name="script"/>
+    ${nspace.QueryContextSetter(data_fields)}
+    data = {
+      % for key, config in fields_config:
+       % if config[:3] == '{{#':
+        ${key}: ($("#${config[3:-2]}").is(":checkbox"))
+                ? $( "#${config[3:-2]}" ).prop('checked')
+                : $( "#${config[3:-2]}" ).val(),
+       % elif config[:3] == '{{@':
+        ${key}: ($("[name='${config[3:-2]}']").is(":checkbox"))
+                ? $( "[name='${config[3:-2]}']" ).prop('checked')
+                : $( "[name='${config[3:-2]}']" ).val(),
+       % elif config[:3] == '{{!':
+        ${key}: context.${config[3:-2]},
+       % else:
+        ${key}: ${config},
+       % endif
+      % endfor
+    };
+    function handle_data(data) {
+          % if onsuccess:
+        % for action in onsuccess.split(','):
+          ${action}
+        % endfor
+      % endif
+    }
+    $.post("${nspace.makeUrl(url)}", data, handle_data).fail(function(){
+      % if onerror:
+        % for action in onerror.split(','):
+          ${action}
+        % endfor
+      % endif
+    });
+</Template>
+
+
+<Template tag="SimpleAssociation" args="datasource,col_a,col_b,current_a,columns,link_url,selector_text,data_fields">
+    <%
+        db, a_table = datasource.split('.')
+        b_table = nspace.datamodels[db][a_table][col_b][0]
+        qtable_name = a_table.lower()
+        qselector_name = b_table
+    %>
+    <QueryTable
+        id="${qtable_name}"
+        query="${datasource}?filter=eq(${col_a},${current_a})&join=${b_table},eq(int(${col_b}),${b_table}['id'])"
+        columns="${columns}"
+        delete="${datasource}"
+        auto_load="0"
+        link_url="${link_url}"
+    />
+    <QuerySelectorField
+        label="${selector_text}"
+        name="${qselector_name}"
+        query="${db}.${b_table}"
+        screen="${columns}"
+        column=""
+    />
+    <div id="add_but" class="btn btn-large">Toevoegen <i class="fa fa-plus"></i></div>
+    <Event source="{{#add_but}}.click">
+        <PostData
+            url="${datasource}"
+            data_fields="${col_a}:${current_a},${col_b}:{{@${qselector_name}}}"
+            onsuccess="${qtable_name}_refresh,${qselector_name}_refresh"
+        />
+    </Event>
+    <Event source="${current_a}.change" action="${qtable_name}_refresh"/>
+</Template>
+
+
+<Template tag="FileUpload" args="label,url,id,onsuccess='',onerror=''" >
+    <FormWrapper>
+        <FieldWrapper column="${label}">
+            <input id="${id}" type="file"/>
+        </FieldWrapper>
+        <div id="upload_but" class="btn btn-large">Uploaden <i class="fa fa-plus"></i></div>
+        <Event source="{{#upload_but}}.click">
+            ${nspace.QueryContextSetter(url)}
+            var formData = new FormData();
+            formData.append('file', $('#${id}')[0].files[0]);
+
+            $.ajax({
+                   url : ${nspace.makeUrl(url, strip_quotes=False)},
+                   type : 'POST',
+                   data : formData,
+                   processData: false,  // tell jQuery not to process the data
+                   contentType: false,  // tell jQuery not to set contentType
+                   success: function(){
+                       % if onsuccess:
+                         % for action in onsuccess.split(','):
+                           ${action}
+                         % endfor
+                      % endif
+            }}).fail(function(){
+               % if onerror:
+                 % for action in onerror.split(','):
+                   ${action}
+                 % endfor
+              % endif
+            });
+        </Event>
+    </FormWrapper>
+</Template>
+
+<Template tag="HideIfNotAuthorized" args="ids,roles" >
+    <script>
+        $( document ).ready(function() {
+            if (acm_authorized("${roles}")) {
+                var item;
+              % for id in ids.split(','):
+                item = $( "#${id}" )[0];
+                item.style.visibility="visible";
+              % endfor
+            } else {
+                var item;
+              % for id in ids.split(','):
+                item = $( "#${id}" )[0];
+                item.style.visibility="hidden";
+              % endfor
+            }
+        });
+    </script>
+</Template>
+
+<Template tag="CurrentUser">
+    <div id="div_current_user"></div>
+</Template>
+
+<Template tag="LateSet" args="tag,**kwargs">
+    <!-- Set certain values in the tag after the document loaded, using javascript.
+         This way, these values can be set using e.g. parameters. -->
+    <%
+        the_id = nspace.unique_id()
+     %>
+    <${tag} id="${the_id}">
+        <TemplateSlot name="body"/>
+    </${tag}>
+    <script>
+        $( document ).ready(function() {
+          % for key, value in kwargs['kwargs'].items():
+            % if isinstance(value, str):
+                ${nspace.QueryContextSetter(value)}
+                $("#${the_id}")[0].setAttribute("${key}", ${nspace.makeUrl(value, strip_quotes=False)});
+            % endif
+          % endfor
+        });
+    </script>
+</Template>
+
+
+<Template tag="Collapsible" args="heading,collapsed=''">
+    <%
+        col_id = nspace.unique_id()
+        initial_state = 'checked' if collapsed else ''
+    %>
+    <div class="wrap-collabsible">
+      <input id="${col_id}" class="toggle" type="checkbox" ${initial_state}>
+      <label for="${col_id}" class="lbl-toggle">${heading}</label>
+      <div class="collapsible-content">
+          <TemplateSlot name="body"/>
+      </div>
+    </div>
+</Template>
