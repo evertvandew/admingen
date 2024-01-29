@@ -22,13 +22,9 @@ This project contains a varied set of tools and utilities. Examples are:
 
 Install the code using the following commands:
 
-    
+    pip install git+https://github.com/evertvandew/admingen
 
+# Usage
 
-At the time of writing, this project is not available through pypi / `pip install`.
-
-
-      
-# Project Structure
-
-
+The project contains a number of example projects that use the various features of the package.
+These examples have their own README.md files explaining how they work.

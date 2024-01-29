@@ -8,7 +8,7 @@ version = "0.1"
 description = "A tool for generating administrative applications."
 readme = "README.md"
 requires-python = ">=3.12"
-license = "LGPLv3"
+license = "LGPL-3.0-or-later"
 authors = [{name = "Evert van de Waal", email = "info@vdwi-software.nl"}]
 keywords = ["database", "application", "web application", "DSL", "code generation"]
 
