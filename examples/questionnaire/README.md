@@ -10,7 +10,7 @@ category.
 
 GNU `make` is used to run this website. The `all` default target generates the code for the project, downloads and
 installs the external resources needed (well-known HTML/CSS/JS packages), creates and configures the database
-used by the server, and starts a development server.
+used by the server, and starts a development server listing to http://localhost:5000.
 
 There is also a target that runs a production version of the
 server: `deploy`.
@@ -47,7 +47,7 @@ the database, it is trivial to use another DMS.
 
 
 ## Security
-Several security features are overlaid on the database:
+Several security features are overlaid on the database & server:
 * Most pages (except those with `Any` clearance) require a user to be logged in.
 * In the User table, only users with more rights can modify users with less rights.
 * The password is always replaced with a standard tekst when retrieving when retrieving a User record.
